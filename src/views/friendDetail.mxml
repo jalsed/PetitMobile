@@ -1,0 +1,852 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark"
+		xmlns:components="components.*"
+		xmlns:utils="utils.*"
+		title=" " viewActivate="viewActivateHandler(event);"
+		actionBarVisible="false" tabBarVisible="false" 
+     	 color="#444444" backgroundAlpha="0" 
+		>
+	
+	<s:states>
+		<s:State name="normal"/>
+		<s:State name="privatemessage"/>
+		<s:State name="gift" enterState="loadGifts();"/>
+		<s:State name="badgedetail" enterState="setBadgeDetails();"/>
+		<s:State name="fullscreen"/>
+	</s:states>
+	
+	<fx:Declarations>
+		<utils:GeolocationUtil id="geoUtil2" locationUpdate="onGeoUpdate(event)"/>
+		
+		<s:DateTimeFormatter id="dateFormatter" dateTimePattern="yyyy-MM-dd " errorText="-" />
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import flash.net.navigateToURL;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.ArrayList;
+			import mx.collections.XMLListCollection;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			import spark.events.ViewNavigatorEvent;
+			import spark.skins.mobile.ListSkin;
+			import spark.skins.mobile.TextAreaSkin;
+			
+			import classes.GlobalConstants;
+			
+			import events.BadgeEvent;
+			import events.CompetitionEvent;
+			import events.DialogEvent;
+			import events.MessageEvent;
+			import events.PetEvent;
+			import events.RelationEvent;
+			import events.UserEvent;
+			
+			import models.BadgeVO;
+			
+			import skins.PetiitCalloutSkin;
+			
+			import wardrobe.myIconItemRenderer;
+			
+			public var petID:int=0;
+			public var relationID:String="";
+			
+			public var relationExists:Boolean=false;
+			
+			[Bindable]
+			private var badges:ArrayCollection = new ArrayCollection();
+			
+			[Bindable]
+			private var petName:String="--";
+			
+			private var relationChangedFlag:Boolean = false;
+			
+			private var currentRelation:String="";
+			
+			[Embed(source="/assets/images/textfield/textareaBG.png")]		
+			public static const textareabg:Class;
+			
+			private var ismyself:Boolean=false;
+		
+			[Bindable]
+			private var pointstring:String="";
+			
+	 		private function getPet():void {
+			
+				//DEUBG:
+/*				var tmp:BadgeVO;
+				tmp = new BadgeVO();
+				tmp.badgeid=0;
+				tmp.badgeDescription="Cutest dog ever";
+				tmp.timestamp=0;
+				tmp.badgeImage="/assets/badges/badge1.png";
+				badges.addItem(tmp);
+				
+				tmp = new BadgeVO();
+				tmp.badgeid=1;
+				tmp.badgeDescription="Funniest dog 2013";
+				tmp.timestamp=0;
+				tmp.badgeImage="/assets/badges/badge1.png";
+				badges.addItem(tmp);
+*/
+				
+				if(data.petid==parseInt(parentApplication.myPetDAO.currentPetID)) {
+					ismyself=true;
+					pmButton.visible=false;
+					pmButton.width=0;
+					giftButton.visible=false;
+					giftButton.width=0;
+					relationgroup.visible=false;
+					editmyselfButton.visible=true;
+					editmyselfButton.width=219;
+					wardrobeButton.visible=true;
+					wardrobeButton.width=219;
+					
+				}
+				else {
+					ismyself=false;
+					editmyselfButton.visible=false;
+					editmyselfButton.width=0;
+					giftButton.visible=true;
+					giftButton.width=219;
+					pmButton.width=219;
+					wardrobeButton.visible=false;
+					wardrobeButton.width=0;
+				}
+				
+				
+				if(data.petid!=null && data.petid!=0) {
+					petID = data.petid as int;
+					parentApplication.myPetDAO.addEventListener(PetEvent.PET_GET_THIS_PET_READY,petReady);
+					parentApplication.myPetDAO.restGetThisPet(petID);	
+//					removeRelationButton.enabled=false;
+				} 
+				else if(data.relationid != null && data.relationid != 0) {
+					relationID = data.relationid;
+//					removeRelationButton.enabled=true;
+					relationExists=true;
+//					pmButton.enabled=true;
+				}
+				 
+			}
+	
+			private function petReady(event:PetEvent):void {
+				petName = event.data.title;
+				var ownerID:String = event.data.uid;
+	
+//				petColorsText.text = event.data.field_colors.und[0].value;
+				if(event.data.body!=null && event.data.body.hasOwnProperty("und"))
+					description.text = event.data.body.und[0].value;
+				
+				petBirthday.text = (event.data.field_birthday.und[0].value as String).slice(0,10);
+		//		if(event.data.field_deathday.und!=null)
+		//			petDeathday = (event.data.field_deathday.und[0].value as String).slice(0,10);
+				if(event.data.field_gender!=null && event.data.field_gender.hasOwnProperty("und")) {
+					if(event.data.field_gender.und[0].value=="0")
+						petGender.text = parentApplication.Language.profile_page3_radio_male;
+					else
+						petGender.text = parentApplication.Language.profile_page3_radio_female;
+				}
+					
+				if(event.data.field_matingstatus!=null && event.data.field_matingstatus.hasOwnProperty("und"))
+					petStatus.text= event.data.field_matingstatus.und[0].value;
+				
+//GET RACE FROM SEPARATE TABLE?				
+///				petRace.text= event.data.race;
+				if(event.data.field_pet_race!=null && event.data.field_pet_race.hasOwnProperty("und")) {
+					var tmpArray:ArrayList;
+				
+					switch(event.data.field_pet_race.und[0].value) {
+						case "0":
+							tmpArray = parentApplication.catRaces;
+							break;
+						case "1":	
+							tmpArray = parentApplication.dogRaces;
+							break;
+						case "2":	
+							tmpArray = parentApplication.rabbitRaces;
+							break;
+						case "3":	
+							tmpArray = parentApplication.birdRaces;
+							break;
+						case "4":	
+							tmpArray = parentApplication.reptileRaces;
+							break;
+						case "5": 
+							tmpArray = parentApplication.rodentRaces;
+							break;
+						case "6":	
+							tmpArray = parentApplication.otherRaces;
+							break;
+						default:;
+					}
+				
+					if(event.data.field_pet_breed!=null && event.data.field_pet_breed.hasOwnProperty("und")) {
+						for each(var obj:Object in tmpArray.source) {
+							if(obj.tid[0] == event.data.field_pet_breed.und[0].value) {
+								petRace.text=obj.label;
+								break;
+							}
+						}
+					}
+				}
+				
+				if(event.data.field_pet_image.und.length>0) {
+				 	//profileImage.source = GlobalConstants.AMAZON_URL + pet.field_pet_image.und[0].uri.slice(5,pet.field_pet_image.und[0].uri.length);
+					var pos:int;
+					pos = event.data.field_pet_image.und[0].uri.lastIndexOf("/",100);
+					pos = event.data.field_pet_image.und[0].uri.lastIndexOf("/",pos-1);
+					profileImage.source = GlobalConstants.AMAZON_URL + "styles/petit_small/s3/petit/images" + event.data.field_pet_image.und[0].uri.substr(pos);	//slice off "s3://
+					thumbImage.source = GlobalConstants.AMAZON_URL + "styles/petit_thumb/s3/petit/images" + event.data.field_pet_image.und[0].uri.substr(pos);
+				}
+				
+				//get owner details
+				parentApplication.myUserDAO.addEventListener(UserEvent.USER_READY,ownerReady);
+				parentApplication.myUserDAO.restGetThisUser(ownerID);
+				
+				//get badges
+				badges.removeAll();
+				parentApplication.myBadgeDAO.addEventListener(BadgeEvent.MYBADGES_READY,handleMyBadges);
+				parentApplication.myBadgeDAO.restGetMyBadges(ownerID);
+				
+				//get current relation
+				parentApplication.myRelationDAO.addEventListener(RelationEvent.RELATION_GETRELATIONLIST_READY,relationsReady);
+				parentApplication.myRelationDAO.restGetRelations(parentApplication.myPetDAO.currentPetID);
+			} 
+			
+			private function relationsReady(event:RelationEvent):void {
+ 				for each(var relation:Object in event.data) {
+					if(relation.petid_a == parentApplication.myPetDAO.currentPetID && relation.petid_b == petID.toString()) {
+						currentRelation = relation.type;
+						setRadioRelation();
+						relationID = relation.id;
+						relationExists=true;
+						break;
+					}
+				} 
+			}
+			
+			private function setRadioRelation():void {
+				if(currentRelation=="1") {
+					if(radioRelation1!=null)
+						radioRelation1.selected=true;
+					currentRelationLabel.text = parentApplication.Language.frienddetail_label_relationheader2 + " " + parentApplication.Language.frienddetail_relationtype_parent;	//"Detta är min förälder
+				}
+				if(currentRelation=="2") {
+					if(radioRelation2!=null)
+						radioRelation2.selected=true;
+					currentRelationLabel.text = parentApplication.Language.frienddetail_label_relationheader2 + " " + parentApplication.Language.frienddetail_relationtype_sibling;
+				}
+				if(currentRelation=="3") {
+					if(radioRelation3!=null)
+						radioRelation3.selected=true;
+					currentRelationLabel.text = parentApplication.Language.frienddetail_label_relationheader2 + " " + parentApplication.Language.frienddetail_relationtype_relative;
+				}
+				if(currentRelation=="4") {
+					if(radioRelation4!=null)
+						radioRelation4.selected=true;
+					currentRelationLabel.text = parentApplication.Language.frienddetail_label_relationheader2 + " " + parentApplication.Language.frienddetail_relationtype_friend;
+				}
+				if(currentRelation=="5") {
+					if(radioRelation5!=null)
+						radioRelation5.selected=true;
+					currentRelationLabel.text = parentApplication.Language.frienddetail_label_relationheader2 + " " + parentApplication.Language.frienddetail_relationtype_child;
+				}
+				if(currentRelation=="6") {
+					if(radioRelation6!=null)
+						radioRelation6.selected=true;
+					currentRelationLabel.text = parentApplication.Language.frienddetail_relationtype_norelation2;	//"Ingen relation finns";
+				}
+			} 
+			
+			private function ownerReady(event:UserEvent):void{
+				if(event.data.field_fullname.und[0].value!=null && event.data.field_fullname.und[0].value.length>0)
+					petOwnerLabel.text= event.data.field_fullname.und[0].value;
+				if(event.data.name != null && event.data.name.length>0)
+					petOwnerEmailLabel.text= event.data.name;
+				
+				//petOwnerCityLabel.text= event.data.field_location.und[0].lat+","+event.data.field_location.und[0].lng;				
+				
+				geoUtil2.getAddressByLocation(event.data.field_location.und[0].lat,event.data.field_location.und[0].lng);	//Find city name via reverse geocoding
+				
+				parentApplication.myUserDAO.removeEventListener(UserEvent.USER_READY,ownerReady);
+			}
+			
+			/********************************************************************
+			 * BADGES															*
+			 * 																	*
+			 ********************************************************************/
+				
+			private function handleMyBadges(event:BadgeEvent):void {
+				
+				var userbadges:Object = event.data;
+				
+				if(userbadges[petID]!=null) {
+					for each (var item:Object in userbadges[petID]) {
+						trace(item.badge_id); 
+						//get badgedetails
+						parentApplication.myBadgeDAO.addEventListener(BadgeEvent.BADGEDETAILS_READY,handleMyBadgeDetail);
+						parentApplication.myBadgeDAO.restGetBadgeDetails(item.badge_id,item.place,item.recieved);	//badgeid	
+					}
+				}
+					
+				parentApplication.myBadgeDAO.removeEventListener(BadgeEvent.MYBADGES_READY,handleMyBadges);
+			}
+			
+			private function handleMyBadgeDetail(event:BadgeEvent):void {
+				
+				var badgedetail:Object = event.data;
+			 
+				parentApplication.myBadgeDAO.removeEventListener(BadgeEvent.BADGEDETAILS_READY,handleMyBadgeDetail);
+				
+				getBadgeImage(badgedetail.field_competition.und[0].target_id,badgedetail.vid);	//vid=badge_id
+				
+				badges.addItem(badgedetail); 
+				
+				
+				
+			}
+			
+			private function viewBadgeDetail(event:Event):void {
+				currentState="badgedetail";
+			}
+			
+			private function setBadgeDetails():void {
+				if(badgeList!=null && badgeList.numChildren>0) {
+					if(badgeList.selectedItem!=null) {
+						badgeDescription.text = badgeList.selectedItem.title;
+						badgeImage.source = badgeList.selectedItem.picture;		
+					}
+				}			
+			}
+		
+			/********************************************************************
+			 * BADGES IMAGES VIA COMPETITION 									*
+			 * 																	*
+			 ********************************************************************/
+			private function getBadgeImage(in_competitionid:String,in_badgeid:String):void {
+				var bild:String="";
+				
+				parentApplication.myCompetitionDAO.addEventListener(CompetitionEvent.COMPETITION_GETCOMPETITIONDETAIL_READY,competitionReady);
+			
+				function competitionReady(event:CompetitionEvent):void {
+					
+					if(event.data.field_competition_badge != null && event.data.field_competition_badge.hasOwnProperty("und"))
+						bild = GlobalConstants.AMAZON_URL + event.data.field_competition_badge.und[0].uri.slice(5,event.data.field_competition_badge.und[0].uri.length);
+					else
+						bild="/assets/badges/badge1.png";
+					
+					var counter:int=0;
+					for each(var badgeobj:Object in badges) {
+						if(badgeobj.vid == in_badgeid) {
+							badges.getItemAt(counter).picture=bild;
+							badges.refresh();
+							parentApplication.myCompetitionDAO.removeEventListener(CompetitionEvent.COMPETITION_GETCOMPETITIONDETAIL_READY,competitionReady);
+							break;
+						}
+					} 
+					
+				
+				}	
+			
+				
+				parentApplication.myCompetitionDAO.restGetCompetitionDetail(in_competitionid);
+				
+			}
+			
+			/********************************************************************
+			 * CHANGE RELATION													*
+			 * 																	*
+			 ********************************************************************/
+			private function changeRelation():void {
+				if(radioRelation6.selected) {
+					deleteRelation();
+					back();
+				}
+				else {
+					deleteRelation(); 	//delete old relation first
+					createRelation();
+				}
+					
+			}
+			
+			private function radioChange():void {
+				var type:String="-";
+				
+				if(radioRelation1.selected)
+					type="1";
+				if(radioRelation2.selected)
+					type="2";
+				if(radioRelation3.selected)
+					type="3";
+				if(radioRelation4.selected)
+					type="4";
+				if(radioRelation5.selected)
+					type="5";
+				if(radioRelation5.selected)
+					type="6";
+				
+				if(currentRelation != type)
+					relationChangedFlag=true;
+			}
+			
+			/********************************************************************
+			 * CREATE RELATION													*
+			 * 																	*
+			 ********************************************************************/
+			
+			private function createRelation():void {
+			 	trace(parentApplication.myPetDAO.currentPetID);
+				
+				var type:String="4";
+			
+				if(radioRelation1.selected)
+					type="1";
+				if(radioRelation2.selected)
+					type="2";
+				if(radioRelation3.selected)
+					type="3";
+				if(radioRelation4.selected)
+					type="4";
+				if(radioRelation5.selected)
+					type="5";
+				
+				parentApplication.myRelationDAO.addEventListener(RelationEvent.RELATION_SAVED,relationSavedReady);
+				parentApplication.myRelationDAO.addEventListener(RelationEvent.RELATION_SAVED_FAILED,relationSavedFailed);	
+				parentApplication.myRelationDAO.restCreateRelation(parentApplication.myPetDAO.currentPetID,petID.toString(),type)
+			}
+			
+			private function relationSavedReady(event:RelationEvent):void {
+			 	parentApplication.showToastFX("Friend request sent",true);
+				
+				relationChangedFlag=false;
+				//Clean
+				parentApplication.myRelationDAO.removeEventListener(RelationEvent.RELATION_SAVED,relationSavedReady);
+				parentApplication.myRelationDAO.removeEventListener(RelationEvent.RELATION_SAVED_FAILED,relationSavedFailed);	
+				
+				back();
+			}
+			
+			private function relationSavedFailed(event:RelationEvent):void {
+				parentApplication.showToastFX("Relation not saved!",false);
+				
+				//Clean
+				parentApplication.myRelationDAO.removeEventListener(RelationEvent.RELATION_SAVED,relationSavedReady);
+				parentApplication.myRelationDAO.removeEventListener(RelationEvent.RELATION_SAVED_FAILED,relationSavedFailed);	
+			}
+			
+			
+			/*
+			type:
+			1;"parent"
+			2;"sibling"
+			3;"relative"
+			4;"friend"
+			5;"child"
+			
+			group:
+			0;"public"
+			1;"friends"	
+			2;"close friends"
+			
+			*/
+			
+			
+			/********************************************************************
+			 * DELETE RELATION													*
+			 * 																	*
+			 ********************************************************************/
+			
+			private function deleteRelation():void {
+				if(relationExists) {
+					parentApplication.myRelationDAO.addEventListener(RelationEvent.RELATION_DELETE_FAILED,deleteFailed);
+					parentApplication.myRelationDAO.addEventListener(RelationEvent.RELATION_DELETED,deleteSuccess);
+					parentApplication.myRelationDAO.restDeleteRelation(relationID);
+				}
+			}
+			
+			private function deleteSuccess(event:RelationEvent):void {
+				parentApplication.showToastFX("Relation removed",true);
+			}
+			
+			private function deleteFailed(event:RelationEvent):void {
+				parentApplication.showToastFX("Relation not removed",false);
+			}
+			
+			
+			/********************************************************************
+			 * PRIVATE MESSAGE													*
+			 * 																	*
+			 ********************************************************************/
+			private function sendPrivateMessage():void {
+				parentApplication.myMessageDAO.addEventListener(MessageEvent.Message_PRIVATE_MESSAGE_SENT,sendMessageSuccess);
+				parentApplication.myMessageDAO.addEventListener(MessageEvent.MEssage_PRIVATE_MESSAGE_FAILED,sendMessageFailure);
+				parentApplication.myMessageDAO.restCreatePrivateMessage(parentApplication.myPetDAO.currentPetID,data.petid.toString(),privateMessageText.text);
+				currentState="normal";
+			}
+			
+			private function sendMessageSuccess(event:MessageEvent):void {
+		 		parentApplication.showToastFX("Message sent!",true);
+				
+				parentApplication.myMessageDAO.removeEventListener(MessageEvent.Message_PRIVATE_MESSAGE_SENT,sendMessageSuccess);
+				parentApplication.myMessageDAO.removeEventListener(MessageEvent.MEssage_PRIVATE_MESSAGE_FAILED,sendMessageFailure);
+			}
+			
+			private function sendMessageFailure(event:MessageEvent):void {
+				parentApplication.showToastFX("Message failed!",false);
+				
+				parentApplication.myMessageDAO.removeEventListener(MessageEvent.Message_PRIVATE_MESSAGE_SENT,sendMessageSuccess);
+				parentApplication.myMessageDAO.removeEventListener(MessageEvent.MEssage_PRIVATE_MESSAGE_FAILED,sendMessageFailure);
+			}
+			
+			private function sendEmail():void {
+				
+				var emailHead:String = parentApplication.Language.frienddetail_email_head + " "+ parentApplication.myUserDAO.user.name;	//Meddelande från
+				var emailBody:String = parentApplication.Language.frienddetail_email_body + " " + petName+", ";	//"Hej "		
+				var emailurl:URLRequest = new URLRequest("mailto:"+petOwnerEmailLabel.text.toLowerCase()+"?subject="+emailHead+"&body="+emailBody);  
+				navigateToURL(emailurl);
+			}
+			
+			/********************************************************************
+			 * FULLSCREEN														*
+			 * 																	*
+			 ********************************************************************/
+			
+			private function goFullscreen():void {
+				currentState="fullscreen";
+				fullscreenImage.source=profileImage.source;
+				
+			}
+			
+			/****************************************************************
+			 * GEOLOCATION													*
+			 * 																*
+			 ****************************************************************/
+			private var locationObj:Object=null;
+			[Bindable]
+			private var cityContent:String="";
+			[Bindable]
+			private var zipcodeContent:String="";
+			
+			protected function onGeoUpdate(event:Event):void {
+				
+			 	if(geoUtil2.location != null && geoUtil2.location.length>0) {
+					cityContent = geoUtil2.location.slice(5,geoUtil2.location.length);
+					if(geoUtil2.location.length>5)
+						zipcodeContent = geoUtil2.location.slice(0,5);
+					petOwnerCityLabel.text=zipcodeContent;
+				}
+				
+				if(cityContent.length==0) {
+					cityContent=geoUtil2.city;
+					petOwnerCityLabel.text=cityContent;
+				}
+				
+			  	if(geoUtil2.latitude!=0 && geoUtil2.longitude!=0) {
+					locationObj =  {'latitude':geoUtil2.latitude, 'longitude':geoUtil2.longitude};
+					//location = locationObj.latitude + "," + locationObj.longitude;
+				}
+			}
+			
+			  
+			
+			/********************************************************************
+			 * BACK																*
+			 * 																	*
+			 ********************************************************************/
+			private function back():void {
+				if(currentState=="privatemessage" || currentState=='fullscreen' || currentState=='gift')
+					currentState="normal";					
+				else {
+					if(relationChangedFlag==false)
+						parentApplication.friendNav.popView();
+					else {
+						parentApplication.addEventListener(DialogEvent.DIALOG_OK,saveAndExit);
+						parentApplication.addEventListener(DialogEvent.DIALOG_CANCEL,justExit);
+						parentApplication.showDialog("","Save relation","You have changed the relation type to this pet. Do you want to save this relation change before leaving?","YES","NO",2);
+					}
+				}
+			}
+			
+			private function justExit(event:DialogEvent):void {
+				parentApplication.friendNav.popView();
+			}
+			private function saveAndExit(event:DialogEvent):void {
+				changeRelation();
+				parentApplication.friendNav.popView();
+			}
+			
+			
+			private function gotoEditMyself():void {
+				parentApplication.friendNav.popView();
+				parentApplication.gotoProfile();
+			}
+			
+			private function gotoWardrobe():void {
+				parentApplication.gotoWardrobe();
+			}
+
+			
+			protected function viewActivateHandler(event:ViewNavigatorEvent):void
+			{
+				getPoints();
+				getPet();
+			}
+			
+			
+			/************************************************
+			 * GIFTS										*
+			 * 												*
+			 ************************************************/
+			private function loadGifts():void {
+				giftCallout.open(this);
+			}
+			
+			private function giftChosen():void {
+				giftImage.source = giftList.selectedItem.image;
+				pricetagText.text = giftList.selectedItem.price+":-";
+				giftCallout.close(true);
+			}
+			
+			private function sendGift():void {
+				
+				var giftid:String="7";	//default
+				
+				if(giftList.selectedItem.tid[0]!="700") {
+					giftid = giftList.selectedItem.tid[0].toString();	//701, 702 etc.
+				}
+				
+				parentApplication.myMessageDAO.addEventListener(MessageEvent.Message_PRIVATE_MESSAGE_SENT,sendGiftSuccess);
+				parentApplication.myMessageDAO.addEventListener(MessageEvent.MEssage_PRIVATE_MESSAGE_FAILED,sendGiftFailure);
+				parentApplication.myMessageDAO.restCreateGiftMessage(parentApplication.myPetDAO.currentPetID,data.petid.toString(),privateMessageTextGift.text,giftid);
+				currentState="normal";
+			}
+			
+			private function sendGiftSuccess(event:MessageEvent):void {
+				parentApplication.showToastFX(parentApplication.Language.frienddetail_gift_toast_send_success,true);	//"Gift sent!"
+				
+				parentApplication.myMessageDAO.removeEventListener(MessageEvent.Message_PRIVATE_MESSAGE_SENT,sendGiftSuccess);
+				parentApplication.myMessageDAO.removeEventListener(MessageEvent.MEssage_PRIVATE_MESSAGE_FAILED,sendGiftFailure);
+			}
+			
+			private function sendGiftFailure(event:MessageEvent):void {
+				parentApplication.showToastFX(parentApplication.Language.frienddetail_gift_toast_send_failure,false);	//"Gift failed!"
+				
+				parentApplication.myMessageDAO.removeEventListener(MessageEvent.Message_PRIVATE_MESSAGE_SENT,sendGiftSuccess);
+				parentApplication.myMessageDAO.removeEventListener(MessageEvent.MEssage_PRIVATE_MESSAGE_FAILED,sendGiftFailure);
+			}
+			
+			private function getPoints():void {
+				pointstring =  parentApplication.Language.profile_page1_points + ': ' + parentApplication.myUserDAO.user.points;
+			}
+			
+			
+		]]>
+	</fx:Script>
+	<s:BitmapImage id="bg" visible="true" x="0" y="0" width="100%" height="100%" scaleMode="stretch"  source="@Embed('/assets/images/Petiit-SunBurst-iP5-violet.png')"  />
+	
+	<!-- PROFILE -->
+	<s:Group includeIn="normal" height="100%" width="100%" color="#000000" fontFamily="MyriadPro" fontSize="32">
+		<s:BitmapImage id="profileBackground" top="260" left="0" source="@Embed('/assets/images/textfield/Text-Input-Area-bottom-03.png')"  alpha="0.9" width="100%"/>
+		<s:BitmapImage id="profileBackgroundTop" height="842" top="0" left="0" source="@Embed('/assets/images/textfield/Text-Input-Area-top-03.png')" scaleMode="stretch" alpha="0.9" width="100%"/>
+		
+		<s:BitmapImage id="thumbImage" left="10" top="2" width="200" height="200" rotation="3" filters="{shadowFilter}" scaleMode="stretch"/>
+		<s:Image left="10" top="2" width="200" height="200" id="profileImage" click="goFullscreen();" rotation="3" filters="{shadowFilter}"/>
+		<s:BitmapImage left="50" top="-12" id="paperclip" source="@Embed('/assets/images/paperclip.png')" smooth="true"/>
+		<s:Label id="description" left="20" top="230" width="240" height="345" lineBreak="toFit" textAlign="left" text="Här kommer en kort beskrivning av mig. " fontFamily="MyriadPro" fontStyle="italic" fontSize="24"/>
+		
+		<s:VGroup left="200" top="20" width="150" textAlign="right" fontFamily="MyriadPro" gap="5" >
+			<s:Label text="{parentApplication.Language.frienddetail_label_name}" width="150" fontSize="28"/>
+			<s:Label text="{parentApplication.Language.frienddetail_label_owner}" width="150" fontSize="28"/>
+			<s:Label text="{parentApplication.Language.frienddetail_label_owneremail}" width="150" fontSize="28"/>
+			<s:Label text="{parentApplication.Language.frienddetail_label_ownercity}" width="150" fontSize="28"/>
+			<s:Label text="{parentApplication.Language.frienddetail_label_race}" width="150" fontSize="28"/>
+			<s:Label text="{parentApplication.Language.frienddetail_label_birthday}" width="150" fontSize="28"/>
+			<s:Label text="{parentApplication.Language.frienddetail_label_gender}" width="150" fontSize="28"/>
+			<s:Label text="{parentApplication.Language.frienddetail_label_status}" width="150" fontSize="28"/>
+		</s:VGroup>
+		
+		<s:VGroup x="360" top="20" width="250" textAlign="left" fontFamily="MyriadPro" fontWeight="bold" gap="5" fontSize="28">
+			<s:Label id="petNameLabel" text="{petName}" fontSize="28"/>
+			<s:Label id="petOwnerLabel" text="--" fontSize="28"/>
+			<s:Label id="petOwnerEmailLabel" text="--" click="sendEmail();" buttonMode="true" textDecoration="underline" fontSize="28"/>
+			<s:Label id="petOwnerCityLabel" text="--" fontSize="28"/>
+			<s:Label id="petRace" text="--" fontSize="28"/>
+			<s:Label id="petBirthday" text="--" fontSize="28"/>
+			<s:Label id="petGender" text="--" fontSize="28" />
+			<s:Label id="petStatus" text="--" fontSize="28"/>
+		</s:VGroup>
+
+		<s:VGroup id="badgeGroup" visible="true" width="400" height="160" gap="10" left="270" top="350">
+			<s:List id="badgeList" width="100%" height="100%" horizontalScrollPolicy="on" click="viewBadgeDetail(event)"   
+					verticalScrollPolicy="off" contentBackgroundAlpha="0" dataProvider="{badges}"
+					itemRenderer="Renderers.badgeRenderer" 
+					skinClass="spark.skins.mobile.ListSkin" cacheAsBitmap="false" ><!--cacheAsBitmap="false"-->
+				<s:layout>
+					<s:TileLayout requestedRowCount="1" paddingLeft="10" paddingTop="0" horizontalGap="20" verticalGap="0" orientation="rows"  
+								  verticalAlign="top"
+								  />
+				</s:layout>
+			</s:List>
+		</s:VGroup>  
+	</s:Group>
+	
+	<s:HGroup horizontalCenter="0" y="640" includeIn="normal" verticalAlign="middle" gap="20" id="relationgroup">
+		<s:Label id="currentRelationLabel" text="" fontSize="36" color="#ffffff"/>
+		<components:violetButton id="changeRelationButton" click="relationCallout.open(this);" label="{parentApplication.Language.frienddetail_button_changerelation}" />
+	</s:HGroup>
+	
+	<!--GIFT MESSAGE-->
+	<s:Group id="giftGroup" includeIn="gift" bottom="0" top="0">
+		<s:BitmapImage id="giftImage" y="436" x="50" maxWidth="400" maxHeight="400" filters="{shadowFilter}" scaleMode="stretch"/>
+		<s:BitmapImage id="pricetag" x="420" y="540" source="@Embed('/assets/images/price_tag_big.png')" filters="{shadowFilter}"/>
+		<s:Label x="480" y="560" id="pricetagText" text=" " textAlign="center" fontSize="44" color="#444444"  fontWeight="bold"/>
+		<s:Label x="447" y="606" id="pointsText" width="120" textAlign="center" text="{parentApplication.Language.general_petiitpoints}" fontSize="22" color="#444444" fontWeight="normal"/>
+		
+		<s:BitmapImage top="0" left="0" source="@Embed('/assets/images/textfield/Text-Input-Area-top-03.png" width="100%"/>
+		<s:BitmapImage top="0" left="0" source="@Embed('/assets/images/textfield/Text-Input-Area-bottom-03.png" width="100%"/>
+		<s:Group top="20" left="20" bottom="0" >
+			<s:Label text="{parentApplication.Language.frenddetail_label_messageto.toUpperCase()} {petName.toUpperCase()}"
+					 height="45" fontSize="44" color="#ffffff" fontFamily="MyriadPro" fontWeight="bold" width="580" textAlign="left" lineBreak="toFit"/>
+			<s:Button id="giftContinueButton" label="{parentApplication.Language.general_continue.toUpperCase()}" x="20" y="0" width="580" height="0" visible="false" fontSize="44" color="#000000" fontFamily="MyriadPro"/>
+		 
+			<s:BitmapImage id="textareaBGgift" source="{textareabg}" x="-9" y="50"/>
+			<s:TextArea height="180" y="60" prompt="{parentApplication.Language.frienddetail_prompt_message}" text="" fontSize="44" color="#000000" width="100%" fontFamily="MyriadPro" focusThickness="0"
+							id="privateMessageTextGift" needsSoftKeyboard="true" softKeyboardType="default" autoCapitalize="sentence"
+							skinClass="spark.skins.mobile.StageTextAreaSkin" 
+							focusIn="giftContinueButton.visible=true;giftContinueButton.height=80;" 
+							focusOut="giftContinueButton.visible=false;giftContinueButton.height=0;" 
+							paddingTop="0" x="0" 
+							contentBackgroundAlpha="0" borderVisible="false"/>
+		 
+			<s:Label text="{parentApplication.Language.frienddetail_gift_chargelabel}" height="95" verticalAlign="top" y="313"
+					 fontSize="44" color="#ffffff" fontFamily="MyriadPro" fontWeight="bold" width="608" textAlign="left" lineBreak="toFit"/>
+			<s:HGroup horizontalCenter="0" bottom="120" gap="100">
+				<components:pinkButton id="sendGiftButon" click="giftCallout.open(this);" label="{parentApplication.Language.frienddetail_label_choosegift}"/>		
+				<components:pinkButton id="sendMessageButtonGift" click="sendGift();" label="{parentApplication.Language.frienddetail_label_sendgift}"/>
+			</s:HGroup>
+		
+		</s:Group>
+				
+	</s:Group>
+	
+	<!--PRIVATE MESSAGE-->
+	<s:BitmapImage top="0" left="0" source="@Embed('/assets/images/textfield/Text-Input-Area-top-03.png" width="100%" includeIn="privatemessage"/>
+	<s:BitmapImage top="0" left="0" source="@Embed('/assets/images/textfield/Text-Input-Area-bottom-03.png" width="100%" includeIn="privatemessage"/>
+	<s:VGroup includeIn="privatemessage" width="600" height="600" top="20" left="20" horizontalAlign="left" gap="30">
+		<s:Label text="{parentApplication.Language.frienddetail_label_messagetext} {parentApplication.Language.frenddetail_label_messageto} {petName}" 
+				 height="45" fontSize="44" color="#ffffff" fontFamily="MyriadPro" fontWeight="bold" width="580" textAlign="left" lineBreak="toFit"/>
+		<s:Button id="continueButton" label="{parentApplication.Language.general_continue.toUpperCase()}" x="20" y="0" width="580" height="0" visible="false" fontSize="44" color="#000000" fontFamily="MyriadPro"/>
+		<s:Group>
+			<s:BitmapImage id="textareaBG" source="{textareabg}" x="-9"/>
+			<s:TextArea height="180" prompt="{parentApplication.Language.frienddetail_prompt_message}" text="" fontSize="44" color="#000000" width="100%" fontFamily="MyriadPro" focusThickness="0"
+						id="privateMessageText" needsSoftKeyboard="true" softKeyboardType="default" autoCapitalize="sentence"
+						skinClass="spark.skins.mobile.StageTextAreaSkin" 
+						focusIn="continueButton.visible=true;continueButton.height=80;" 
+						focusOut="continueButton.visible=false;continueButton.height=0;" 
+						paddingTop="0" x="0" y="10"
+						contentBackgroundAlpha="0" borderVisible="false"/>
+		</s:Group>
+		<components:pinkButton id="sendMessageButon" click="sendPrivateMessage();" label="{parentApplication.Language.frienddetail_label_sendmessage}"/>
+	</s:VGroup>
+	
+ 	<!--CONSOLE-->
+	<s:Group id="console" bottom="0" depth="2" includeIn="fullscreen,privatemessage,normal,gift" width="100%">
+		<s:BitmapImage source="@Embed('/assets/skin/menu/Petiit_Console.png')" scaleMode="stretch" bottom="0" width="100%"/>
+		<s:HGroup bottom="0" width="100%" horizontalAlign="center" gap="0" left="-8" id="consoleButtons">
+			<components:menuButton id="backButton" click="back();" label="{parentApplication.Language.general_back.toUpperCase()}"/>
+			<components:menuButton id="giftButton" click="currentState='gift';" label="{parentApplication.Language.frienddetail_button_gift}" includeIn="normal"/>
+			<components:menuButton id="pmButton" click="currentState='privatemessage';" label="{parentApplication.Language.frienddetail_button_privatemessage}" includeIn="normal"/>
+			<components:menuButton id="editmyselfButton" click="gotoEditMyself();" label="{parentApplication.Language.friends_button_profile}" includeIn="normal" visible="false"/>
+			<components:menuButton id="wardrobeButton" click="gotoWardrobe();" label="{parentApplication.Language.friends_button_wardrobe}" includeIn="normal" visible="false"/>
+		</s:HGroup>
+	</s:Group>
+	 
+	<!--BADGEDETAIL-->
+	<s:Group width="100%" height="100%" minWidth="640" minHeight="960" x="0" y="-60" includeIn="badgedetail" id="badgeDetailWindow">
+		<s:Rect	width="640" height="1060">
+			<s:fill>
+				<s:SolidColor color="#000000" alpha="0.8"/>
+			</s:fill>
+		</s:Rect>
+		
+		<s:Group width="580" verticalCenter="-40" horizontalCenter="0" height="600">
+			<s:Rect x="0" y="0" radiusX="30" radiusY="30" width="580" height="600" filters="{shadowFilter}" >
+				<s:fill>
+					<s:BitmapFill source="@Embed('/assets/skin/BG.png')" fillMode="repeat" alpha="0.95"/>
+				</s:fill>
+			</s:Rect>
+			<s:Rect x="10" y="10" radiusX="30" radiusY="30" width="560" height="580">
+				<s:fill>
+					<s:SolidColor color="#ffffff" alpha="0.5"/>
+				</s:fill>
+			</s:Rect>
+			<s:BitmapImage horizontalCenter="0" y="-40" id="dialogpicture" filters="{shadowFilter}" scaleMode="letterbox" maxHeight="130"/>
+			<s:VGroup horizontalCenter="0" y="50" horizontalAlign="center" gap="40">
+				<s:BitmapImage id="badgeImage" />	
+				<s:Label id="badgeDescription" width="520" height="160" color="#cf82b3" fontFamily="Verdana" paddingLeft="10" paddingBottom="10" paddingRight="10" paddingTop="10" 
+						 fontSize="32" fontWeight="normal" textAlign="center"/>	
+				<components:pinkButton id="okButton" width="250" label="{parentApplication.Language.general_ok}" click="currentState='normal';"/>
+			</s:VGroup>
+		</s:Group>
+	</s:Group>
+	
+	<!--FULLSCREEN-->
+	<s:Group id="fullscreenGroup" width="100%" height="100%" x="0" y="0" depth="100" includeIn="fullscreen">
+		<s:Rect id="blackbackground" left="0" right="0" top="0" bottom="0" >
+			<s:fill>
+				<s:SolidColor color="#000000"/>
+			</s:fill>
+		</s:Rect>
+		<s:Scroller height="100%" width="100%" horizontalCenter="0" verticalCenter="0">
+			<s:Group>
+				<s:Image id="fullscreenImage"/>			
+			</s:Group>
+		</s:Scroller>
+		<s:BitmapImage source="@Embed('/assets/skin/menu/Petiit_Console.png')" scaleMode="stretch" bottom="0" width="100%"/>
+		<s:HGroup bottom="0" width="100%" horizontalAlign="center" gap="0" left="-8" id="consoleButtons2" mouseDown="currentState='normal';" depth="102">
+			<s:BitmapImage visible="true" id="fullscreenBackButton" source="@Embed('/assets/buttons/btn_goback_off.png')" />
+		</s:HGroup>
+	</s:Group>	
+	
+	<fx:Declarations>
+		<s:Callout id="relationCallout" width="620" height="850" horizontalCenter="0" bottom="20" skinClass="skins.PetiitCalloutSkin">
+			<s:VGroup horizontalAlign="left" horizontalCenter="0" gap="20" color="#444444" fontSize="26" paddingTop="40" paddingBottom="20" paddingLeft="10">
+				<s:Label fontFamily="MyriadPro" fontWeight="bold" fontSize="36" color="#444444"
+						 text="{parentApplication.Language.frienddetail_label_relationheader}"/>
+				<s:RadioButton id="radioRelation1" label="{parentApplication.Language.frienddetail_relationtype_parent}" fontFamily="MyriadPro" change="radioChange();"
+							   groupName="relationGroup" selected="false"/>
+				<s:RadioButton id="radioRelation2" label="{parentApplication.Language.frienddetail_relationtype_sibling}" fontFamily="MyriadPro" change="radioChange();"
+							   groupName="relationGroup" selected="false"/>
+				<s:RadioButton id="radioRelation5" label="{parentApplication.Language.frienddetail_relationtype_child}" fontFamily="MyriadPro" change="radioChange();"
+							   groupName="relationGroup" selected="false"/>
+				<s:RadioButton id="radioRelation3" label="{parentApplication.Language.frienddetail_relationtype_relative}" fontFamily="MyriadPro" change="radioChange();"
+							   groupName="relationGroup" selected="false"/>
+				<s:RadioButton id="radioRelation4" label="{parentApplication.Language.frienddetail_relationtype_friend}" fontFamily="MyriadPro" change="radioChange();"
+							   groupName="relationGroup" selected="true"/>
+				<s:RadioButton id="radioRelation6" label="{parentApplication.Language.frienddetail_relationtype_norelation}" fontFamily="MyriadPro" change="radioChange();"
+							   groupName="relationGroup" selected="true"/>
+			</s:VGroup>
+			<s:HGroup width="600" bottom="20" horizontalCenter="0" gap="40" horizontalAlign="center">
+				<components:violetButton id="relationCloseButton" click="relationCallout.close();" label="{parentApplication.Language.general_close}"/>	
+				<components:violetButton id="relationSaveButton" click="relationCallout.close();changeRelation();" label="{parentApplication.Language.general_save}"/>
+			</s:HGroup>
+		</s:Callout>
+		
+		<s:Callout id="giftCallout" width="600" horizontalCenter="0" verticalCenter="0" skinClass="skins.PetiitCalloutSkin">
+			<s:VGroup horizontalAlign="center" horizontalCenter="0" gap="0">
+				<s:Label paddingTop="10" textAlign="center" width="580" backgroundColor="#000000" text="{pointstring}" fontSize="36" fontFamily="MyriadPro" fontWeight="bold" color="#ffffff"/>
+				<s:List width="580" id="giftList" dataProvider="{parentApplication.giftAC}" height="620" interactionMode="touch" itemRenderer="wardrobe.myIconItemRenderer" contentBackgroundAlpha="0.2" filters="{shadowFilter}" click="giftChosen();"/>
+				<s:HGroup horizontalAlign="center" paddingBottom="30" paddingTop="20">
+					<components:pinkButton label="{parentApplication.Language.general_close.toUpperCase()}" click="giftCallout.close(true);"/>
+				</s:HGroup>
+			</s:VGroup>
+		</s:Callout>
+		
+		<s:DropShadowFilter color="#000000" distance="6" alpha="0.28" angle="92.3" blurX="6" blurY="6" id="shadowFilter"/>
+	</fx:Declarations>
+</s:View>

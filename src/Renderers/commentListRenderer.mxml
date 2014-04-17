@@ -1,0 +1,104 @@
+<s:ItemRenderer xmlns:fx="http://ns.adobe.com/mxml/2009"
+				xmlns:s="library://ns.adobe.com/flex/spark" 
+				dataChange="updateData();" contentBackgroundAlpha="0" autoDrawBackground="false" creationComplete="updateData();"
+				initialize="initializeHandler(event)"
+				>
+	<s:states>
+		<s:State name="normal"/>
+		<s:State name="selected"/>
+	</s:states>
+	
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.events.FlexEvent;
+			
+			import spark.core.ContentCache;
+			
+			import classes.GlobalConstants;
+			
+			static private const iconCache:ContentCache = new ContentCache();
+			
+			[Bindable]
+			private var bildradius:int;
+			
+			private function initializeHandler(event:FlexEvent):void {
+				pic.contentLoader = iconCache;
+			}
+			
+			private function updateData():void {
+				if(data!=null) {
+					labelDisplay.text=data.petname.toUpperCase()+": "+data.comment_body.und[0].value;
+					
+					if(labelDisplay.height>70) {
+						rektangel.height = 94+(labelDisplay.height-70);
+						bildradius=0;
+					}
+					else {
+						rektangel.height = 94;
+//						bildradius=30;
+					}
+					rektangelColor.color = data.backgroundcolor;
+					 
+					if(data.timestampDate!=null)
+						dateBox.text = data.timestampDate;
+					else
+						dateBox.text = "";
+					
+					if(data.image_uri != null) {
+						var pos:int;
+						pos = data.image_uri.lastIndexOf("/",100);
+						pos = data.image_uri.lastIndexOf("/",pos-1);
+						pic.source = GlobalConstants.AMAZON_URL + "styles/petit_thumb/s3/petit/images" + data.image_uri.substr(pos);	//slice off "s3://
+				 
+					}
+				}	
+			}
+		]]>
+	</fx:Script>
+	
+	<s:Group width="580" minHeight="70" id="commentgroup" filters="{shadowFilter}" y="0">
+		<!--s:Rect x="-10" y="-10" radiusX="30" radiusY="30" width="580" height="94">
+			<s:fill>
+				<s:SolidColor color="#fff7ea" alpha="1"/>
+			</s:fill>
+		</s:Rect-->
+		<s:Rect x="-10" y="-10" radiusX="30" radiusY="30" width="580" height="94" id="rektangel">
+			<s:fill>
+				<s:SolidColor color="#fff7ea" alpha="1" id="rektangelColor"/>
+			</s:fill>
+		</s:Rect>
+		<s:Path data="M 570 20 L 570 -30 C 560 -10 545 -10 540 -10 Z" >
+			<s:fill>
+				<s:SolidColor color="{rektangelColor.color}" alpha="1"/>
+			</s:fill>
+		</s:Path>
+		
+		<s:Label id="dateBox" text="yyyy-mm-dd"
+				 fontFamily="MyriadPro" fontSize="20" fontStyle="italic"
+				 lineBreak="toFit" textAlign="right" verticalAlign="top"
+				 right="30" bottom="1" width="150" color="#444444"
+				 />
+		
+		<s:Label id="labelDisplay" left="70" top="-4" fontFamily="MyriadPro" backgroundAlpha="0" color="#444444" width="490" lineBreak="toFit" 
+				 fontSize="36" textAlign="left" 
+				 minHeight="70"/>
+	</s:Group>
+	<s:BitmapImage id="pic" left="-10" top="-10" alpha="1" fillMode="scale" height="84" width="70">
+		<s:mask>
+			<s:Group>
+				<s:Rect id="picmask" 
+						left="0" right="0" top="0" bottom="0"
+						width="70" height="74"
+						topLeftRadiusX="30" topLeftRadiusY="30" bottomLeftRadiusX="{bildradius}" bottomLeftRadiusY="{bildradius}" bottomRightRadiusX="30" bottomRightRadiusY="30" >
+					<s:fill>
+						<s:SolidColor color="0x000000"/>
+					</s:fill>
+				</s:Rect>
+			</s:Group>
+		</s:mask>
+	</s:BitmapImage>
+	<fx:Declarations>
+		<s:DropShadowFilter color="#000000" distance="6" alpha="0.28" angle="92.3" blurX="6" blurY="6" id="shadowFilter"/>
+	</fx:Declarations>
+</s:ItemRenderer>

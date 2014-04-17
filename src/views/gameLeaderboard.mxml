@@ -1,0 +1,722 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark" title=""
+		xmlns:components="components.*"
+		 creationComplete="addContent();" actionBarVisible="false" height="100%" tabBarVisible="false" initialize="init(event)"
+		 backgroundColor="#f4e38b" backgroundAlpha="0" 
+		 viewDeactivate="viewDeactivateHandler(event)" viewActivate="viewActivateHandler(event)"
+		>
+
+	<s:states>
+		<s:State name="normal"/>
+		<s:State name="messageWindow"/>
+	</s:states>
+	
+	
+	<fx:Declarations>
+		<s:Move id="showConsoleFX" yFrom="{currentConsolePos}" yTo="{currentConsolePos-80}" duration="300" target="{console}" effectEnd="currentConsolePos=console.y;" />
+		<s:Move id="hideConsoleFX" yFrom="{currentConsolePos}" yTo="{currentConsolePos+80}" duration="300" target="{console}" effectEnd="currentConsolePos=console.y;" />
+		
+		<s:DateTimeFormatter id="dateFormatter" dateTimePattern="yyyy-MM-dd " errorText="-" />
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			import mx.controls.SWFLoader;
+			import mx.core.UIComponent;
+			import mx.events.FlexEvent;
+			import mx.events.TouchInteractionEvent;
+			
+			import spark.events.ViewNavigatorEvent;
+			import spark.formatters.DateTimeFormatter;
+			
+			import classes.GlobalConstants;
+			
+			import events.CompetitionEvent;
+			import events.ContestantEvent;
+			import events.DialogEvent;
+			import events.GameEvent;
+			import events.PetEvent;
+			
+			import models.ContestantVO;
+			
+			[Bindable]
+			private var highscores:ArrayCollection = new ArrayCollection();
+			 
+			[Bindable]
+			private var currentConsolePos:uint=1200;
+			
+			private var competitionID:String="";
+			private var currentCompetitionID:Number=0;
+			private var currentFeedEntryID:String="";
+			public var myCurrentVoteEntryID:String="";
+			
+			[Bindable]
+			private var totalvotes:int=0;
+			
+			[Bindable]
+			private var daysleft:int=0;
+			
+			[Bindable]
+			private var daystostart:int=0;
+			
+			[Bindable]
+			private var startdate:String="";
+			[Bindable]
+			private var enddate:String="";
+			
+			private var rulestext:String="";
+			private var prizetext:String="";
+			private var prizeImage:String="";
+			
+			private var gameURL:String="";
+			
+			private var soundURL:String="";
+			
+			private var entered:Boolean=false;
+			
+			private function addContent():void {
+				
+				//checkIfActiveConsole();
+ 
+				entered = data.entered;
+				competitionID = data.competitionID;
+				
+			  
+				getCompetitionDetails();
+			}
+			
+			
+			public function scrollToVisible():void {
+				//Make selected item visible. 225 = item height + gap
+				endScrollPos = (highscoreList.selectedIndex * 225);	
+				
+				startSmoothScroll();
+			}
+			
+			//SMOOTH VERTICAL LIST-SCROLL
+			private var currentScrollPos:Number=0;
+			private var endScrollPos:Number=0;
+			private var scrollVelocity:Number=5;
+			private var scrollDelay:Number=1;	//every 2 ms
+			private var scrollDirection:int=-1;
+			private var intervalId:uint;
+			
+			private function startSmoothScroll():void {
+				if(endScrollPos>highscoreList.scroller.contentMouseY)
+					scrollDirection=-1;													//boardList.scroller.maxVerticalPosition = 870    boardList.scroller.contentMouseY=256
+				else
+					scrollDirection=1;
+				currentScrollPos = contestantTile.verticalScrollPosition+listGroup.y;
+				intervalId = setInterval(animateScrolling,scrollDelay);
+			}
+			
+			private function animateScrolling():void {
+				
+				currentScrollPos = currentScrollPos - (scrollVelocity*scrollDirection);
+				contestantTile.verticalScrollPosition = currentScrollPos;
+				
+				if(scrollDirection==1 && currentScrollPos <= endScrollPos)
+					clearInterval(intervalId);
+				else if(scrollDirection==-1 && currentScrollPos >= endScrollPos)
+					clearInterval(intervalId);
+				
+			}
+			
+
+			 
+			
+		 	/************************************************
+			 * 	Get competition detail from server			*
+			 * 												*
+			 ************************************************/
+				
+			private function getCompetitionDetails():void {
+				var datanum:int = data.competitionID as int;
+				competitionID = datanum.toString();
+				
+				if(competitionID.length>0) {
+					parentApplication.myCompetitionDAO.addEventListener(CompetitionEvent.COMPETITION_GETCOMPETITIONDETAIL_READY,competitionReady);
+					parentApplication.myCompetitionDAO.restGetCompetitionDetail(competitionID);
+					
+				}
+			} 
+			
+			private function competitionReady(event:CompetitionEvent):void {
+				 
+				titleLabel.text = event.data.title;
+				 
+				gameURL = event.data.gameURL;
+				
+				if(event.data.field_competition_prize.hasOwnProperty("und"))
+					prizetext = event.data.field_competition_prize.und[0].value;
+				
+				if(event.data.field_competition_prize_image.hasOwnProperty("und"))
+					prizeImage = GlobalConstants.AMAZON_URL + event.data.field_competition_prize_image.und[0].uri.slice(5,event.data.field_competition_prize_image.und[0].uri.length);
+				
+				//SOUND
+				if(event.data.field_competition_soundurl !=null && event.data.field_competition_soundurl.hasOwnProperty("und") && event.data.field_competition_soundurl.und[0].value.length>0) {
+					if(event.data.field_competition_soundurl.und[0].value.substr(0,6) == "assets")
+						soundURL = event.data.field_competition_soundurl.und[0].value;	//internal
+					else
+						soundURL = GlobalConstants.AMAZON_URL+event.data.field_competition_soundurl.und[0].value;	//external
+					
+					//play general game sound
+					if(soundURL.length>0)	
+						parentApplication.audioUtil.playSoundFX(soundURL);
+				}
+			
+				setPosterImage();
+				
+				parentApplication.myCompetitionDAO.removeEventListener(CompetitionEvent.COMPETITION_GETCOMPETITIONDETAIL_READY,competitionReady);
+				
+			 
+				if(event.data.field_competition_date!=null) {
+					startdate = event.data.field_competition_date.und[0].value.substr(0,10);
+					enddate = event.data.field_competition_date.und[0].value2.substr(0,10); 
+					daystostart = calculateDayDifference(event.data.field_competition_date.und[0].value);	//startdate and now
+					daysleft = calculateDayDifference(event.data.field_competition_date.und[0].value2); //enddate and now
+				}
+				
+				if(event.data.feld_competition_status=="2" || event.data.field_competition_status=="3") {
+					closedGroup.visible=true;
+					playgameButton.enabled=false;
+				}
+				
+				
+				//get highscore-list
+				parentApplication.isBusy(parentApplication.Language.game_leaderboard_busy);
+				parentApplication.myCompetitionDAO.removeEventListener(GameEvent.GETSCORE_READY,highscoresReady);
+				parentApplication.myCompetitionDAO.removeEventListener(GameEvent.GETSCORE_FAILED,highscoresFailed);
+				parentApplication.myCompetitionDAO.addEventListener(GameEvent.GETSCORE_READY,highscoresReady);
+				parentApplication.myCompetitionDAO.addEventListener(GameEvent.GETSCORE_FAILED,highscoresFailed);
+				parentApplication.myCompetitionDAO.restGetGameScores(competitionID);
+			}
+			
+			/************************************************
+			 * 	Get highscoreList from server				*
+			 * 												*
+			 ************************************************/
+			private function highscoresFailed(event:GameEvent):void {
+				parentApplication.notBusy();
+				
+				parentApplication.myCompetitionDAO.removeEventListener(GameEvent.GETSCORE_READY,highscoresReady);
+				parentApplication.myCompetitionDAO.removeEventListener(GameEvent.GETSCORE_FAILED,highscoresFailed);
+			}
+			
+			private function highscoresReady(event:GameEvent):void {
+			
+				parentApplication.notBusy();
+				highscores.removeAll();
+				var currpos:uint=1;
+				for each(var obj:Object in event.data) {
+					obj.currentPosition = currpos;	
+					highscores.addItem(obj);
+					currpos++;
+				}
+				
+				parentApplication.myCompetitionDAO.removeEventListener(GameEvent.GETSCORE_READY,highscoresReady);
+				parentApplication.myCompetitionDAO.removeEventListener(GameEvent.GETSCORE_FAILED,highscoresFailed);
+			}
+			
+			
+			// DATE FORMATTING
+			private function parseDate( str : String ) : Date {
+				var matches : Array = str.match(/(\d\d\d\d)-(\d\d)-(\d\d)/);
+				var d : Date = new Date();
+				
+				d.setUTCFullYear(int(matches[1]), int(matches[2]) - 1, int(matches[3]));
+				
+				return d;
+			}
+		 
+			private function calculateDayDifference(in_date:String):int {
+				
+				if(in_date!=null) {
+					
+					var dateCommonFormatter:DateTimeFormatter = new DateTimeFormatter();
+					dateCommonFormatter.dateTimePattern = "YYYY-MM-DD";
+					
+					in_date = in_date.substr(0,10);
+					                              
+					var dateFromString:Date = parseDate(in_date);
+					const millisecondsPerDay:int = 1000 * 60 * 60 * 24;
+					var milliseconds:Number = dateFromString.time;  
+					var today:Number = new Date().time;
+					var diff:Number = (today - milliseconds) / millisecondsPerDay;
+					 
+					return Math.abs(Math.round(diff));
+				}
+				else 
+					return -1;
+			}
+		
+			
+			 
+			/************************************************************
+			 * PRIZE POPUP												*
+			 * 															*
+			 ************************************************************/
+			public function showPrize():void {
+				currentState="messageWindow";
+				popupMessageTitle.text = parentApplication.Language.gamedetail_popup_price_title;	//"Prize";
+				prizeImageObject.source = prizeImage;
+				popupMessageDescription.text = prizetext;
+			}
+			
+			
+			//-------------------------------
+			
+			private function back():void {
+				parentApplication.competeNav.popView();
+			}
+			
+			
+			protected function showHighscoreDetail(event:MouseEvent):void {
+				if( highscoreList.selectedItem != undefined) {
+					parentApplication.myPetDAO.addEventListener(PetEvent.PET_GET_THIS_PET_READY,highscorerFound);
+					parentApplication.myPetDAO.restGetThisPet(highscoreList.selectedItem.pid);
+				}
+			}
+			
+			private function highscorerFound(event:PetEvent):void {
+				currentState="messageWindow";
+				popupMessageTitle.text=parentApplication.Language.gamedetail_popup_highscore_title;	//"Highscore";
+																				//got lucky and scored 																				points on																																				Beat that!
+				popupMessageDescription.text = event.data.title + " " + parentApplication.Language.gamedetail_popup_highscore_body1 +" " + highscoreList.selectedItem.score + " " + parentApplication.Language.gamedetail_popup_highscore_body2 + " " + dateFormatter.format(highscoreList.selectedItem.timestamp*1000)+". " + parentApplication.Language.gamedetail_popup_highscore_body3;	//profilbild = uri
+			}
+			
+			/************************************************************
+			 * CONSOLE ANIMATION										*
+			 * 															*
+			 ************************************************************/
+			private function checkIfActiveConsole():void {
+				if(currentConsolePos != (this.height-console.height)) {
+//					showConsoleFX.play();
+					consoleButtons.mouseEnabled=true;
+				}
+				
+			}
+			
+			protected function scrollStart(event:TouchInteractionEvent):void
+			{
+				if(currentConsolePos==(this.height - console.height)) {
+//					hideConsoleFX.play();
+				}
+			}
+			
+			protected function viewDeactivateHandler(event:ViewNavigatorEvent):void {
+				parentApplication.stopBGvideo();
+				//parentApplication.bg.visible=true;
+//				showConsoleFX.play();
+			}
+			
+			
+			/************************************************************
+			 * ACTIONS													*
+			 * 															*
+			 ************************************************************/
+			
+			private function viewClip():void {
+				
+			}
+			
+			
+			/************************************************************
+			 * GAME														*
+			 * 															*
+			 ************************************************************/
+			import flash.media.StageWebView;
+			import mx.core.UIComponent;
+			
+			private var container:UIComponent;
+			private var game:SWFLoader = new SWFLoader();
+			
+			private function startGame():void {
+				parentApplication.gameButtons.visible=true;
+				parentApplication.tabnav.visible=false;
+				parentApplication.petitbg.visible=false;
+				parentApplication.skinbg.visible=false;
+				parentApplication.feedNav.activeView.visible=false;
+				parentApplication.toast.visible=false;
+				
+				if(game==null)
+					game=new SWFLoader();
+				
+				container = new UIComponent(); 
+				container.x=0;
+				container.y=0;
+				container.width = 640;//parentApplication.myStage.stageWidth; 
+				container.height = 1024; //parentApplication.myStage.stageHeight; 
+	
+				addElement( container ); 
+				
+				game.source = gameURL;
+//				game.scaleContent=true;
+game.source="/assets/games/ffTalkSwf.swf";
+//				game.rotation=90;
+//				game.width=640;
+//				game.height=1024;
+				container.addChild(game); 	
+			
+				
+				parentApplication.addEventListener(GameEvent.END_GAME,stopGame);
+			}
+			
+			private function stopGame(event:GameEvent):void {
+				parentApplication.tabnav.visible=true;
+				parentApplication.gameButtons.visible=false;
+				parentApplication.petitbg.visible=true;
+				parentApplication.skinbg.visible=true;
+				parentApplication.feedNav.activeView.visible=true;
+				parentApplication.toast.visible=true;
+				
+				//game.source=null;
+				//if(game.source!=null)
+					//game.unloadAndStop(false); //låser allt
+				
+				game.source=null;
+				container.removeChild(game); 
+				removeElement( container );
+				
+				parentApplication.removeEventListener(GameEvent.END_GAME,stopGame);
+			}
+		 
+			private function startNormalGame():void {
+				normalgame.visible=true;
+				normalgame.source="/assets/games/ffTalkSwf.swf";
+				normalgame.x=0;
+				normalgame.bottom=200;
+				normalgame.height=700;
+				normalgame.needsSoftKeyboard=true;
+				normalgame.scaleContent=true;
+			//	normalgame.rotation=-90;
+//				this.addElement(normalgame);
+				
+			}
+			
+			private function setPosterImage():void {
+			
+				if(data.gameURL=="internal-namegame") {
+					bigbgposter.source = "/assets/posters/namegameposter.png";
+					bgposter.source="/assets/posters/namegameposter_thumb.png";
+				}
+				else if(data.gameURL=="internal-pairgame") {
+					bigbgposter.source = "/assets/posters/pairgameposter.png";
+					bgposter.source="/assets/posters/pairgameposter_thumb.png";
+				}
+				else if(data.gameURL=="internal-petapetgame") {
+					bigbgposter.source = "/assets/posters/bulldoggameposter.png";
+					bgposter.source="/assets/posters/bulldoggameposter_thumb.png";
+				}
+				else if(data.gameURL=="internal-puzzlegame") {
+					bigbgposter.source = "/assets/posters/puzzlegameposter.png";
+					bgposter.source="/assets/posters/puzzlegameposter_thumb.png";
+				}
+				else if(data.gameURL=="internal-columngame") {
+					bigbgposter.source = "/assets/posters/columngameposter.png";
+					bgposter.source="/assets/posters/columngameposter_thumb.png";
+				}
+				else 
+					bgposter.source=null;	//DEFAULT BILD?
+				
+			}
+			
+			private function startGameSelector():void {
+				
+				//First make sure we're registered in the game - if we're logged in
+				if(parentApplication.smorgasbordLoggedin) {
+					parentApplication.myCompetitionDAO.addEventListener(GameEvent.GET_HIGHSCORE,gotGameScore);
+				}
+				
+				if(data.gameURL=="internal-namegame") {
+					startNameGame();
+				}
+				else if(data.gameURL=="internal-pairgame") {
+					startPairGame();
+				}
+				else if(data.gameURL=="internal-petapetgame") {
+					startPetapetGame();
+				}
+				else if(data.gameURL=="internal-puzzlegame") {
+					startPuzzleGame();
+				}
+				else if(data.gameURL=="internal-columngame") {
+					startColumnGame();
+				}
+				else 
+					startNormalGame();
+			}
+
+			private function startNameGame():void {
+				parentApplication.gotoNameGame();
+			}
+			
+			private function startPairGame():void {
+				parentApplication.gotoPairGame();
+			}
+			
+			private function startPetapetGame():void {
+				parentApplication.gotoPetapetGame();
+			}
+			
+			private function startPuzzleGame():void {
+				parentApplication.gotoPuzzleGame();
+			}
+			
+			private function startColumnGame():void {
+				parentApplication.gotoColumnGame();
+			}
+			
+			private function gotGameScore(event:GameEvent):void {
+				var score:int = event.data.score;
+				
+				parentApplication.myCompetitionDAO.addEventListener(GameEvent.SETSCORE_READY,setScoreReady);
+				parentApplication.myCompetitionDAO.restSetGameScore(competitionID,parentApplication.myPetDAO.currentPetID.toString(),score.toString()); //server checks if it's highscore or not
+				
+				parentApplication.myCompetitionDAO.removeEventListener(GameEvent.GET_HIGHSCORE,gotGameScore);
+			
+				checkIfBadge(score);
+			}
+			
+			private function setScoreReady(event:GameEvent):void {
+				
+				//kolla event.data om det var highscore/man kom in på listan. Isf trumpetljud				OBS! Setscore får bara true/false nu. 
+/*				if(event.data=="[1]") {
+					parentApplication.audioUtil.playSoundFX("/assets/soundfx/success.mp3");
+					parentApplication.showToastFX("HIGHSCORE!!!");
+				}
+*/				
+				// Ladda om highscore
+				parentApplication.myCompetitionDAO.restGetGameScores(competitionID);
+				
+				parentApplication.myCompetitionDAO.removeEventListener(GameEvent.SETSCORE_READY,setScoreReady);
+			}
+			
+			private function checkIfBadge(score:int):void {
+				switch(data.gameURL) {
+					case "internal-namegame":
+						if(score>699)
+							parentApplication.showToastFX("You earned a badge!");
+					//		parentApplication.myPetDAO.setBadge(competitionID);
+						break;
+					case "internal-pairgame":
+						if(score>4999)
+							parentApplication.showToastFX("You earned a badge!");
+					//		parentApplication.myPetDAO.setBadge(competitionID);
+						break;
+					case "internal-petapetgame":
+						if(score>1299)
+							parentApplication.showToastFX("You earned a badge!");
+					//		parentApplication.myPetDAO.setBadge(competitionID);
+						break;
+					case "internal-puzzlegame":
+						if(score>49999)
+							parentApplication.showToastFX("You earned a badge!");
+						//	parentApplication.myPetDAO.setBadge(competitionID);
+							break;
+					case "internal-columngame":
+						if(score>999)
+							parentApplication.showToastFX("You earned a badge!");
+						//	parentApplication.myPetDAO.setBadge(competitionID);
+							break;
+
+				}
+			}
+			
+			
+			
+			/************************************************
+			 * 	ENTER COMPETITION							*
+			 * 												*
+			 ************************************************/
+			private function enterCompetition():void {
+				parentApplication.myCompetitionDAO.addEventListener(CompetitionEvent.COMPETITION_ENTERCOMPETITION_READY,enterCompetitionReady);
+				parentApplication.myCompetitionDAO.addEventListener(CompetitionEvent.COMPETITION_ENTERCOMPETITION_FAILED,enterCompetitionFailed);
+				parentApplication.myCompetitionDAO.restEnterCompetition(competitionID,"0");	//0 since we don't have a video etc.
+			}
+			private function enterCompetitionReady(event:Event):void {
+				parentApplication.showToastFX(parentApplication.Language.gamedetail_register_success,true);	//You're registered!
+				
+				//clean
+				parentApplication.myCompetitionDAO.removeEventListener(CompetitionEvent.COMPETITION_ENTERCOMPETITION_READY,enterCompetitionReady);
+				parentApplication.myCompetitionDAO.removeEventListener(CompetitionEvent.COMPETITION_ENTERCOMPETITION_READY,enterCompetitionFailed);
+			}
+			private function enterCompetitionFailed(event:Event):void {
+				parentApplication.showToastFX(parentApplication.Language.gamedetail_register_failed,true);	//Registration failed
+				//clean
+				parentApplication.myCompetitionDAO.removeEventListener(CompetitionEvent.COMPETITION_ENTERCOMPETITION_READY,enterCompetitionReady);
+				parentApplication.myCompetitionDAO.removeEventListener(CompetitionEvent.COMPETITION_ENTERCOMPETITION_READY,enterCompetitionFailed);				
+			}
+			
+			//***********************************************
+			
+			protected function viewActivateHandler(event:ViewNavigatorEvent):void
+			{
+				parentApplication.startBGvideo();
+				parentApplication.bg.visible=false;
+				currentConsolePos = (this.height - console.height);
+				
+				//play competition sound
+				if(soundURL.length>0)	
+					parentApplication.audioUtil.playSoundFX(soundURL);
+			}
+			 
+			/************************************************
+			 * 	FLASH/SWF COMMUNICATION						*
+			 * 												*
+			 ************************************************/
+			
+			import com.fincanon.events.FFTalkEvent;
+			
+			[Bindable]
+			private var flashSaid:String = "";
+			private var mySwfMc:MovieClip;
+			
+			private function setSwfMc(event:Event):void {
+				mySwfMc = event.target.content as MovieClip;
+				mySwfMc.addEventListener(FFTalkEvent.TALK_TO_FLEX,listenToFlash);
+				this.addEventListener(FFTalkEvent.TALK_TO_FLASH,mySwfMc.listenToFlex);
+				
+				talkToFlash("Hi flash, how are you?");
+			}
+			
+			private function listenToFlash(e:FFTalkEvent):void{
+				flashSaid = e.said;
+			}
+			
+			private function talkToFlash(stringToPass:String):void{
+				dispatchEvent(new FFTalkEvent(FFTalkEvent.TALK_TO_FLASH,false,false,stringToPass))
+			}
+			 
+			
+			protected function init(event:FlexEvent):void
+			{
+				//currentConsolePos=1200;	//start invisible
+			}
+			
+		]]>
+	</fx:Script>
+	<s:BitmapImage id="bigbgposter" visible="true" horizontalCenter="0" y="150" alpha="0.86" scaleMode="stretch" scaleX="1.4" scaleY="1.4" smooth="true"
+				   fillMode="scale" source="" 
+				   />
+	<s:Rect	width="100%" height="100%" minHeight="960" minWidth="640">
+		<s:fill>
+			<s:LinearGradient rotation="90">
+				<s:GradientEntry color="#000000" alpha="1.0"/>
+				<s:GradientEntry color="#000000" alpha="0.5"/>
+				<s:GradientEntry color="#000000" alpha="0.5"/>
+				<s:GradientEntry color="#000000" alpha="1.0"/>
+			</s:LinearGradient>
+			
+		</s:fill>
+	</s:Rect>
+	
+	<s:VGroup id="listGroup" visible="true" left="0" top="170" bottom="0"
+			  horizontalAlign="center" horizontalCenter="0"  
+			  paddingTop="0">
+		<s:List id="highscoreList" width="90%" height="100%" minHeight="700" cacheAsBitmap="false" click="showHighscoreDetail(event)" allowMultipleSelection="false"
+				contentBackgroundAlpha="0" dataProvider="{highscores}" horizontalScrollPolicy="off"
+				interactionMode="touch" itemRenderer="Renderers.gameListRenderer" touchInteractionStart="scrollStart(event)"
+				pageScrollingEnabled="false" skinClass="spark.skins.mobile.ListSkin"
+				verticalScrollPolicy="on"><!--cacheAsBitmap="false"-->
+			<s:layout>
+				<s:VerticalLayout id="contestantTile" horizontalAlign="center" verticalScrollPosition="-10"
+								  paddingBottom="40" paddingLeft="0" 
+								  gap="1"
+								  paddingTop="0"/>
+			</s:layout>
+		</s:List>
+	</s:VGroup>
+	
+	<s:Rect id="textbackground" height="170" width="100%" right="0" top="0" filters="{shadowFilter}"
+			visible="true" alpha="0.93"
+			bottomLeftRadiusX="15" bottomLeftRadiusY="15"
+			bottomRightRadiusX="15" bottomRightRadiusY="15"
+			>
+		<s:fill>
+			<s:SolidColor color="#fff7ea" alpha="1"/>
+		</s:fill>
+	</s:Rect>
+	
+	<s:BitmapImage id="bgposter" visible="true" left="20" top="5" height="160" width="125" alpha="1" clearOnLoad="true"
+				   fillMode="scale"  
+				   />
+	<!--s:BitmapImage right="20" top="25" height="120" source="/assets/skin/Competition_icon.png" scaleMode="stretch"/-->
+
+	<s:SWFLoader id="normalgame" left="0" top="0" height="100%" width="100%"  scaleContent="true" complete="setSwfMc(event)" visible="false"/>
+	<s:VGroup left="160" top="5" gap="3">
+		<s:Label width="281" height="30" fontSize="30" text=" " id="titleLabel" fontFamily="MyriadPro" fontWeight="bold"/>
+		<s:Label text="{daysleft} {parentApplication.Language.leaderboard_head_daysleft}"  fontFamily="MyriadPro" fontSize="30"/>
+		<s:Label text="{daystostart} {parentApplication.Language.leaderboard_head_daysrun}" fontFamily="MyriadPro" fontSize="30"/>
+		<s:HGroup>
+			<s:Label text="{parentApplication.Language.leaderboard_head_startdate}" fontFamily="MyriadPro" fontSize="30"/>
+			<s:Label text="{startdate}" fontFamily="MyriadPro" fontSize="30" fontWeight="bold"/>
+		</s:HGroup>
+		<s:HGroup>
+			<s:Label text="{parentApplication.Language.leaderboard_head_enddate} " fontFamily="MyriadPro" fontSize="30"/>
+			<s:Label text="{enddate}" fontFamily="MyriadPro" fontSize="30" fontWeight="bold"/>
+		</s:HGroup>
+	</s:VGroup>
+	 
+	<!-- CLOSED/FINISHED -->
+	<s:Group id="closedGroup">
+		<s:Rect id="darkerBG" height="100%" width="100%">
+			<s:fill>
+				<s:LinearGradient rotation="90">
+					<s:GradientEntry color="#000000" alpha="0.0"/>
+					<s:GradientEntry color="#000000" alpha="0.8"/>
+					<s:GradientEntry color="#000000" alpha="0.0"/>
+				</s:LinearGradient>
+			</s:fill>
+		</s:Rect>
+	</s:Group>
+	
+	<!--MENU-->
+	<s:Group id="console" bottom="0" width="100%" >
+		<s:BitmapImage source="@Embed('/assets/skin/menu/Petiit_Console.png')" scaleMode="stretch" bottom="0" width="100%"/>
+		<s:HGroup bottom="0" width="100%" horizontalAlign="center" gap="0" left="-8" id="consoleButtons">
+			<components:menuButton id="backButton" click="back();" label="{parentApplication.Language.general_back.toUpperCase()}"/>
+			<components:menuButton id="prizeButton" click="showPrize(); " label="{parentApplication.Language.gamedetail_button_prize}"/>
+			<components:menuButton id="playgameButton" click="startGameSelector();" label="{parentApplication.Language.gamedetail_button_playgame}"/>
+		</s:HGroup>
+	</s:Group>
+	
+	<!--MESSAGE WINDOW-->
+	<s:Group width="640" height="960" x="0" y="0" includeIn="messageWindow" id="popupMessageWindow">
+		<s:Rect	width="640" height="100%" minHeight="960">
+			<s:fill>
+				<s:SolidColor color="#000000" alpha="0.7"/>
+			</s:fill>
+		</s:Rect>
+		
+		<s:Group width="580" verticalCenter="-20" horizontalCenter="0" height="700">
+			<s:Rect x="0" y="0" radiusX="30" radiusY="30" width="580" height="700" filters="{shadowFilter}" >
+				<s:fill>
+					<s:BitmapFill source="@Embed('/assets/skin/BG.png')" fillMode="repeat" alpha="0.9"/>
+				</s:fill>
+			</s:Rect>
+			<s:Rect x="10" y="10" radiusX="30" radiusY="30" width="560" height="680">
+				<s:fill>
+					<s:SolidColor color="#ffffff" alpha="0.5"/>
+				</s:fill>
+			</s:Rect>
+			<!--s:BitmapImage horizontalCenter="0" y="-46" source="/assets/images/logo_small.png"/-->
+			<s:Label id="popupMessageTitle" width="520" color="#976a97"  paddingLeft="10" paddingBottom="10" paddingRight="10" paddingTop="20"
+					 fontFamily="MyriadPro" fontSize="44" horizontalCenter="0" fontWeight="bold"
+					 text="" textAlign="center" verticalAlign="middle" verticalCenter="-255"/>	
+			<s:Label id="popupMessageDescription" width="520" height="430" color="#976a97" fontFamily="MyriadPro" paddingLeft="10" paddingBottom="10" paddingRight="10" paddingTop="60"
+					 fontSize="36" fontWeight="normal" horizontalCenter="0" text="---" 
+					 textAlign="left" verticalCenter="-10"/>	
+			<s:BitmapImage id="prizeImageObject" horizontalCenter="0" bottom="170"/>
+			<s:HGroup width="400" horizontalAlign="center" horizontalCenter="0" bottom="50">
+				<components:violetButton id="okButton" width="250" label="{parentApplication.Language.general_ok}" click="currentState='normal'"/>
+			</s:HGroup>
+		</s:Group>
+	</s:Group>
+	
+	<fx:Declarations>
+		<s:DropShadowFilter color="#000000" distance="6" alpha="0.28" angle="92.3" blurX="6" blurY="6" id="shadowFilter"/>
+	</fx:Declarations>
+</s:View>

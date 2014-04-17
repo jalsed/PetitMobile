@@ -1,0 +1,667 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark" title="main" xmlns:components="components.*"
+		actionBarVisible="false" height="100%" tabBarVisible="false" currentState="start"
+		 viewActivate="viewActivateHandler(event)" viewDeactivate="viewDeactivateHandler(event)" backgroundAlpha="0"
+		>
+	
+	
+	<s:states>
+		<s:State name="playing"/>
+		<s:State name="start"/>
+		<s:State name="finish"/>
+	</s:states>
+	
+	<fx:Script>
+		<![CDATA[
+			import flash.display.Bitmap;
+			import flash.display.Loader;
+			import flash.display.Sprite;
+			import flash.events.Event;
+			import flash.filters.BlurFilter;
+			import flash.net.URLRequest;
+			import flash.utils.clearInterval;
+			import flash.utils.setInterval;
+			
+			import mx.core.UIComponent;
+			
+			import spark.events.ViewNavigatorEvent;
+			
+			import events.GameEvent;
+			
+			import flashx.textLayout.elements.BreakElement;
+			
+		 
+			[Bindable]
+			private var level:int=1;
+			[Bindable]
+			private var points:int=0;
+			[Bindable]
+			private var correct:int=0;
+			 
+			private var starttime:Number=0;
+			[Bindable]
+			private var playedtime:Number=0;
+			
+			private var ongoing:Boolean=false;
+			
+			private var timeinterval:int;
+			private var interval1:int;
+	 
+			
+			private function startGame():void {
+				currentState="playing";
+				 
+				parentApplication.audioUtil.stopSoundFX();
+				parentApplication.audioUtil.decreaseBackgroundMusicVolume();
+				
+				points=0;
+			 	correct=0;
+			 
+				starttime= new Date().time;
+					
+				initGame();
+				
+			}
+			
+			private function giveUp():void  {
+			 	playedtime=1000;
+				endGame();
+			}
+			
+			private function endGame():void {
+				currentState="finish"; 
+				clearInterval(interval1);
+				clearInterval(timeinterval);
+				
+				var endtime:Number = new Date().time;
+				
+				playedtime = (endtime - starttime)/1000;
+			//	startButton.visible=true;
+			
+				columnGroup.removeAllElements(); 
+			 
+				parentApplication.audioUtil.increaseBackgroundMusicVolume();
+				
+				var bonus:int = 500 - Math.round(playedtime);
+				if(bonus<0)
+					bonus=0;
+				points = points + bonus;
+			
+				resultMessage.text="";	//FINISHED
+				parentApplication.audioUtil.playSoundFX("/assets/soundfx/comedy_accent_bonks_razz_twang.mp3");
+				
+				finishButton.visible=true;
+				pointsFinishText.visible=true;
+				
+				var obj:Object=new Object();
+				obj.score = points;
+				parentApplication.myCompetitionDAO.dispatchEvent(new GameEvent(GameEvent.GET_HIGHSCORE,obj));
+			}
+			
+			
+			protected function viewActivateHandler(event:ViewNavigatorEvent):void
+			{
+				parentApplication.startBGvideo();
+				parentApplication.bg.visible=false;
+				currentState="start";
+				parentApplication.audioUtil.loadBackgroundMusic("music3.mp3",0);
+
+			}
+			
+			protected function musicon_checkbox_changeHandler(event:Event):void
+			{
+				if(!musiccheckbox.selected)
+					parentApplication.audioUtil.stopBackgroundMusic();
+				else {
+					parentApplication.audioUtil.loadBackgroundMusic("music3.mp3",0);
+				}
+			}
+			
+	 
+			
+			private function back():void {
+				parentApplication.audioUtil.stopBackgroundMusic();
+				parentApplication.audioUtil.stopSoundFX();
+				parentApplication.competeNav.popView();
+			}
+			
+			protected function viewDeactivateHandler(event:ViewNavigatorEvent):void
+			{
+				parentApplication.stopBGvideo();
+				parentApplication.bg.visible=true;
+			}
+			
+			 
+		 
+	  		 
+			private function updatetime():void {
+				var currenttime:Number = new Date().time;
+				playedtime = (currenttime - starttime)/1000;	
+			}
+			 
+			
+			private function nextLevel():void {
+				var endtime:Number = new Date().time;
+				playedtime = (endtime - starttime)/1000;
+				
+				var bonus:int = 0;
+				
+				bonus = 5000 - Math.round(playedtime*10);
+					
+				if(bonus<0)
+					bonus=0;
+			
+				points = points + bonus;
+				
+				starttime= new Date().time;
+				parentApplication.audioUtil.stopSoundFX();
+				
+				level++;
+				
+				nextlevelText.visible=true;
+				
+				if(playedtime<(100+(level*15))) {	//within 3 min?
+					nextlevelText.text=points + " " + parentApplication.Language.game_pairgame_nextlevel+" " + level+".";//points so far! Prepare for level "+level+".";
+					clearInterval(interval1);	
+					interval1 = setInterval(nextLevelStep2,3500);
+				}
+				else {
+					nextlevelText.text="Well done! But try to do it faster to get to the next level";
+					clearInterval(interval1);
+					interval1 = setInterval(endGame,3500);					
+				}
+
+			}
+			
+			private function nextLevelStep2():void {
+				
+				clearInterval(interval1);
+				nextlevelText.visible=false;
+				
+				correct=0;
+				
+				starttime= new Date().time;
+				
+			 	initGame();
+			}
+			
+			
+			//COLUMN ORG. CODE ---------------------------------------------------------------------------------
+			
+			//COLUMNS par Walter Siracusa
+			
+			private const TAB_LG:uint=6; //Largeur de la table (en cases)
+			private const TAB_HT:uint=13; //Hauteur
+			
+			private const BLK_LG:uint=32; //Largeur d'un bloc (en pixels)
+			private const BLK_HT:uint=32; //Hauteur
+			private const BLK_EMPTY:uint=1; //Constante de vide dans la table Tab (associée à l'image-clé 1 du clip blk_mc)
+			private const BLK_LINE:uint=3; //Nb de blocs mininum pour valider un alignement
+			
+			//Les états du jeu :
+			private const STATE_MOVE:uint=1; //Descente déplacement au clavier des 3 blocs
+			private const STATE_LINE:uint=2; //Détruit les blocs alignés
+			private const STATE_FALL:uint=3; //Chute de blocs au dessus du vide
+			
+			//--------------------------------
+			
+			private var Tab:Array=new Array();
+			private var Tab_bool:Array=new Array();
+			private var Tab_blk:Array=new Array();
+			private var currState:uint;
+			private var Current1:uint,Current2:uint,Current3:uint;
+			private var Next1:uint,Next2:uint,Next3:uint;
+			private var Breaking:Boolean=false;
+			private var Key_UP:Boolean; //Etat de la touche UP (false = relâché, true = enfoncée)
+			private var Timer0_drop:uint;
+			private var Score:uint=0;
+			
+			private var Blk_container:Sprite = new Sprite(); 
+		 		
+			[Embed(source="/assets/characters/icons/CoolCat.png")]
+			public static const pet1:Class;
+			[Embed(source="/assets/characters/icons/Dog.png")]
+			public static const pet2:Class;
+			[Embed(source="/assets/characters/icons/Piglet.png")]
+			public static const pet3:Class;
+			[Embed(source="/assets/characters/icons/Turtle.png")]
+			public static const pet4:Class;
+			[Embed(source="/assets/characters/icons/Petiitimals-Guinea-pig.png")]
+			public static const pet5:Class;
+			[Embed(source="/assets/characters/icons/Petiitimals-Rabbit.png")]
+			public static const pet6:Class;
+			
+			private var petsArray:Array = new Array(pet6,pet1,pet2,pet3,pet4,pet5,pet6);
+			
+ 			private var vt:int=2;	//vt=speed of bag
+			 
+			 
+			private function initGame():void {
+				//Créer la table de base, une table booléene temporaire et une table de référence des blocs
+				for(var i:uint=0;i<TAB_LG;i++){ 
+					Tab[i]=new Array(TAB_HT);
+					Tab_bool[i]=new Array(TAB_HT);
+					Tab_blk[i]=new Array(TAB_HT);
+				}
+				
+				//Construit la grille avec des occurences de blk_mc
+				for(var j:uint=0;j<TAB_HT;j++)
+					for(i=0;i<TAB_LG;i++){
+						Tab[i][j]=BLK_EMPTY;
+						var blk:UIComponent=new UIComponent();
+						Tab_blk[i][j]=blk;
+						blk.x=i*BLK_LG;
+						blk.y=j*BLK_HT;
+						Blk_container.addChild(blk);
+					}
+				
+				var container2:UIComponent = new UIComponent();
+				columnGroup.addElement( container2);
+				container2.addChild(Blk_container);  //Contient une grille remplie de blocs
+				
+ 
+				Next1=Math.floor(1+Math.random()*6);	//Slumpväljer mellan olika karaktärerna
+				Next2=Math.floor(1+Math.random()*6);
+				Next3=Math.floor(1+Math.random()*6);
+				initBag();
+				Timer0_drop=getTimer();
+				points = Score;
+			 
+				Breaking=false;
+				Key_UP=false;
+				currState=STATE_MOVE;
+				
+		 
+				addEventListener(Event.ENTER_FRAME,mainLoop);
+			}
+			
+			private function initBag():void {
+				Bag.y=-BLK_HT; //Démarre 1 case au dessus de la table
+				Bag.x=0;
+				
+				Current1=Next1;
+				Current2=Next2;
+				Current3=Next3;
+				
+				Next1=Math.floor(1+Math.random()*6);
+				Next2=Math.floor(1+Math.random()*6);
+				Next3=Math.floor(1+Math.random()*6);
+				
+				next1_mc.source = petsArray[Current1];
+				next2_mc.source = petsArray[Current2];
+				next3_mc.source = petsArray[Current3];
+				
+				setBag();
+			}
+			
+			private function setBag():void {
+				blk1_mc.source = petsArray[Current1];
+				blk2_mc.source = petsArray[Current2];
+				blk3_mc.source = petsArray[Current3];
+			}
+			
+			//--------------------------------
+			
+			private function mainLoop(evt:Event):void {
+				if(!Breaking){ //Aucun bloc en cours de destruction (valeur donnée dans la timeline de clip blk_mc)
+					switch(currState){
+						case STATE_MOVE: 
+							bagDown();
+							break;
+						case STATE_LINE:
+							blockLine();	//rad klar (rör sig inte längre)
+							break;
+						case STATE_FALL: 
+							blockFall();	//fixa påverkade pjäser efter borttagning av rad
+							break;
+					}
+					playedtime = Timer0_drop;
+				}
+			}
+			
+			private function keyboardDown(keytype:int):void {
+				//1 = up, 2= down, 3=left, 4=right
+				
+				if(currState==STATE_MOVE){
+					var i_blk:int=Math.floor(Bag.x/BLK_LG);
+					var j_blk:int=Math.floor(Bag.y/BLK_HT); //= -1 au départ
+					
+					//Touches enfoncées
+					if(keytype==3 && Bag.x>0 && (Tab[i_blk-1][j_blk+1]==BLK_EMPTY))
+						Bag.x-=BLK_LG;
+					else if(keytype==4 && Bag.x<(TAB_LG-1)*BLK_LG && (Tab[i_blk+1][j_blk+1]==BLK_EMPTY))
+						Bag.x+=BLK_LG;
+					else if(keytype==1){ //Rotation des blocs de bag
+						Key_UP=true;
+						var tmp:uint=Current3;
+						Current3=Current2;
+						Current2=Current1;
+						Current1=tmp;
+						setBag();
+					}else if(keytype==2)
+						 vt=8; //Vitesse de descente maximale de bag
+				}
+			}
+			
+			 
+			
+			private function bagDown():void {
+				if(getTimer()>Timer0_drop+1500){ //Temps passé
+					var i_blk:int=Math.floor(Bag.x/BLK_LG);
+					var j_blk:int=Math.floor((Bag.y)/BLK_HT);
+					
+					//Ne touche pas le fond de la grille et pas de bloc dessous => Chute de bag de vt pixels
+					if(Bag.y<(TAB_HT-1)*BLK_HT && (Tab[i_blk][j_blk+1]==BLK_EMPTY )){
+						next1_mc.source = petsArray[Next1]; //Affiche le bag suivant
+						next2_mc.source = petsArray[Next2];
+						next3_mc.source = petsArray[Next3];
+						Bag.y+=vt;
+					}else{
+						if(Bag.y==(-BLK_HT+vt)) gameOver(); //Colonne pleine => GAME OVER
+						else{ //Touche le fond ou un bloc => Modifie les blocs de la grille en rapport avec ceux de bag 
+							putBlk(i_blk,j_blk,Current1,1);
+							putBlk(i_blk,j_blk-1,Current2,2);
+							putBlk(i_blk,j_blk-2,Current3,3);
+							initBag(); //Nouveau bag
+							currState=STATE_LINE; //3 blocs posés => De nouveaux alignements ? => Mode LINE
+						}
+					}
+				} 
+			}
+			
+			private var counter:int=0;
+			
+			private function putBlk(i_blk:int,j_blk:int,val:uint,which:int):void {
+				if(j_blk>=0){ //N'écris pas hors de la table (cas ou bag déborde)
+					Tab[i_blk][j_blk]=val;
+//					Tab_blk[i_blk][j_blk].gotoAndStop(val);
+					
+					var stoppedbmp:BitmapImage = new BitmapImage();
+					stoppedbmp.source = petsArray[val];
+					columnGroup.addElement(stoppedbmp);
+					stoppedbmp.width=32;
+					stoppedbmp.height=32;
+
+					switch(which) {
+						case 1:
+							stoppedbmp.x= Bag.x+blk1_mc.x;
+							stoppedbmp.y= Bag.y+blk1_mc.y;//-72;
+							break;
+						case 2:
+							stoppedbmp.x= Bag.x+blk2_mc.x;
+							stoppedbmp.y= Bag.y+blk2_mc.y;//-72;
+							break;
+						case 3:
+							stoppedbmp.x= Bag.x+blk3_mc.x;
+							stoppedbmp.y= Bag.y+blk3_mc.y;//-72;
+							break;
+					}
+					
+					Tab_blk[i_blk][j_blk] = stoppedbmp;
+				}
+			}
+			
+			private function blockLine():void {
+				var val:uint;
+				var nb_blk:uint;
+				
+				Breaking=false;
+				
+				for(var j:int=0;j<TAB_HT;j++) //Initialise la table des booléens
+					for(var i:int=0;i<TAB_LG;i++) Tab_bool[i][j]=false;
+				
+				//Alignements horizontaux
+				for(j=0;j<TAB_HT;j++){
+					for(var i1:int=0;i1<TAB_LG;i1++){
+						if(Tab[i1][j]!=BLK_EMPTY){
+							val=Tab[i1][j];
+							nb_blk=0;
+							for(var i2:int=i1;i2<TAB_LG;i2++){
+								if(Tab[i2][j]==val) nb_blk++;
+								else{
+									i2--; //On ne compte pas le bloc qui est différent
+									break;
+								}
+							}
+							
+							if(nb_blk>=BLK_LINE){ //Alignement entre i1 et i2
+								Breaking=true;
+								if(i2==TAB_LG) 
+									i2--;
+								for(i=i1;i<=i2;i++) 
+									Tab_bool[i][j]=true;
+								Score+=(nb_blk*nb_blk);
+							}
+							i1=i2;
+						}
+					}
+				}
+				
+				//Alignements verticaux
+				for(i=0;i<TAB_LG;i++){
+					for(var j1:int=0;j1<TAB_HT;j1++){
+						if(Tab[i][j1]!=BLK_EMPTY){
+							val=Tab[i][j1];
+							nb_blk=0;
+							for(var j2:int=j1;j2<TAB_HT;j2++){
+								if(Tab[i][j2]==val) nb_blk++;
+								else{
+									j2--;
+									break;
+								}
+							}
+							
+							if(nb_blk>=BLK_LINE){ //Alignement entre j1 et j2
+								Breaking=true;
+								if(j2==TAB_HT) 
+									j2--; //On ne compte pas le bloc qui est différent
+								for(j=j1;j<=j2;j++) 
+									Tab_bool[i][j]=true;
+								Score+=(nb_blk*nb_blk);
+							}
+							j1=j2;
+						}
+					}
+				}
+				
+				//Alignements diagonales (Gauche-Droite)
+				for(j=0;j<TAB_HT-(BLK_LINE-1);j++){
+					for(i=0;i<TAB_LG-(BLK_LINE-1);i++){
+						i2=i;
+						j2=j;
+						val=Tab[i2][j2];
+						if(val!=BLK_EMPTY){
+							nb_blk=0;
+							while(i2<TAB_LG && j2<TAB_HT && Tab[i2][j2]==val){ 
+								nb_blk++;
+								i2++;
+								j2++;
+							}
+							
+							if(nb_blk>=BLK_LINE){ //Alignement entre (i1;j1) et (i2;j2)
+								Breaking=true;
+								i2--;
+								j2--;
+								i1=i;
+								j1=j;
+								while(j1<=j2)
+									Tab_bool[i1++][j1++]=true;
+								Score+=(nb_blk*nb_blk)*2;
+							}
+						}
+					}
+				}
+				
+				//Alignements diagonales (Droite-Gauche)
+				for(j=0;j<TAB_HT-(BLK_LINE-1);j++){
+					for(i=TAB_LG-1;i>=(BLK_LINE-1);i--){
+						i2=i;
+						j2=j;
+						val=Tab[i2][j2];
+						if(val!=BLK_EMPTY){
+							nb_blk=0;
+							while(i2>=0 && j2<TAB_HT && Tab[i2][j2]==val){ 
+								nb_blk++;
+								i2--;
+								j2++;
+							}
+							
+							if(nb_blk>=BLK_LINE){ //Alignement entre (i2;j2) et (i1;j1)
+								Breaking=true;
+								i2++; //i2>=i1
+								j2--;
+								i1=i;
+								j1=j;
+								while(j1<=j2) 
+									Tab_bool[i1--][j1++]=true;
+								Score+=(nb_blk*nb_blk)*2;
+							}
+						}
+					}
+				}
+				
+				//Parcours la table des booléens pour détruire les blocs alignés
+				if(Breaking){ //Des blocs sont à détruire
+					for(j=0;j<TAB_HT;j++)
+						for(i=0;i<TAB_LG;i++)
+							if(Tab_bool[i][j]){ 
+								Tab[i][j]=BLK_EMPTY;
+								
+//								Tab_blk[i][j].play();
+								for(var k:int=0;k<columnGroup.numElements;k++) {
+									if(columnGroup.getElementAt(k).x == Tab_blk[i][j].x && columnGroup.getElementAt(k).y == Tab_blk[i][j].y) {
+										columnGroup.removeElementAt(k);
+										trace("removed one at "+k);
+									}
+								} 
+							}
+					
+					points=Score;
+					currState=STATE_FALL; //La destruction entraine peut-être des chutes de blocs => STATE_FALL
+Breaking=false;					
+					//Son
+					parentApplication.audioUtil.playSoundFX("/assets/soundfx/comedy_spring_twang_or_pluck_004.mp3");
+				}
+				else{ 
+					currState=STATE_MOVE; //Pas ou plus de bloc détruit => pas de chute de bloc => STATE_MOVE
+					Timer0_drop=getTimer();
+				}
+			}
+			
+			private function blockFall():void {
+				var fall:Boolean=false;
+				
+				//Parcours la table de bas en haut (jusqu'à la ligne 1)
+				for(var j:int=TAB_HT-1;j>0;j--)
+					for(var i:int=0;i<TAB_LG;i++)
+						if(Tab[i][j]==BLK_EMPTY && Tab[i][j-1]!=BLK_EMPTY){ //Un bloc au dessus du vide
+							fall=true;
+							
+							//Copie le bloc d'une case vers le bas
+							var val:uint=Tab[i][j-1]; //Valeur du bloc
+							Tab[i][j]=val;
+							//Tab_blk[i][j].gotoAndStop(val);
+							addPiece(i,j,val);
+								
+							//Supprime l'ancienne position du bloc
+							Tab[i][j-1]=BLK_EMPTY;
+							//Tab_blk[i][j-1].gotoAndStop(BLK_EMPTY);
+							removePiece(i,j-1);
+							
+							//Son
+							parentApplication.audioUtil.playSoundFX("/assets/soundfx/success.mp3");
+						}
+				
+				if(!fall) currState=STATE_LINE; //Pas ou plus de chute => De nouveaux alignements => Mode LINE
+			}
+			
+			private function addPiece(a:int,b:int,val:int):void {
+				var bmp:BitmapImage = new BitmapImage();
+				bmp.source = petsArray[val];
+				columnGroup.addElement(bmp);
+				bmp.width=32;
+				bmp.height=32;
+				
+				bmp.x = Tab_blk[a][b].x;
+				bmp.y = Tab_blk[a][b].y;
+				
+				Tab_blk[a][b] = bmp;
+				
+				trace("added a piece ("+val+")");
+			}
+			
+			private function removePiece(a:int,b:int):void {
+				for(var k:int=0;k<columnGroup.numElements;k++) {
+					if(columnGroup.getElementAt(k).x == Tab_blk[a][b].x && columnGroup.getElementAt(k).y == Tab_blk[a][b].y) {
+						columnGroup.removeElementAt(k);
+						trace("removed a piece ("+k+")");
+					}
+				} 
+			}
+			
+			
+			
+			private function gameOver():void {
+				removeEventListener(Event.ENTER_FRAME,mainLoop);
+		 		
+				endGame();
+			}
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations>
+		<s:DropShadowFilter color="#000000" distance="6" alpha="0.28" angle="92.3" blurX="6" blurY="6" id="shadowFilter"/>
+	 	
+	 
+	</fx:Declarations>
+	
+	 
+	<s:BitmapImage source="assets/posters/columngameposter.png" includeIn="start" horizontalCenter="0" top="50"/>
+	<s:BitmapImage source="assets/games/NameGameEnd.png" includeIn="finish" horizontalCenter="0" top="50"/>
+
+	<s:BitmapImage source="games/columnsGame/grille.png" includeIn="playing" x="0" top="120"/>
+	<s:VGroup id="nexts" right="20" top="150">
+		<s:BitmapImage id="next1_mc" width="64" height="64"/>
+		<s:BitmapImage id="next2_mc" width="64" height="64"/>
+		<s:BitmapImage id="next3_mc" width="64" height="64"/>
+	</s:VGroup>
+	
+	<s:Group id="Bag" x="0" y="0" height="96">
+		<s:BitmapImage id="blk1_mc" horizontalAlign="center" verticalAlign="middle" width="32" height="32" y="0" />
+		<s:BitmapImage id="blk2_mc" horizontalAlign="center" verticalAlign="middle" width="32" height="32" y="32"/>
+		<s:BitmapImage id="blk3_mc" horizontalAlign="center" verticalAlign="middle" width="32" height="32" y="64"/>
+	</s:Group>
+	<s:Group id="columnGroup" height="800" width="640" scaleX="1" scaleY="1" top="120" horizontalCenter="0">
+		
+	</s:Group>
+	<s:HGroup bottom="40" horizontalCenter="0" includeIn="playing">
+		<s:Button id="leftbutton" label="Left" width="150" click="keyboardDown(3);"/>
+		<s:Button id="downbutton" label="Down" width="150" mouseDown="vt=8;keyboardDown(2);" mouseUp="vt=2;"/>
+		<s:Button id="upbutton" label="Change" width="150" click="vt=2;Key_UP=false;keyboardDown(1)"/>
+		<s:Button id="rightbutton" label="Right" width="150" click="keyboardDown(4);"/>
+	</s:HGroup>
+	
+	<s:Label id="nextlevelText" fontFamily="Badaboom" fontSize="64" alpha="1" textAlign="center" color="#ffffff" includeIn="playing" visible="false" horizontalCenter="0" verticalCenter="0" width="600" lineBreak="toFit"/>
+	<s:Label text="{parentApplication.Language.game_score}: {points}" top="10" right="20" fontSize="30" includeIn="playing" color="#ffffff"/>
+	<s:Label text="ColumnGame" fontFamily="Badaboom" fontSize="64" horizontalCenter="0" top="140" includeIn="finish" color="#eeeeeeee" color.finish="#444444" filters="{shadowFilter}"/>
+	<s:Label text="Försök få tre av samma sort i rad, kolumn eller snett!" fontFamily="Badaboom" fontSize="64" color.start="#eeeeeeee" top="470" width="550" lineBreak="toFit" horizontalCenter="0" includeIn="start" textAlign="center" filters="{shadowFilter}"/>
+	<s:Label id="pointsFinishText" text="{parentApplication.Language.game_finishtext1} {points} {parentApplication.Language.game_finishtext2}" fontFamily="Badaboom" fontSize="36" color="#ffffff" top="360" horizontalCenter="0" includeIn="finish"/>
+	<s:Label text="{parentApplication.Language.game_level} {level}" top="20" left="20" fontSize="30" color="#ffffff" includeIn="playing"/>
+	<s:Label id="resultMessage" bottom="60" horizontalCenter="0" fontSize="30" fontWeight="bold" color="#ffffff"/>
+	
+	<s:Label text="{parentApplication.Language.game_time}: {playedtime}" bottom="10" left="20" fontSize="30" color="#ffffff" includeIn="finish,playing"/>
+	<s:Label text="{parentApplication.Language.game_correct}: {correct}" horizontalCenter="0" bottom="10" fontSize="30" color="#ffffff" includeIn="playing"/>
+	
+	<components:pinkButton id="giveupButton" label="{parentApplication.Language.game_button_giveup.toUpperCase()}" click="giveUp();" height="100" width="500" horizontalCenter="0" includeIn="playing" top="10"/>
+	<components:pinkButton id="backButton" label="{parentApplication.Language.general_back.toUpperCase()}" click="back();" includeIn="start" horizontalCenter="0" top="10"/>
+	<s:CheckBox id="musiccheckbox" label="{parentApplication.Language.game_checkbox_music}" selected="true" color="#ffffff" fontSize="24" bottom="200" horizontalCenter="0" change="musicon_checkbox_changeHandler(event)" includeIn="start"/>
+	
+	<s:Group horizontalCenter="0" bottom="40" bottom.start="10">
+		<components:friendsButton id="startButton" label="{parentApplication.Language.game_button_start.toUpperCase()}" click="startGame();" includeIn="start"/>
+		<s:HGroup horizontalCenter="0" verticalAlign="middle">
+			<components:pinkButton id="restartButton" label="{parentApplication.Language.game_button_restart.toUpperCase()}" click="startGame();" includeIn="finish"/>
+			<components:pinkButton id="finishButton" label="{parentApplication.Language.game_button_end.toUpperCase()}" click="back();" includeIn="finish"/>	
+		</s:HGroup>
+	</s:Group>
+</s:View>

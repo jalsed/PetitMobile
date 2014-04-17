@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:ItemRenderer xmlns:fx="http://ns.adobe.com/mxml/2009"
+				xmlns:s="library://ns.adobe.com/flex/spark"
+				xmlns:views="views.*"
+				currentState="normal" dataChange="updateData();" creationComplete="updateData();"
+				mouseOut="currentState='normal'"
+				mouseOver="currentState='hovering';" name="adItemRenderer"
+				width="300" height="380" alpha.normal="1"
+				autoDrawBackground="false"
+				initialize="initializeHandler(event)" cacheAsBitmap="true"
+				>
+
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	
+	<s:states>
+		<s:State name="normal" />
+		<s:State name="hovering" />
+		<s:State name="selected" />
+	</s:states>
+	
+	<fx:Declarations>
+		<s:DateTimeFormatter id="dateFormatter" dateTimePattern="yyyy-MM-dd " errorText="-" />
+	</fx:Declarations>
+		
+	 		
+	<fx:Script>
+		<![CDATA[
+			import mx.events.FlexEvent;
+			
+			import spark.core.ContentCache;
+			
+			 private var timestamp:Number=0;
+			
+			private var reltypes:Array = new Array();
+			
+			static private const iconCache:ContentCache = new ContentCache();
+			
+			private function initializeHandler(event:FlexEvent):void {
+				pic.contentLoader = iconCache;
+				
+				reltypes.push(parentApplication.Language.frienddetail_relationtype_parent);
+				reltypes.push(parentApplication.Language.frienddetail_relationtype_sibling);
+				reltypes.push(parentApplication.Language.frienddetail_relationtype_child);
+				reltypes.push(parentApplication.Language.frienddetail_relationtype_relative);
+				reltypes.push(parentApplication.Language.frienddetail_relationtype_friend);
+				
+			}
+			
+			private function updateData():void {
+				if(data!=null) {
+					if(data.imageURL != null) { 
+							pic.source=data.imageURL;
+							thumb.source=data.imageURLthumb;
+					}
+					
+					//Label
+					if(data.title != undefined)
+						titleBox.text=data.title;
+					else
+						titleBox.text="";
+					
+					if(data.ownername != undefined)
+						ownerBox.text=data.ownername + " " + parentApplication.Language.renderer_pets_owner;
+					else 
+						ownerBox.text="";
+					 
+					if(data.relationID!=0) {
+						trace(parseInt(data.relationType)-1);
+						relationBox.text = ("" + reltypes[parseInt(data.relationType)] as String).toUpperCase();
+						picborder.visible=true;
+						paperclip.visible=true;
+						pic.scaleMode=mx.graphics.BitmapScaleMode.ZOOM;
+						pic.height=162;
+						titleBox.setStyle("fontStyle","normal");
+						titleBox.setStyle("fontSize","28");
+					}
+					else {
+						relationBox.text="";
+						picborder.visible=false;
+						paperclip.visible=false;
+						pic.scaleMode=mx.graphics.BitmapScaleMode.STRETCH;
+						pic.height=102;
+						titleBox.setStyle("fontStyle","italic");
+						titleBox.setStyle("fontSize","24");
+					}
+					
+					if(data.status=="0")
+						relationBox.text="NOT APPROVED YET";
+					
+					if(data.changed !=null && data.relationID!=0)
+						dateBox.text = parentApplication.Language.renderer_relation_since + " " + dateFormatter.format(parseFloat(data.changed)*1000);
+					else
+						dateBox.text="";
+					
+				}	
+				   
+			}
+		]]>
+	</fx:Script>
+	<s:Group width="100%" height="100%">
+		<s:Rect id="background0" left="0" right="0" width="280"
+				radiusX="0" radiusY="0"
+				top="0" bottom="0"
+				height="320" alpha="0.8"
+				filters="{shadowFilter}" 
+				>
+			<s:fill>
+				 <s:SolidColor color="#fff7ea"/>
+			</s:fill>
+		</s:Rect>
+		<s:Rect id="background" left="1" right="1" 
+				top="1" bottom="1"
+				height="318"  
+				>
+			<s:fill>
+				<s:LinearGradient>
+					<s:GradientEntry color="0xbeb8ae" ratio="0"/>
+					<s:GradientEntry color="0xd0c9be" ratio="0.2"/>
+					<s:GradientEntry color="0xf3ecdf" ratio="0.4"/>
+					<s:GradientEntry color="0xfff7ea" ratio="0.8"/>
+				</s:LinearGradient>
+			</s:fill>
+		</s:Rect>
+		
+		<s:BitmapImage bottom="0" id="silhouette" horizontalCenter="0" source="@Embed('/assets/images/watermark_friend_request.png')" alpha="0.25" />
+		<s:BitmapImage left="5" top="10" id="picborder" source="@Embed('/assets/images/pictureborder.png')" smooth="true"/>
+		<s:BitmapImage id="thumb" x="15" y="15" scaleMode="stretch" width="112" height="162"/>
+		<s:BitmapImage id="pic" x="15" y="15" scaleMode="zoom" width="112" height="162" >
+			<!--s:mask>
+				<s:Group>
+					<s:Rect id="picmask" left="0" right="0" bottomLeftRadiusX="0" bottomLeftRadiusY="0" width="100"
+							bottomRightRadiusX="0" bottomRightRadiusY="0" 
+							topLeftRadiusX="20" topLeftRadiusY="20" topRightRadiusX="0" topRightRadiusY="0"
+							top="0" bottom="0"	height="200">
+						<s:fill>
+							<s:SolidColor color="0x000000"/>
+						</s:fill>
+					</s:Rect>
+				</s:Group>
+			</s:mask-->
+		</s:BitmapImage>
+		<s:BitmapImage left="88" top="-16" id="paperclip" source="@Embed('/assets/images/paperclip.png')" smooth="true"					alpha="0"/>
+			
+		<s:VGroup contentBackgroundAlpha="0" gap="10"
+				  paddingBottom="0" paddingLeft="0" paddingRight="0" paddingTop="0"
+				  left="145" right="10" top="10">
+			<s:Label id="titleBox"  color="#000000" fontFamily="MyriadPro" fontWeight="bold"
+					 lineBreak="toFit" text="{data.title}"
+					 textAlign="left" verticalAlign="top"
+					 width="100%" fontSize="28"/>
+			
+			 
+		</s:VGroup>	
+		<s:VGroup contentBackgroundAlpha="0" gap="10"
+				  paddingBottom="0" paddingLeft="0" paddingRight="0" paddingTop="0"
+				  left="15" right="15" top="210">
+			<s:Label id="relationBox" color="#000000" fontFamily="MyriadPro" 
+					 lineBreak="explicit" textAlign="left"
+					 verticalAlign="top"
+					 width="100%" height="22" fontSize="22"/>
+			<s:Label id="dateBox" height="22" color="#000000" fontFamily="MyriadPro"
+					 lineBreak="explicit"  
+					 textAlign="left" verticalAlign="top"
+					 width="100%" fontSize="22"/>
+			<s:Label id="ownerBox" height="22" color="#000000" fontFamily="MyriadPro"
+					 lineBreak="explicit" text=""
+					 textAlign="left" verticalAlign="top"
+					 width="100%" fontSize="22"/>
+		</s:VGroup>	
+	</s:Group>
+	<fx:Declarations>
+		<s:DropShadowFilter color="#000000" distance="6" alpha="0.28" angle="92.3" blurX="6" blurY="6" id="shadowFilter"/>
+	</fx:Declarations>
+</s:ItemRenderer>

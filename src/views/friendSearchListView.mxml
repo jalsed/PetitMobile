@@ -1,0 +1,399 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark" 
+		xmlns:components="components.*"
+		title="Friends" 
+	    actionBarVisible="false" tabBarVisible="false" height="100%" currentState="search" backgroundAlpha="0" viewActivate="viewActivateHandler(event)"
+	   initialize="init(event)"
+	   >
+	<fx:Declarations>
+		<s:HTTPService id="racesService" resultFormat="e4x" method="GET" useProxy="false" result="racesResultHandler(event)" fault="racesFaultHandler(event)"/>
+	</fx:Declarations>
+
+	<s:states>
+		<s:State name="normal"/>
+		<s:State name="search" activate="listbg.visible=false;"/>
+		<s:State name="invite" activate="listbg.visible=false;"/>
+	</s:states>
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			import mx.collections.XMLListCollection;
+			import mx.events.FlexEvent;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			import spark.events.ViewNavigatorEvent;
+			import spark.skins.mobile.StageTextInputSkin;
+			
+			import classes.GlobalConstants;
+			
+			import events.PetEvent;
+			import events.RelationEvent;
+			import events.UserEvent;
+			
+			import models.PetVO;
+			import models.RelationVO;
+			
+			import skins.TextInputPetiitSkin;
+	  
+			[Bindable]
+			private var pets:ArrayCollection = new ArrayCollection();
+	
+			private var racesXLC:XMLListCollection;
+			
+	 
+
+			private function gotoUnknownPet(event:Event):void {
+				if(petsList.selectedItem != undefined) {
+					parentApplication.gotoPet(petsList.selectedItem.petID,null);
+					petsList.selectedIndex=-1;
+				}
+			}
+
+			protected function init(event:FlexEvent):void
+			{
+				loadRaces();
+				
+ 			}
+			
+		 
+			
+			/****************************************
+			*	SEARCH PETS							*
+			* 										*
+			*****************************************/
+			
+			private function search():void {
+				var searchstr:String="";
+				var searchArr:Array=new Array();
+			
+				parentApplication.isBusy(parentApplication.Language.general_searching);//"Searching");
+				
+				if(searchInput.text.length>2) {
+					pets.removeAll();
+					
+					searchArr = searchInput.text.split(" ");
+			
+					parentApplication.myPetDAO.addEventListener(PetEvent.PET_GET_LIST_READY,petListReady);
+					parentApplication.myPetDAO.addEventListener(PetEvent.PET_GET_LIST_ERROR,petListError);
+					parentApplication.myPetDAO.restGetPets(searchArr);
+				}
+				else if(searchInput.text.length==0) {
+					pets.removeAll();
+					findNearbyPets();
+				}
+			}
+		
+			private function petListError(event:PetEvent):void {
+				trace("Error finding pets");
+				parentApplication.notBusy();
+				
+				parentApplication.myPetDAO.removeEventListener(PetEvent.PET_GET_LIST_READY,petListReady);
+				parentApplication.myPetDAO.removeEventListener(PetEvent.PET_GET_LIST_ERROR,petListError);
+			}
+			
+			private function petListReady(event:PetEvent):void {
+				var tmp:PetVO;
+				
+				parentApplication.notBusy();
+				
+				listbg.visible=true;
+				
+				for each(var petobj:Object in event.data) {
+					
+					tmp = new PetVO();
+					tmp.petID=petobj.nid;
+					
+					if(petobj.body!=null && petobj.body.und!=null && petobj.body.und.length>0)
+						tmp.description=petobj.body.und[0].value;
+					tmp.title=petobj.title;
+					
+					if(petobj.field_pet_race.und!=null && petobj.field_pet_race.und.length>0)
+						tmp.pet_race=getPetRaceText(petobj.field_pet_race.und[0].value);
+					if(petobj.field_pet_breed.und!=null && petobj.field_pet_breed.und.length>0)
+						tmp.pet_breed=getPetBreedText(petobj.field_pet_breed.und[0].value);
+					
+					tmp.ownerFullname=petobj.ownerfullname;
+					tmp.birthday=petobj.field_birthday.und[0].value;
+					
+					if(petobj.ownerpostal != null)
+						tmp.ownerZipcode = petobj.ownerpostal;
+					
+					if(petobj.field_pet_image.und!=null && petobj.field_pet_image.und.length>0) {
+						var pos:int;
+						pos = petobj.field_pet_image.und[0].uri.lastIndexOf("/",100);
+						pos = petobj.field_pet_image.und[0].uri.lastIndexOf("/",pos-1);
+						tmp.imageURL = GlobalConstants.AMAZON_URL + "styles/petit_small/s3/petit/images" + petobj.field_pet_image.und[0].uri.substr(pos);	//slice off "s3://
+						 //tmp.imageURL = GlobalConstants.AMAZON_URL + petobj.field_pet_image.und[0].uri.slice(5,petobj.field_pet_image.und[0].uri.length);
+						tmp.imageURLthumb = GlobalConstants.AMAZON_URL + "styles/petit_thumb/s3/petit/images" + petobj.field_pet_image.und[0].uri.substr(pos);	//slice off "s3://
+				 	}
+						
+					pets.addItem(tmp);
+				}
+				
+				if(event.data.length==0) {	//Nothing found
+					searchHelp.visible=true;
+				}
+				else
+					searchHelp.visible=false;
+				
+				parentApplication.myPetDAO.removeEventListener(PetEvent.PET_GET_LIST_READY,petListReady);
+				parentApplication.myPetDAO.removeEventListener(PetEvent.PET_GET_LIST_ERROR,petListError);
+			}
+			
+			
+			private function getPetRaceText(in_val:String):String {
+				var retval:String="";
+				
+				//Build lists
+				for each(var child:XML in racesXLC) {
+					if(in_val == child.@tid) {
+						retval = parentApplication.Language[child.@title];
+						break;
+					}
+				}	
+				return retval;	
+					
+			}
+			
+			private function getPetBreedText(in_val:String):String {
+				var retval:String="";
+				
+				//Build lists
+				for each(var child:XML in racesXLC) {
+					if(in_val == child.@tid) {
+						var tmpstr:String = "mainraces_"+child.@type;
+						retval = parentApplication.Language[child.@title] + " ("+parentApplication.Language[tmpstr]+")";
+						break;
+					}
+				}	
+				return retval;	
+			}
+			
+			
+		 
+			/****************************************
+			 *	INVITE								*
+			 * 										*
+			 ****************************************/
+			
+			private function invite():void {
+				//Invite someone to Petiit through email
+				parentApplication.myRelationDAO.addEventListener(RelationEvent.INVITATION_READY,invitationReady);
+				parentApplication.myRelationDAO.addEventListener(RelationEvent.INVITATION_FAILED,invitationFailed);
+				parentApplication.myRelationDAO.restSendInvitation(parentApplication.myPetDAO.currentPetID,inviteEmail.text,invitePetname.text,parentApplication.Language.invitation_email_header,invite_body_fix);
+				currentState="normal";
+			}
+			
+			private function invite_body_fix():String {
+				var ret_str:String;
+				
+				ret_str = parentApplication.Language.invitation_email_body;
+				ret_str = ret_str.replace("#1",parentApplication.myPetDAO.currentPetName);
+				ret_str = ret_str.replace("#2",invitePetname.text);
+				
+				return ret_str;
+			}
+			
+			private function invitationReady(event:RelationEvent):void {
+				parentApplication.myRelationDAO.removeEventListener(RelationEvent.INVITATION_READY,invitationReady);
+				parentApplication.myRelationDAO.removeEventListener(RelationEvent.INVITATION_FAILED,invitationFailed);
+				parentApplication.showToastFX("Invitation sent",true);
+			}
+			
+			private function invitationFailed(event:RelationEvent):void {
+				parentApplication.myRelationDAO.removeEventListener(RelationEvent.INVITATION_READY,invitationReady);
+				parentApplication.myRelationDAO.removeEventListener(RelationEvent.INVITATION_FAILED,invitationFailed);
+				parentApplication.showToastFX("Invitation failed",false);
+			}
+			
+			
+			
+			/****************************************
+			 *	FIND NEARBY PETS					*
+			 * 										*
+			 ****************************************/
+			private function findNearbyPets():void {
+
+				searchHelp.visible=false;
+				
+				//Based on (logged in) user location
+				parentApplication.myPetDAO.addEventListener(PetEvent.PET_GET_LIST_READY,nearbyPetsReady);
+				parentApplication.myPetDAO.addEventListener(PetEvent.PET_GET_LIST_ERROR,nearbyPetsError);
+				parentApplication.myPetDAO.restGetNearbyPets(parentApplication.myUserDAO.user.uid.toString());
+				
+			}
+			
+			private function nearbyPetsReady(event:PetEvent):void {
+				var tmp:PetVO;
+				
+				pets.removeAll();
+				listbg.visible=true;
+				
+				for each(var petobj:Object in event.data) {
+					
+					tmp = new PetVO();
+					tmp.petID=petobj.petid;
+					tmp.pet_breed= getPetBreedText(petobj.petbreed);
+					tmp.ownerFullname=petobj.ownername;
+					tmp.ownerID = petobj.ownerid;
+					if(petobj.ownerpostal!=null)
+						tmp.ownerZipcode = petobj.ownerpostal;
+					tmp.title = petobj.petname;
+					tmp.timestamp = petobj.timestamp;
+					
+					if(petobj.uri!=null)
+						tmp.imageURL = GlobalConstants.AMAZON_URL + petobj.uri.slice(5,petobj.uri.length);
+					
+					pets.addItem(tmp);
+				}
+				
+				parentApplication.notBusy();
+				
+				parentApplication.myPetDAO.removeEventListener(PetEvent.PET_GET_LIST_READY,nearbyPetsReady);
+				parentApplication.myPetDAO.removeEventListener(PetEvent.PET_GET_LIST_ERROR,nearbyPetsError);
+				
+			}
+			
+			private function nearbyPetsError(event:PetEvent):void {
+				parentApplication.notBusy();
+			
+				parentApplication.myPetDAO.removeEventListener(PetEvent.PET_GET_LIST_READY,nearbyPetsReady);
+				parentApplication.myPetDAO.removeEventListener(PetEvent.PET_GET_LIST_ERROR,nearbyPetsError);
+			}
+			
+			/****************************************************************
+			 * XML - RACES												*
+			 * 																*
+			 ****************************************************************/
+			private function loadRaces():void {
+				
+				//Fetch accessories from server now so it could be changed
+				//				accessoriesService.url = GlobalConstants.XML_URL+"accessories.xml";
+				racesService.url = "/assets/xml/races.xml";					//local for now
+				racesService.send();
+			}
+			
+			private function racesResultHandler(event:ResultEvent):void {
+				buildRaceLists(event.result as XML);
+			}
+			
+			//Load accessories locally since server is unavailable
+			private function racesFaultHandler(event:FaultEvent):void {
+				//Don't loop back here again if fault again
+				racesService.removeEventListener(FaultEvent.FAULT,racesFaultHandler);
+			 	racesService.url = "/assets/xml/races.xml";	
+				racesService.send();
+			}
+			 
+			private function buildRaceLists(racesXML:XML):void {
+				racesXLC = new XMLListCollection(racesXML.children()); 
+			}
+			
+			
+			 
+			/**********************************************/
+			
+			private function back():void {
+				if(currentState=="invite")
+					currentState="search";
+				else
+					parentApplication.friendNav.popView();
+			}
+			
+			protected function viewActivateHandler(event:ViewNavigatorEvent):void
+			{
+			 
+				 
+			}
+			
+		]]>
+	</fx:Script>
+	<s:Rect	width="100%" height="100%">
+		<s:fill>
+			<s:SolidColor color="#000000" alpha="0.2"/>
+		</s:fill>
+	</s:Rect>
+	
+
+	
+	<s:Rect id="topbg" left="0" right="0" includeIn="search" filters="{shadowFilter}"
+			top="0"
+			height="140"  
+			>
+		<s:fill>
+			<s:SolidColor  color="0x785c81"/>
+		</s:fill>
+	</s:Rect>
+	
+	<s:BitmapImage id="listbg" visible="false" source="/assets/images/friendlist_glassbg.png" scaleMode="stretch" top="{resultGroupPets.y+10}" bottom="0" width="100%" includeIn="search" horizontalCenter="0" alpha="0.25" />	
+	<s:VGroup id="bigGroup" visible="true" width="100%" height="100%" gap="2"
+			  horizontalAlign="center" horizontalCenter="0" paddingLeft="0" paddingRight="0"
+			  paddingTop="10"
+			  y="0" >
+		
+	
+		<s:Group id="searchGroup" top="0" includeIn="search" width="100%" left="0">
+			<s:Group  width="400" height="80" y="25" left="15">
+				<components:petiitTextInputBackground width="100%" height="100%" />
+				<s:TextInput id="searchInput" prompt="{parentApplication.Language.friends_prompt_search}" 
+							 skinClass="skins.TextInputPetiitSkin" height="100%" fontSize="36" borderVisible="false" fontFamily="MyriadPro" focusThickness="0"
+							 color="#000000" textAlign="left"
+							 enter="search();" width="100%"
+							 />
+			</s:Group> 
+
+			<components:violetButton id="searchbutton" width="250" label="{parentApplication.Language.general_search}" click="if(searchInput.text.length>2) { currentState='search';search(); }" right="10" y="9"
+									 textcolor="0xffffff" />
+		</s:Group>
+
+		<s:VGroup id="resultGroupPets" visible="true" width="100%" height="680" gap="10" includeIn="search" horizontalCenter="0" paddingTop="5">
+				<s:List id="petsList" width="100%" height="100%" horizontalScrollPolicy="on" click="gotoUnknownPet(event)"   
+					verticalScrollPolicy="off" contentBackgroundAlpha="0" dataProvider="{pets}"
+					itemRenderer="Renderers.petListComboRenderer" 
+					skinClass="spark.skins.mobile.ListSkin" cacheAsBitmap="false" ><!--cacheAsBitmap="false"-->
+				<s:layout>
+					<s:TileLayout id="petsTile" requestedRowCount="2" paddingLeft="5" paddingTop="15" horizontalGap="10" verticalGap="10" orientation="columns"  
+								  verticalAlign="top"
+								  />
+				</s:layout>
+			</s:List>
+		</s:VGroup>
+	</s:VGroup>
+ 	<s:Label id="searchHelp" includeIn="search" visible="false" verticalCenter="0" horizontalCenter="0" textAlign="center" width="580" text="Ingenting hittades. Du kan söka på ägarens namn eller husdjurets namn." fontFamily="MyriadPro" fontWeight="bold" color="#ffffff" fontSize="44"/>
+	
+	<!--INVITE-->
+	<s:VGroup id="inviteGroup" visible="true" width="100%" gap="30" includeIn="invite" x="40" paddingTop="50" horizontalAlign="left">
+ 		<s:Label text="{parentApplication.Language.friends_invitetext}" fontFamily="MyriadPro" fontWeight="bold" fontSize="44" height="150" width="600" color="#ffffff"/>
+		<s:Group width="580" height="80">
+			<components:petiitTextInputBackground width="100%" height="100%" />
+			<s:TextInput id="inviteEmail" prompt="{parentApplication.Language.friends_prompt_email}" verticalCenter="0" skinClass="skins.TextInputPetiitSkin" height="100%" fontSize="44" fontFamily="MyriadPro" focusThickness="0"
+						 color="#000000" borderVisible="false"   
+						 width="100%" 
+						 />
+		</s:Group> 
+		<s:Group width="580" height="80">
+			<components:petiitTextInputBackground width="100%" height="100%" />
+			<s:TextInput id="invitePetname" prompt="{parentApplication.Language.friends_prompt_petname}" skinClass="skins.TextInputPetiitSkin" height="100%" fontSize="44" borderVisible="false" fontFamily="MyriadPro" focusThickness="0"
+						 color="#000000"
+						 width="100%"
+						 />
+		</s:Group>  
+		<components:violetButton label="{parentApplication.Language.friends_button_sendinvitation}" click="invite();"/>
+	</s:VGroup>
+	
+	<s:Group id="console" bottom="0" width="100%">
+		<s:BitmapImage source="@Embed('/assets/skin/menu/Petiit_Console.png')" scaleMode="stretch" bottom="0" width="100%"/>
+		<s:HGroup bottom="0" width="100%" horizontalAlign="center" gap="0" left="-8" id="consoleButtons">
+			<components:menuButton id="backButton" click="back();" label="{parentApplication.Language.general_back.toUpperCase()}"/>
+			<components:menuButton id="whatsupButton" label="{parentApplication.Language.friends_button_invite}" click="currentState='invite';" excludeFrom="invite"/>
+			<components:menuButton id="nearbyButton" click="findNearbyPets();" label="{parentApplication.Language.friends_button_nearbypets}" includeIn="search"/>
+			<components:menuIconButton id="friendsButton" down_pic="/assets/buttons/btn_friendsearch_on.png" up_pic="/assets/buttons/btn_friendsearch_off.png" label="" click="currentState='search';" excludeFrom="invite,search"/>
+		</s:HGroup>
+	</s:Group>
+	<fx:Declarations>
+		<s:DropShadowFilter color="#000000" distance="6" alpha="0.28" angle="92.3" blurX="6" blurY="6" id="shadowFilter"/>
+	</fx:Declarations>
+</s:View>

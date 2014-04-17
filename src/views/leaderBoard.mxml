@@ -1,0 +1,736 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark" title=""
+		xmlns:components="components.*"
+		 creationComplete="addContent();" actionBarVisible="false" height="100%" width="100%" tabBarVisible="false" 
+		 backgroundColor="#f4e38b" backgroundAlpha="0" 
+		 viewDeactivate="viewDeactivateHandler(event)" viewActivate="viewActivateHandler(event)"
+		>
+
+	<s:states>
+		<s:State name="normal"/>
+		<s:State name="messageWindow"/>
+	</s:states>
+	
+	
+	<fx:Declarations>
+		<s:Move id="showConsoleFX" yFrom="{currentConsolePos}" yTo="{currentConsolePos-80}" duration="200" target="{console}" effectEnd="currentConsolePos=console.y;" />
+		<s:Move id="hideConsoleFX" yFrom="{currentConsolePos}" yTo="{currentConsolePos+80}" duration="200" target="{console}" effectEnd="currentConsolePos=console.y;" />
+		<s:Move id="moveUpHeadFX" yFrom="0" yTo="-150" duration="250" target="{tophead}"/>
+		<s:Move id="moveDownHeadFX" yFrom="-150" yTo="0" duration="250" target="{tophead}"/>
+		<s:Move id="slowMoveFX" duration="250"/>
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import com.iOSStageVideo;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.SWFLoader;
+			import mx.core.UIComponent;
+			import mx.events.DragEvent;
+			import mx.events.TouchInteractionEvent;
+			
+			//import flash.events.TransformGestureEvent;
+			
+			import spark.events.ViewNavigatorEvent;
+			import spark.formatters.DateTimeFormatter;
+			
+			import spark.transitions.SlideViewTransition; 
+			import spark.transitions.ViewTransitionDirection;
+			
+			import classes.GlobalConstants;
+			
+			import events.CompetitionEvent;
+			import events.ContestantEvent;
+			import events.DialogEvent;
+			import events.GameEvent;
+			import events.PetitVideoEvent;
+			
+			import models.ContestantVO;
+			
+			[Bindable]
+			private var contestants:ArrayCollection = new ArrayCollection();
+			 
+			[Bindable]
+			private var currentConsolePos:uint=1000;
+			
+			private var competitionID:String="";
+			private var currentCompetitionID:Number=0;
+			private var currentFeedEntryID:String="";
+			public var myCurrentVoteEntryID:String="";
+			
+			[Bindable]
+			private var totalvotes:int=0;
+			
+			[Bindable]
+			private var daysleft:int=0;
+			
+			[Bindable]
+			private var daystostart:int=0;
+			
+			[Bindable]
+			private var startdate:String="";
+			[Bindable]
+			private var enddate:String="";
+			
+			private var rulestext:String="";
+			private var prizetext:String="";
+			private var prizeImage:String="";
+			
+			private var gameURL:String="";
+			private var soundURL:String="";
+			
+			private var entered:Boolean=false;
+			
+			private function addContent():void {
+				
+				//Set a couple of listeners
+				tophead.addEventListener(TransformGestureEvent.GESTURE_SWIPE,swipeHandler);
+				 
+				//checkIfActiveConsole();
+
+				var tmp:ContestantVO = new ContestantVO();
+				 
+				tmp.contestantID= 0;
+				tmp.competitionID=1;
+				tmp.uid=1;
+				tmp.feedID=1;
+				tmp.currentPosition=1;
+				tmp.timestamp=0;
+				
+				contestants.addItem(tmp);
+				
+  
+				entered = data.entered;
+				competitionID = data.competitionID;
+				
+				if(entered) {
+					enterCompetitionButton.visible=false;
+					enterCompetitionButton.height=0;
+					exitCompetitionButton.visible=true;
+					exitCompetitionButton.height=109;
+				}
+				else {
+					enterCompetitionButton.visible=true;
+					enterCompetitionButton.height=109;
+					exitCompetitionButton.visible=false;
+					exitCompetitionButton.height=0;
+				}	
+				
+				
+				getCompetitionDetails();
+			}
+			
+			
+			public function scrollToVisible():void {
+				//Make selected item visible. 225 = item height + gap
+				endScrollPos = (contestantList.selectedIndex * 225);	
+				
+				startSmoothScroll();
+			}
+			
+			//SMOOTH VERTICAL LIST-SCROLL
+			private var currentScrollPos:Number=0;
+			private var endScrollPos:Number=0;
+			private var scrollVelocity:Number=5;
+			private var scrollDelay:Number=1;	//every 2 ms
+			private var scrollDirection:int=-1;
+			private var intervalId:uint;
+			
+			private function startSmoothScroll():void {
+				if(endScrollPos>contestantList.scroller.contentMouseY)
+					scrollDirection=-1;													//boardList.scroller.maxVerticalPosition = 870    boardList.scroller.contentMouseY=256
+				else
+					scrollDirection=1;
+				currentScrollPos = contestantTile.verticalScrollPosition+listGroup.y;
+				intervalId = setInterval(animateScrolling,scrollDelay);
+			}
+			
+			private function animateScrolling():void {
+				
+				currentScrollPos = currentScrollPos - (scrollVelocity*scrollDirection);
+				contestantTile.verticalScrollPosition = currentScrollPos;
+				
+				if(scrollDirection==1 && currentScrollPos <= endScrollPos)
+					clearInterval(intervalId);
+				else if(scrollDirection==-1 && currentScrollPos >= endScrollPos)
+					clearInterval(intervalId);
+				
+			}
+			
+
+			
+			/************************************************
+			 * 	ENTER COMPETITION							*
+			 * 												*
+			 ************************************************/
+			private function gotoEnterCompetition():void {
+				parentApplication.myCompetitionDAO.addEventListener(CompetitionEvent.COMPETITION_ENTERCOMPETITION_READY,enterCompetitionReady);
+				parentApplication.myCompetitionDAO.addEventListener(CompetitionEvent.COMPETITION_ENTERCOMPETITION_FAILED,enterCompetitionFailed);
+				parentApplication.gotoJoinCompetition(competitionID);
+			}
+			private function enterCompetitionReady(event:Event):void {
+				
+				enterCompetitionButton.visible=false;
+				enterCompetitionButton.height=0;
+				exitCompetitionButton.visible=true;
+				exitCompetitionButton.height=109;
+				
+				parentApplication.showToastFX(parentApplication.Language.leaderboard_register_toast_success,true); //"You're registered!"
+				
+				//clean
+				parentApplication.myCompetitionDAO.removeEventListener(CompetitionEvent.COMPETITION_ENTERCOMPETITION_READY,enterCompetitionReady);
+				parentApplication.myCompetitionDAO.removeEventListener(CompetitionEvent.COMPETITION_ENTERCOMPETITION_READY,enterCompetitionFailed);
+			}
+			private function enterCompetitionFailed(event:Event):void {
+				parentApplication.showToastFX(parentApplication.Language.leaderboard_register_toast_failed,true);
+				//clean
+				parentApplication.myCompetitionDAO.removeEventListener(CompetitionEvent.COMPETITION_ENTERCOMPETITION_READY,enterCompetitionReady);
+				parentApplication.myCompetitionDAO.removeEventListener(CompetitionEvent.COMPETITION_ENTERCOMPETITION_READY,enterCompetitionFailed);				
+			}
+			
+			
+			/************************************************
+			 * 	EXIT COMPETITION							*
+			 * 												*
+			 ************************************************/
+			private function gotoExitCompetition():void {
+				parentApplication.addEventListener(DialogEvent.DIALOG_OK,doExitCompetition);
+				parentApplication.showDialog("",parentApplication.Language.leaderboard_unregister_head,parentApplication.Language.leaderboard_unregister_body,parentApplication.Language.leaderboard_unregister_unregisterbutton,parentApplication.Language.general_cancel,2);
+			}
+			
+			private function doExitCompetition(event:DialogEvent):void {
+				parentApplication.myCompetitionDAO.addEventListener(CompetitionEvent.COMPETITION_EXITCOMPETITION_READY,exitCompetitionReady);
+				parentApplication.myCompetitionDAO.addEventListener(CompetitionEvent.COMPETITION_EXITCOMPETITION_FAILED,exitCompetitionFailed);
+				parentApplication.myCompetitionDAO.restExitCompetition(competitionID,currentFeedEntryID);
+			}
+			private function exitCompetitionReady(event:Event):void {
+
+				enterCompetitionButton.visible=true;
+				enterCompetitionButton.height=109;
+				exitCompetitionButton.visible=false;
+				exitCompetitionButton.height=0;
+				parentApplication.showToastFX(parentApplication.Language.leaderboard_unregister_toast_success,true);	//"Unregistration ready"
+				
+				contestants.removeAll();
+				addContent();
+				
+				//clean
+				parentApplication.myCompetitionDAO.removeEventListener(CompetitionEvent.COMPETITION_EXITCOMPETITION_READY,exitCompetitionReady);
+				parentApplication.myCompetitionDAO.removeEventListener(CompetitionEvent.COMPETITION_EXITCOMPETITION_FAILED,exitCompetitionFailed);
+			}
+			private function exitCompetitionFailed(event:Event):void {
+				parentApplication.showToastFX(parentApplication.Language.leaderboard_unregister_toast_failure,true);	//"Unregistration failed"
+				//clean
+				parentApplication.myCompetitionDAO.removeEventListener(CompetitionEvent.COMPETITION_EXITCOMPETITION_READY,exitCompetitionReady);
+				parentApplication.myCompetitionDAO.removeEventListener(CompetitionEvent.COMPETITION_EXITCOMPETITION_FAILED,exitCompetitionFailed);				
+			}
+			
+			
+			
+		 	/************************************************
+			 * 	GET COMPETITION DETAILS						*
+			 * 												*
+			 ************************************************/
+				
+			private function getCompetitionDetails():void {
+				var datanum:int = data.competitionID as int;
+				competitionID = datanum.toString();
+				
+				if(competitionID.length>0) {
+					parentApplication.myCompetitionDAO.addEventListener(CompetitionEvent.COMPETITION_GETCOMPETITIONDETAIL_READY,competitionReady);
+					parentApplication.myCompetitionDAO.restGetCompetitionDetail(competitionID);
+					
+				}
+			} 
+			
+			private function competitionReady(event:CompetitionEvent):void {
+				if(event.data.type=="competition") {
+//					descriptionLabel.text= event.data.body.und[0].value;
+					titleLabel.text = event.data.title;
+//					commentsLabel.text = event.data.comment_count;
+					gameURL = event.data.gameURL;
+					
+					if(event.data.field_competition_prize!=null)
+						event.data.field_competition_prize[parentApplication.language][0].value;
+						//prizetext = event.data.field_competition_prize.und[0].value;
+
+					if(event.data.field_competition_prize_image.hasOwnProperty("und"))
+						prizeImage = GlobalConstants.AMAZON_URL + event.data.field_competition_prize_image.und[0].uri.slice(5,event.data.field_competition_prize_image.und[0].uri.length);
+					rulestext = event.data.field_competition_rules[parentApplication.language][0].value;
+
+						
+					//SOUND
+					if(event.data.field_competition_soundurl !=null && event.data.field_competition_soundurl.hasOwnProperty("und") && event.data.field_competition_soundurl.und[0].value.length>0) {
+						if(event.data.field_competition_soundurl.und[0].value.substr(0,6) == "assets")
+							soundURL = event.data.field_competition_soundurl.und[0].value;	//internal
+						else
+							soundURL = GlobalConstants.AMAZON_URL+event.data.field_competition_soundurl.und[0].value;	//external
+						
+						//play competition sound
+						if(soundURL.length>0) {
+							parentApplication.audioUtil.stopSoundFX();
+							parentApplication.audioUtil.playSoundFX(soundURL);
+						}
+					}
+					
+					if(event.data.field_competition_posterurl.hasOwnProperty("und"))
+						setPosterImage(event.data.field_competition_posterurl.und[0].value);
+					
+					//timezone = event.data.field_competition_date.und[0].timzone;
+//					prizeLabel.text = event.data.field_competition_prize.und[0].value;
+//					if(event.data.field_competition_image.hasOwnProperty("und"))
+//					feedImage.source = event.data.field_competition_image.und[0].value;
+					//event.data.field_competition_image.und[0].filename;
+				}
+				
+				parentApplication.myCompetitionDAO.removeEventListener(CompetitionEvent.COMPETITION_GETCOMPETITIONDETAIL_READY,competitionReady);
+				
+				getContestants();
+				
+				if(event.data.field_competition_date!=null && event.data.field_competition_date.hasOwnProperty("und")) {
+					startdate = event.data.field_competition_date.und[0].value.substr(0,10);
+					enddate = event.data.field_competition_date.und[0].value2.substr(0,10);
+					daystostart = calculateDayDifference(event.data.field_competition_date.und[0].value);	//startdate and now
+					daysleft = calculateDayDifference(event.data.field_competition_date.und[0].value2); //enddate and now
+				}
+				
+				if(daystostart>0) {
+					closedGroup.visible=true;
+				}
+				
+				if(daysleft<0) {
+					closedGroup.visible=true;
+				}
+				
+			}
+			
+			
+			
+			// DATE FORMATTING
+			private function parseDate( str : String ) : Date {
+				var matches : Array = str.match(/(\d\d\d\d)-(\d\d)-(\d\d)/);
+				var d : Date = new Date();
+				
+				d.setUTCFullYear(int(matches[1]), int(matches[2]) - 1, int(matches[3]));
+				
+				return d;
+			}
+		 
+			private function calculateDayDifference(in_date:String):int {
+				
+				if(in_date!=null) {
+					
+					var dateCommonFormatter:DateTimeFormatter = new DateTimeFormatter();
+					dateCommonFormatter.dateTimePattern = "YYYY-MM-DD";
+					
+					in_date = in_date.substr(0,10);
+					                              
+					var dateFromString:Date = parseDate(in_date);
+					const millisecondsPerDay:int = 1000 * 60 * 60 * 24;
+					var milliseconds:Number = dateFromString.time;  
+					var today:Number = new Date().time;
+					var diff:Number = (today - milliseconds) / millisecondsPerDay;
+					 
+					return Math.abs(Math.round(diff));
+				}
+				else 
+					return -1;
+			}
+		
+			
+			/************************************************
+			 * 	Get contestantlist from server				*
+			 * 												*
+			 ************************************************/
+			
+			private function getContestants():void {
+				parentApplication.myContestantDAO.addEventListener(ContestantEvent.CONTESTANT_GETCONTESTANTS_READY,contestantsReady);
+				parentApplication.myContestantDAO.addEventListener(ContestantEvent.CONTESTANT_GETCONTESTANTS_FAILED,contestantsFailed);
+				parentApplication.isBusy(parentApplication.Language.busy_getentries);//"Hämtar tävlingsbidrag");
+				parentApplication.myContestantDAO.restGetContestants(competitionID);
+			}
+			
+			private function contestantsFailed(event:ContestantEvent):void {
+				parentApplication.notBusy();
+				
+				parentApplication.myContestantDAO.removeEventListener(ContestantEvent.CONTESTANT_GETCONTESTANTS_READY,contestantsReady);
+				parentApplication.myContestantDAO.removeEventListener(ContestantEvent.CONTESTANT_GETCONTESTANTS_FAILED,contestantsFailed);
+			}
+			
+			private function contestantsReady(event:ContestantEvent):void {
+				
+				var tmp:ContestantVO;
+				var currpos:int=1;
+				
+				parentApplication.notBusy();
+				
+				contestants.removeAll();
+				totalvotes=0;
+				
+				for each(var contobj:Object in event.data) {
+					
+					tmp = new ContestantVO();
+					tmp.contestantID=parseInt(contobj.nid);
+					
+					tmp.competitionID = parseInt(competitionID);
+					tmp.feedID = contobj.nid;
+					
+					if(contobj.field_pet!=null)
+						tmp.contestantID = contobj.field_pet.und[0].target_id;
+					
+					tmp.name = contobj.name;
+					tmp.title=contobj.title;
+					tmp.description=contobj.body.und[0].value;
+//					tmp.description=contobj.field_description[parentApplication.language][0].value;	//Multilingual ready;
+					
+					if(contobj.field_blog_images.hasOwnProperty('und')) {
+						var tmpurl:String=contobj.field_blog_images.und[0].uri; 
+						
+						var pos:int;
+						pos = tmpurl.lastIndexOf("/",100);
+						pos = tmpurl.lastIndexOf("/",pos-1);
+						tmp.imageURL_thumb= GlobalConstants.AMAZON_URL + "styles/petit_thumb/s3/petit/images" + tmpurl.substr(pos);	//slice off "s3://
+						tmp.imageURL_small= GlobalConstants.AMAZON_URL + "styles/petit_small/s3/petit/images" + tmpurl.substr(pos);	//slice off "s3://
+						tmp.imageURL_large= GlobalConstants.AMAZON_URL + "styles/petit_large/s3/petit/images" + tmpurl.substr(pos);	//slice off "s3://
+						
+						//tmp.imageURL= GlobalConstants.AMAZON_URL + tmpurl.slice(5);	//slice of "s3://
+					}
+					
+					if(contobj.field_blog_video.hasOwnProperty('und')) {
+						//VIDEOPATH						
+						var tmpurl2:String = contobj.field_blog_video.und[0].playablefiles[0].uri;
+						tmp.videoURL = GlobalConstants.AMAZON_URL + tmpurl2.slice(5);	//slice of "public://
+						
+						//VIDEOORIENTATION
+						if(contobj.field_blog_video.und[0].playablefiles!=null && contobj.field_blog_video.und[0].playablefiles.length>0)
+							tmp.videoOrientationRotation =  parseInt(contobj.field_blog_video.und[0].playablefiles[0].rotate);
+						
+						//VIDEOTHUMBNAIL
+						if(contobj.field_blog_video.und[0].thumbnailfile.uri.length>0) {
+							var tmpurl3:String=contobj.field_blog_video.und[0].thumbnailfile.uri; 
+							tmp.imageURL_small= GlobalConstants.AMAZON_URL + tmpurl3.slice(5);	//slice of "s3://
+							tmp.imageURL_thumb=tmp.imageURL_small;
+						}
+					}
+					 
+					
+//					tmp.soundURL=""; 
+					tmp.voted=contobj.voted;
+					tmp.currentPosition = currpos;					
+					totalvotes = totalvotes + contobj.votes;
+					
+					contestants.addItem(tmp);
+					currpos++;
+					
+					//HAS THIS ENTRY GOT OUR VOTE?
+					if(tmp.voted) 
+						myCurrentVoteEntryID=tmp.contestantID.toString();
+					
+				 
+					
+					//CHECK IF WE'RE IN THIS COMPETITION
+					if(parentApplication.myPetDAO.currentPetID==tmp.contestantID) {
+						enterCompetitionButton.visible=false;
+						enterCompetitionButton.height=0;
+						exitCompetitionButton.visible=true;
+						exitCompetitionButton.height=109;
+						
+						currentFeedEntryID = tmp.feedID.toString();
+					}
+				} 
+				
+				parentApplication.myContestantDAO.removeEventListener(ContestantEvent.CONTESTANT_GETCONTESTANTS_READY,contestantsReady);
+				parentApplication.myContestantDAO.removeEventListener(ContestantEvent.CONTESTANT_GETCONTESTANTS_FAILED,contestantsFailed);
+			}
+			
+			/************************************************************
+			 * RULES AND REQUIREMENTS POPUP								*
+			 * 															*
+			 ************************************************************/
+			public function showRules():void {
+				currentState="messageWindow";
+				popupMessageTitle.text = parentApplication.Language.leaderboard_popup_rules;//"Rules & requirements for this competition";
+				popupMessageDescription.text = rulestext;
+				prizeImageObject.visible=false;
+			}
+			
+			/************************************************************
+			 * PRIZE POPUP												*
+			 * 															*
+			 ************************************************************/
+			public function showPrize():void {
+				currentState="messageWindow";
+				popupMessageTitle.text = parentApplication.Language.leaderboard_popup_prize;//"Prize";
+				prizeImageObject.source = prizeImage;
+				prizeImageObject.visible=true;
+				popupMessageDescription.text = prizetext;
+			}
+			
+			
+			//-------------------------------
+			
+			private function back():void {
+				//Set default pop transition to down
+				var slideTrans:SlideViewTransition = new SlideViewTransition(); 
+				slideTrans.direction = ViewTransitionDirection.DOWN; 
+				parentApplication.competeNav.defaultPopTransition = slideTrans;
+				
+				
+				parentApplication.competeNav.popView();
+			
+				
+			}
+			
+			
+			protected function gotoContestantDetail(event:MouseEvent):void {
+				if( contestantList.selectedItem != undefined) {
+					for each(var obj:Object in contestants) {
+						if(obj.contestantID == contestantList.selectedItem.contestantID) {
+							parentApplication.gotoContestantDetail(obj,myCurrentVoteEntryID);		
+							break;
+						}
+					}	
+				}
+			}
+			
+			/************************************************************
+			 * CONSOLE ANIMATION										*
+			 * 															*
+			 ************************************************************/
+			private function checkIfActiveConsole():void {
+				if(currentConsolePos != (this.height-console.height)) {
+//					showConsoleFX.play();
+					consoleButtons.mouseEnabled=true;
+				}
+				
+			}
+			
+			protected function scrollStart(event:TouchInteractionEvent):void
+			{
+				if(currentConsolePos==(this.height - console.height)) {
+//					hideConsoleFX.play();
+				}
+			}
+			
+			protected function viewDeactivateHandler(event:ViewNavigatorEvent):void {
+//				showConsoleFX.play();
+				//parentApplication.startBGvideo();
+				//parentApplication.bg.visible=false;
+			}
+			
+			
+			/************************************************************
+			 * ACTIONS													*
+			 * 															*
+			 ************************************************************/
+			
+			private function viewClip():void {
+				
+			}
+			
+			
+			 
+	
+			//***********************************************
+		 
+			
+			
+			
+			protected function swipeHandler(event:TransformGestureEvent):void {				//WORKS BUT ISN'T NEEDED
+				 if (event.currentTarget.id == "tophead") {
+				  
+					if(event.offsetY == 1 && tophead.y==-150) {
+						tophead.y=0;
+						listGroup.y = 350;
+						dragArrowImage.rotation=180;
+					}
+					else if(event.offsetY == -1 && tophead.y==0) {
+						tophead.y = -150;
+						listGroup.y = 200;
+						dragArrowImage.rotation=0;
+					}
+				}
+			}
+		 
+			private function changeHeadSize():void {
+				if(tophead.y==0) {
+					moveUpHeadFX.play();
+					listGroup.y=200;
+					dragArrowImage.rotation=0;
+				}
+				else {
+					moveDownHeadFX.play();
+					listGroup.y=350;
+					dragArrowImage.rotation=180;
+				}
+			}
+			
+			
+			protected function viewActivateHandler(event:ViewNavigatorEvent):void
+			{
+				 currentConsolePos = (this.height - console.height);
+				 parentApplication.startBGvideo();
+				 parentApplication.bg.visible=false;
+				 
+				 //play competition sound
+				 if(soundURL.length>0)	
+					 parentApplication.audioUtil.playSoundFX(soundURL);
+			}
+			
+			private function setPosterImage(in_imagepath:String):void {
+				if(in_imagepath!=null) {
+					var endpos:int = in_imagepath.lastIndexOf("/",1000);
+					in_imagepath = in_imagepath.substring(endpos,in_imagepath.length-4);
+					bgposter.source="/assets/posters"+in_imagepath+"_thumb.png";
+					bigbgposter.source = "/assets/posters"+in_imagepath+".png";
+				}
+				
+			}
+		]]>
+	</fx:Script>
+	<s:BitmapImage id="bigbgposter" visible="true" horizontalCenter="0" y="150" alpha="0.86" scaleMode="stretch" scaleX="1.4" scaleY="1.4" smooth="true"
+				   fillMode="scale" source="" 
+				   />
+	<s:Rect	width="100%" height="100%" minHeight="960" minWidth="640">
+		<s:fill>
+			<s:LinearGradient rotation="90">
+				<s:GradientEntry color="#000000" alpha="1.0"/>
+				<s:GradientEntry color="#000000" alpha="0.5"/>
+				<s:GradientEntry color="#000000" alpha="0.5"/>
+				<s:GradientEntry color="#000000" alpha="1.0"/>
+			</s:LinearGradient>
+			 
+		</s:fill>
+	</s:Rect>
+	 
+	<!-- LIST-->
+	<s:VGroup id="listGroup" visible="true" left="0" y="200" moveEffect="{slowMoveFX}"
+			  horizontalAlign="center" horizontalCenter="0"  
+			  paddingTop="0">
+		<s:List id="contestantList" width="90%" minWidth="600" height="100%" minHeight="800" click="gotoContestantDetail(event)" allowMultipleSelection="false"
+				contentBackgroundAlpha="0" dataProvider="{contestants}" horizontalScrollPolicy="off"
+				interactionMode="touch" itemRenderer="Renderers.contestListRenderer" touchInteractionStart="scrollStart(event)"
+				pageScrollingEnabled="false" skinClass="spark.skins.mobile.ListSkin"
+				verticalScrollPolicy="on"><!--cacheAsBitmap="false"-->
+			<s:layout>
+				<s:VerticalLayout id="contestantTile" horizontalAlign="center" verticalScrollPosition="-10"
+								  paddingBottom="40" paddingLeft="0"
+								  gap="1"
+								  paddingTop="0"/>
+			</s:layout>
+		</s:List>
+	</s:VGroup>
+	
+	
+	<!-- TOP-->
+	<s:Group id="tophead" y="-150" horizontalCenter="0" width="100%" height="350" click="changeHeadSize();" >
+		<s:Rect id="textbackground" height="350" width="100%" right="0" left="0" filters="{shadowFilter}"
+				visible="true" alpha="0.93"
+				bottomLeftRadiusX="15" bottomLeftRadiusY="15"
+				bottomRightRadiusX="15" bottomRightRadiusY="15"
+				>
+			<s:fill>
+				<s:SolidColor color="#fff7ea" alpha="1"/>
+			</s:fill>
+		</s:Rect>
+		
+		<s:BitmapImage id="bgposter" visible="true" left="10" y="160" height="160" width="130" alpha="1"
+					   fillMode="scale" source="" 
+					   />
+		<!--s:BitmapImage right="20" y="10" height="120" source="/assets/skin/Competition_icon.png" scaleMode="stretch"/-->
+		
+		<s:VGroup right="10" y="185">
+			<components:violetButton label="{parentApplication.Language.leaderboard_button_join.toUpperCase()}" click="gotoEnterCompetition();" id="enterCompetitionButton" />
+			<components:violetButton label="{parentApplication.Language.leaderboard_button_exit.toUpperCase()}" click="gotoExitCompetition();" id="exitCompetitionButton" visible="false" height="0"/>
+		</s:VGroup>
+		
+		<!--s:SWFLoader left="0" top="-50" source="http://flash-clocks.com/blog/flash-animation/flash-animation-black-cat.swf" width="165" scaleContent="true"/-->
+		<s:VGroup left="10" y="5" gap="4" id="headdetails">
+			<!--s:HGroup gap="13">
+				<s:Label  text="{parentApplication.Language.leaderboard_head_comments}" fontFamily="MyriadPro" fontSize="30"/>
+				<s:Label id="commentsLabel" text="-" fontFamily="MyriadPro" fontWeight="bold" fontSize="30"/>		
+			</s:HGroup-->
+			<s:HGroup>
+				<s:Label text="{daystostart}" fontFamily="MyriadPro" fontSize="30" fontWeight="bold"/>
+				<s:Label text=" {parentApplication.Language.leaderboard_head_daysrun}" fontFamily="MyriadPro" fontSize="30"/>
+			</s:HGroup>
+			<s:HGroup>
+				<s:Label text="{parentApplication.Language.leaderboard_head_startdate}" fontFamily="MyriadPro" fontSize="30"/>
+				<s:Label text="{startdate}" fontFamily="MyriadPro" fontSize="30" fontWeight="bold"/>
+			</s:HGroup>
+			<s:HGroup>
+				<s:Label text="{parentApplication.Language.leaderboard_head_enddate}" fontFamily="MyriadPro" fontSize="30"/>
+				<s:Label text="{enddate}" fontFamily="MyriadPro" fontSize="30" fontWeight="bold"/>
+			</s:HGroup>
+		</s:VGroup>
+		<s:VGroup left="150" y="155" gap="4" id="headdetails2">
+			<s:Label width="281" height="30" fontSize="30" text="Competition Title" id="titleLabel" fontFamily="MyriadPro" fontWeight="bold"/>
+			<s:Label text="{parentApplication.Language.leaderboard_head_totalvotes_part1} {totalvotes} {parentApplication.Language.leaderboard_head_totalvotes_part2}" fontFamily="MyriadPro" fontSize="30"/>
+			<s:Label text="{daysleft} {parentApplication.Language.leaderboard_head_daysleft}" fontFamily="MyriadPro" fontSize="30"/>
+		</s:VGroup>
+		<s:BitmapImage id="dragArrowImage" alpha="0.15" source="assets/images/downarrow.png" horizontalCenter="0" bottom="2" scaleMode="stretch" scaleX="0.6" scaleY="0.6" smooth="true" />
+	</s:Group>
+	
+	<!-- CLOSED/FINISHED -->
+	<s:Group id="closedGroup">
+		<s:Rect id="darkerBG" height="100%" width="100%">
+			<s:fill>
+				<s:LinearGradient rotation="90">
+					<s:GradientEntry color="#000000" alpha="0.0"/>
+					<s:GradientEntry color="#000000" alpha="0.8"/>
+					<s:GradientEntry color="#000000" alpha="0.0"/>
+				</s:LinearGradient>
+			</s:fill>
+		</s:Rect>
+	</s:Group>
+	
+	<!-- MENU -->
+	 <s:Group id="console" bottom="0" width="100%">
+		<s:BitmapImage source="@Embed('/assets/skin/menu/Petiit_Console.png')" scaleMode="stretch" bottom="0" width="100%"/>
+		<s:HGroup bottom="0" width="100%" horizontalAlign="center" gap="0" left="-8" id="consoleButtons">
+			<components:menuButton id="backButton" click="back();" label="{parentApplication.Language.general_back.toUpperCase()}"/>
+			<components:menuButton id="prizeButton" click="showPrize(); " label="{parentApplication.Language.leaderboard_button_prize}"/>
+			<components:menuButton id="rulesButton" click=" showRules();" label="{parentApplication.Language.leaderboard_button_info}"/>
+		</s:HGroup>
+	</s:Group>
+	
+	
+	<!-- MESSAGE WINDOW -->
+	<s:Group width="100%" height="100%" x="0" y="0" includeIn="messageWindow" id="popupMessageWindow">
+		<s:Rect	width="100%" height="100%" minHeight="960" minWidth="640">
+			<s:fill>
+				<s:SolidColor color="#000000" alpha="0.7"/>
+			</s:fill>
+		</s:Rect>
+		
+		<s:Group width="580" verticalCenter="-20" horizontalCenter="0" height="700">
+			<s:Rect x="0" y="0" radiusX="30" radiusY="30" width="580" height="700" filters="{shadowFilter}" >
+				<s:fill>
+					<s:BitmapFill source="@Embed('/assets/skin/BG.png')" fillMode="repeat" alpha="0.9"/>
+				</s:fill>
+			</s:Rect>
+			<s:Rect x="10" y="10" radiusX="30" radiusY="30" width="560" height="680">
+				<s:fill>
+					<s:SolidColor color="#ffffff" alpha="0.6"/>
+				</s:fill>
+			</s:Rect>
+			<!--s:BitmapImage horizontalCenter="0" y="-46" source="/assets/images/logo_small.png"/-->
+			<s:Label id="popupMessageTitle" width="520" color="#976a97"  paddingLeft="10" paddingBottom="10" paddingRight="10" paddingTop="20"
+					 fontFamily="MyriadPro" fontSize="44" horizontalCenter="0" fontWeight="bold"
+					 text="" textAlign="center" verticalAlign="middle" verticalCenter="-255"/>	
+			<s:Label id="popupMessageDescription" width="520" height="430" color="#976a97" fontFamily="MyriadPro" paddingLeft="10" paddingBottom="10" paddingRight="10" paddingTop="60"
+					 fontSize="32" fontWeight="normal" horizontalCenter="0" text="---" 
+					 textAlign="left" verticalCenter="-10"/>	
+			<s:BitmapImage id="prizeImageObject" horizontalCenter="0" bottom="170" visible="false" />
+			<s:HGroup width="400" horizontalAlign="center" horizontalCenter="0" bottom="50">
+				<components:violetButton id="okButton" width="250" label="{parentApplication.Language.general_ok}" click="currentState='normal'"/>
+			</s:HGroup>
+		</s:Group>
+	</s:Group>
+	
+	<fx:Declarations>
+		<s:DropShadowFilter color="#000000" distance="6" alpha="0.28" angle="92.3" blurX="6" blurY="6" id="shadowFilter"/>
+	</fx:Declarations>
+</s:View>

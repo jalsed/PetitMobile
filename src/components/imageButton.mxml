@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" currentState="up" added="readyToLoadImages();" 
+		 >
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<s:states>
+		<s:State name="up" />
+		<s:State name="over" stateGroups="overStates" />
+		<s:State name="down" stateGroups="downStates" />
+		<s:State name="disabled" stateGroups="disabledStates" />
+	</s:states>
+	
+	<fx:Script>
+		<![CDATA[
+			[Bindable]
+			public var up_pic:String="/assets/buttons/btn_pink_empty_off.png";
+			[Bindable]
+			public var down_pic:String="/assets/buttons/btn_pink_empty_on.png";
+			[Bindable]
+			public var label:String="";
+			[Bindable]
+			public var textcolor:int=0xffffff;
+			
+			[Bindable]
+			public var showArrow:Boolean=false;
+			
+			private var interval:uint;
+			
+			public function readyToLoadImages():void {
+				if(buttonImageDown==null || buttonImage==null) {	//do later
+					interval=setInterval(updateImages,200);
+				}
+			}
+			
+			private function updateImages():void {	
+				if(buttonImageDown!=null && buttonImage!=null) {
+					clearInterval(interval);
+					buttonImageDown.source=down_pic;
+					buttonImage.source=up_pic;	
+				}
+			}
+			
+			
+		]]>
+	</fx:Script>
+	<s:Image scaleMode="letterbox" mouseEnabled="false" id="buttonImageDown" 
+			 left="0" right="0" top="0" bottom="0" smooth="true" />
+	<s:Image scaleMode="letterbox" mouseEnabled="false" id="buttonImage" 
+			 includeIn="up" smooth="true"
+			 left="0" right="0" top="0" bottom="0" />
+
+	<s:Label id="labelDisplay" left="10" right="10" height="63" color="{textcolor}" depth="2"
+			 fontFamily="Badaboom" fontSize="44" horizontalCenter="0" maxDisplayedLines="1"
+			 mouseEnabled="false" text="{label}" textAlign="center" verticalAlign="middle"
+			 verticalCenter="-5"> 
+	</s:Label>
+	<s:BitmapImage height="28" source="@Embed('/assets/images/more_white.png')" visible="{showArrow}" verticalCenter="0" right="20"/>
+	<s:Button x="0" y="0" width="{buttonImage.width-2}" height="{buttonImage.height-2}" alpha="0" click="currentState='down'" mouseOver="currentState='over'" mouseOut="currentState='up'"/>
+</s:Group>

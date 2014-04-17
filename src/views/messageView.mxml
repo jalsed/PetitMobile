@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark" title="Messages"
+		viewActivate="viewActivateHandler(event)"
+		>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+	 
+			import models.MessageVO;
+			
+			import mx.collections.ArrayCollection;
+			
+			import spark.events.ViewNavigatorEvent;
+			
+			[Bindable]
+			private var messages:ArrayCollection = new ArrayCollection();
+			
+			
+			private function gotoMessage(event:Event):void {
+			
+			}
+			
+			protected function viewActivateHandler(event:ViewNavigatorEvent):void
+			{
+				var tmp:MessageVO = new MessageVO();
+				 
+				tmp.mid=1;
+				tmp.messagetext="Test of a message text";
+				tmp.pseudonym="Someone";
+				
+				messages.addItem(tmp);
+				
+				tmp.mid=2;
+				tmp.messagetext="Test of a another message text";
+				tmp.pseudonym="Someoneelse";
+				
+				messages.addItem(tmp);
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<s:Image id="stripes" visible="true" x="0" y="0" width="100%" height="778" alpha="1"
+			 fillMode="repeat" source="@Embed('/assets/images/stripebackground.png')"
+			 />
+	
+	<s:VGroup id="listGroup" visible="true" width="100%" height="100%"
+			  horizontalAlign="center" horizontalCenter="0" paddingLeft="5" paddingRight="5"
+			  paddingTop="5"
+			  y="0" >
+		<s:List id="messageList" width="100%" height="100%" horizontalScrollPolicy="off"   
+				verticalScrollPolicy="on" contentBackgroundAlpha="0" dataProvider="{messages}"
+				itemRenderer="Renderers.newsfeedListRenderer" click="gotoMessage(event)" 
+				skinClass="spark.skins.mobile.ListSkin" cacheAsBitmap="false" ><!--cacheAsBitmap="false"-->
+			<s:layout>
+				<s:VerticalLayout id="listTile" horizontalAlign="center"  
+								  paddingBottom="400" paddingLeft="5" paddingRight="5"
+								  gap="15"
+								  paddingTop="20"/>
+			</s:layout>
+		</s:List>
+	</s:VGroup>
+	
+	
+</s:View>

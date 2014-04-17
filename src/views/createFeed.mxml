@@ -1,0 +1,1098 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009"
+		xmlns:s="library://ns.adobe.com/flex/spark"
+		xmlns:views="views.*"
+		xmlns:components="components.*" 
+		title="Create news"
+		tabBarVisible="false"
+		actionBarVisible="false"
+	 	creationComplete="init(event)"
+		color="#eeeeee" backgroundAlpha="0"
+		viewActivate="viewActivateHandler(event);"
+		>
+	 
+	<s:states>
+		<s:State name="normal"/>
+		<s:State name="draw"/>
+		<s:State name="drawaccessories"/>
+		<s:State name="sharing"/> 
+	</s:states>
+	
+	<fx:Declarations>
+		<s:HTTPService id="accessoriesService" resultFormat="e4x" method="GET" useProxy="false" result="accessoriesResultHandler(event)" fault="accessoriesFaultHandler(event)"/>
+	</fx:Declarations>
+	 
+	<fx:Script>
+	<![CDATA[
+		import mx.collections.ArrayCollection;
+		import mx.collections.XMLListCollection;
+		import mx.events.FlexEvent;
+		import mx.graphics.ImageSnapshot;
+		import mx.graphics.codec.PNGEncoder;
+		import mx.rpc.events.FaultEvent;
+		import mx.rpc.events.ResultEvent;
+		
+		import spark.events.ViewNavigatorEvent;
+		import spark.skins.mobile.HSliderSkin;
+		import spark.skins.mobile.TextInputSkin;
+		import spark.transitions.SlideViewTransition;
+		import spark.transitions.ViewTransitionDirection;
+		
+		import classes.GlobalConstants;
+		
+		import events.DialogEvent;
+		import events.FeedEvent;
+		import events.GalleryEvent;
+		import events.ImageEvent;
+		import events.PetitSoundEvent;
+		import events.VideoEvent;
+		
+		import skins.PetiitCalloutSkin;
+		
+		import wardrobe.myIconItemRenderer;
+
+		 
+		private var feed_text:String="";
+		private var feed_image_fid:String="";
+		private var feed_image_uri:String="";
+		private var feed_thumb_fid:String="";
+		private var feed_video_fid:String="";
+		private var feed_video_uri:String="";
+		private var feed_sound_fid:String="";
+		private var feed_sound_uri:String="";
+		private var feed_visibility:uint=0;	//public=1, private=0
+	
+		private var fromGallery:Boolean=false;
+		
+		[Bindable]
+		private var drawImageSource:String="";
+		
+		[Bindable]
+		private var accessoriesAC:ArrayCollection = new ArrayCollection();
+		
+		[Bindable]
+		private var sizeVal:Number=1;
+		[Bindable]
+		private var rotationVal:Number=360;
+		[Bindable]
+		private var alphaVal:Number=1;
+		
+		private var pictureDirty:Boolean=false;	//Set if profile picture should be saved/updated
+		
+		[Bindable]
+		private var pointstring:String="";
+		
+		protected function init(event:FlexEvent):void
+		{
+			if(imageComp!=null) {
+				imageComp.addEventListener(ImageEvent.UPLOAD_READY,imageUploadReady);
+				imageComp.addEventListener(ImageEvent.UPLOAD_FAILURE,imageUploadFailure);
+			}
+			
+			if(videoComp!=null) {
+				videoComp.addEventListener(events.VideoEvent.UPLOAD_READY,videoUploadReady);
+				videoComp.addEventListener(events.VideoEvent.UPLOAD_FAILURE,videoUploadFailure);
+			}
+			
+			if(galleryComp!=null) {
+				galleryComp.addEventListener(events.GalleryEvent.VIDEO_UPLOAD_READY,galleryVideoUploadReady);
+				galleryComp.addEventListener(events.GalleryEvent.VIDEO_UPLOAD_FAILURE,videoUploadFailure);
+				galleryComp.addEventListener(ImageEvent.UPLOAD_READY,imageUploadReady);
+				galleryComp.addEventListener(ImageEvent.UPLOAD_FAILURE,imageUploadFailure);
+			}
+			
+			//SAVE SOUND FOR LATER...
+		//	soundComp.addEventListener(PetitSoundEvent.UPLOAD_READY,soundUploadReady);
+		//	soundComp.addEventListener(PetitSoundEvent.UPLOAD_FAILURE,soundUploadFailure);
+		}
+
+		
+		/********************************************************
+		 * UPLOAD EVENT HANDLERS								*
+		 * 														*
+		 ********************************************************/
+		
+		private function imageUploadReady(event:ImageEvent):void {
+			feed_image_fid = event.data.fid;
+			feed_image_uri = event.data.uri;
+			
+			parentApplication.showToastFX(parentApplication.Language.createfeed_toast_imageuploaded,true);	//Image uploaded"
+			
+			publishButton.enabled=true;
+			drawButton.enabled=true;
+			halfblack.visible=false;
+			deleteGroup.visible=true;
+		 
+			if(imageComp!=null && imageComp.im_file!=null)
+				drawImageSource = imageComp.im_file;
+//			else
+//				drawImageSource = event.data.uri;
+				
+		}
+		
+		private function imageUploadFailure(event:ImageEvent):void {
+			parentApplication.showToastFX(parentApplication.Language.createfeed_toast_imageuploaderror,false);	//Problem uploading image"
+			halfblack.visible=false;
+		}
+		
+		
+		private function videoUploadReady(event:events.VideoEvent):void {
+			feed_video_fid = event.data.fid;
+			feed_video_uri = event.data.uri;		
+			
+			parentApplication.showToastFX(parentApplication.Language.createfeed_toast_videouploaded,true);	//Video uploaded
+			halfblack.visible=false;
+			drawButton.enabled=false;
+			publishButton.enabled=false;
+			playGroup.visible=true;
+			deleteGroup.visible=true;
+			fromGallery=true;
+			
+			//Fix thumbnail
+			var urlLoader:URLLoader = new URLLoader();
+			urlLoader.addEventListener(Event.COMPLETE, restCreateThumbHandler);
+			urlLoader.addEventListener(IOErrorEvent.IO_ERROR, restCreateThumbFaultHandler);
+			var uploadUrl:String = GlobalConstants.DRUPAL_PATH + "file/" + feed_video_fid + "/createthumb";
+			var urlRequest:URLRequest = new URLRequest(uploadUrl);
+			urlRequest.requestHeaders.push(new URLRequestHeader("Accept", "application/json"));
+			urlRequest.contentType = "application/json";
+			urlRequest.method = URLRequestMethod.POST;
+			
+			urlRequest.data = JSON.stringify({"field_name": "field_blog_video"});
+			urlLoader.load(urlRequest);	
+			
+		}
+
+		private function videoUploadFailure(event:events.VideoEvent):void {
+			parentApplication.showToastFX(parentApplication.Language.createfeed_toast_videouploaderror,false);	//Problem uploading video
+			halfblack.visible=false;
+			publishButton.enabled=true;
+		}
+
+		private function galleryVideoUploadReady(event:events.GalleryEvent):void {
+			feed_video_fid = event.data.fid;
+			feed_video_uri = event.data.uri;		
+			
+			parentApplication.showToastFX(parentApplication.Language.createfeed_toast_videouploaded,true);	//Video uploaded
+			halfblack.visible=false;
+			publishButton.enabled=false;
+			playGroup.visible=true;
+			deleteGroup.visible=true;
+			fromGallery=true;
+			
+			//Fix thumbnail
+			var urlLoader:URLLoader = new URLLoader();
+			urlLoader.addEventListener(Event.COMPLETE, restCreateThumbHandler);
+			urlLoader.addEventListener(IOErrorEvent.IO_ERROR, restCreateThumbFaultHandler);
+			var uploadUrl:String = GlobalConstants.DRUPAL_PATH + "file/" + feed_video_fid + "/createthumb";
+			var urlRequest:URLRequest = new URLRequest(uploadUrl);
+			urlRequest.requestHeaders.push(new URLRequestHeader("Accept", "application/json"));
+			urlRequest.contentType = "application/json";
+			urlRequest.method = URLRequestMethod.POST;
+			
+			urlRequest.data = JSON.stringify({"field_name": "field_blog_video"});
+			urlLoader.load(urlRequest);	
+			
+			thumbframe.visible=true;
+		}
+		
+		private function soundUploadReady(event:events.VideoEvent):void {
+			feed_sound_fid = event.data.fid;
+			feed_sound_uri = event.data.uri;		
+			
+			parentApplication.showToastFX("Audio uploaded",true);
+			halfblack.visible=false;
+		}
+		
+		private function soundUploadFailure(event:events.VideoEvent):void {
+			parentApplication.showToastFX("Problem uploading audio.",false);
+			halfblack.visible=false;
+		}
+		
+		
+		private function restCreateThumbHandler(event:Event):void {
+			var result:Array = JSON.parse(event.target.data) as Array;
+			feed_thumb_fid = result[0];
+			
+			thumbImage.visible=true;
+			 
+			publishButton.enabled=true;
+		 	drawButton.enabled=true;
+		}
+		
+		
+		private function restCreateThumbFaultHandler(event:IOErrorEvent):void {
+			trace("Error creating thumbnail");
+			publishButton.enabled=true;
+			drawButton.enabled=true;
+		}
+		
+		
+		
+		/********************************************************
+		 * PUBLISH												*
+		 * 														*
+		 ********************************************************/
+		
+		
+		private function publish():void { 
+			
+			if(currentState=="normal")
+				currentState="sharing";
+			else {
+				
+			
+				feed_text= textfeedText.text; 
+			
+				if(!restriction.selected)
+	                feed_visibility=1;
+				else
+	                feed_visibility=0;
+				
+				
+				parentApplication.latestPostedVideoID=feed_video_fid;
+			 	
+				parentApplication.myFeedDAO.addEventListener(FeedEvent.FEED_PUBLISHED,publishOK);
+				parentApplication.myFeedDAO.addEventListener(FeedEvent.FEED_UPDATED,publishFailed);
+				parentApplication.myFeedDAO.restCreateFeed(parentApplication.myPetDAO.currentPetID,feed_text,feed_visibility.toString(),feed_image_fid,feed_thumb_fid,feed_video_fid,feed_sound_fid);
+				parentApplication.feedNav.popView();
+			}
+		}
+		
+		private function publishOK(event:FeedEvent):void {
+			trace("PUBLISH OK");
+			parentApplication.showToastFX(parentApplication.Language.createfeed_toast_publishready,true);	//Publish ready
+			parentApplication.dispatchEvent(new FeedEvent(FeedEvent.FEED_REFRESH,null,true,true));
+			
+			//Publish on facebook?
+			if(facebookcheckbox.selected==true) {
+				startFacebookPublish();
+			}
+			
+			//Publish on twitter
+			if(twittercheckbox.selected==true) {
+				startTwitterPublish();
+			}
+			
+		}
+		
+		private function publishFailed(event:FeedEvent):void {
+			trace("PUBLISH FAILED");
+			parentApplication.showToastFX(parentApplication.Language.createfeed_toast_publishfailed,true);		//Publish failed
+		}
+		
+		
+		private function back():void {
+			
+			if(currentState=="draw") {
+				drawComp1.charactersCallout.close(true);
+				accessoriesCallout.close(true);
+				drawCallout.close(true);
+				currentState="normal"; 
+			}
+			else if(currentState=="drawaccessories") {
+				cancelAccessory();
+				drawComp1.charactersCallout.close(true);
+				accessoriesCallout.close(true);
+				drawCallout.close(true);
+				currentState="draw"; 
+			}
+			else if (currentState=="sharing") {
+				currentState="normal";
+			}
+			else {
+				var slideTrans:SlideViewTransition = new SlideViewTransition();
+				slideTrans.direction = ViewTransitionDirection.UP;
+				
+				parentApplication.feedNav.defaultPopTransition = slideTrans; 
+				parentApplication.feedNav.popView();
+			}
+		}
+	  
+		
+		
+		private function deleteVideo():void {
+			thumbImage.source=null;
+			thumbframe.visible=false;
+			
+			feed_video_fid = "";
+			feed_video_uri = "";		
+			feed_image_fid = "";
+			feed_image_uri = "";		
+		
+			deleteGroup.visible=false;
+			playGroup.visible=false;
+		}
+		
+		private function playVideo(event:MouseEvent):void {
+			if(fromGallery)
+				galleryComp.playVideo(event);
+			else
+				videoComp.playVideo(event);
+		}
+		
+		private function startstopRecording():void {
+			
+		}
+		
+		private function doFocusOut():void {
+			continueButton.visible=false;
+			continueButton.height=0;
+			videoComp.visible=true;
+			galleryComp.visible=true;
+			imageComp.visible=true;
+		}
+		
+		/************************************************
+		 * 		DRAW ON PICTURE							*
+		 * 												*
+		 ************************************************/
+		
+		private function drawOnPicture():void {
+			currentState="draw";
+			
+			if(drawImageSource.length>0)
+				drawImage.source=drawImageSource;
+			else if(thumbImage!=null)
+				drawImage.source = thumbImage.source;
+
+			if(thumbImage.source!=null) {
+				resultImage.width = thumbImage.sourceWidth;
+				resultImage.height = thumbImage.sourceHeight;
+			}
+		}
+		
+		private function saveDrawPicture():void {
+			//Save overlays to picture
+			saveAll();
+			publishButton.enabled=false;
+			drawButton.enabled=false;
+			
+		}
+		
+		private function saveAll():void {
+			var imageSnap:ImageSnapshot = new ImageSnapshot(); 
+			var imageByteArray:ByteArray = new ByteArray();
+			
+			imageSnap = ImageSnapshot.captureImage(resultImage as IBitmapDrawable);
+			imageByteArray = imageSnap.data as ByteArray;
+			//thumbImage.source = imageByteArray;
+			
+			 //save to file
+			parentApplication.isBusy("Save edited file");
+			
+			var pngenc:mx.graphics.codec.PNGEncoder = new mx.graphics.codec.PNGEncoder();
+			var b:ByteArray  = imageSnap.data as ByteArray;
+			var fileName:String="Petiit_temp_news_image";
+			var newfile:File = File.documentsDirectory.resolvePath(fileName + String( new Date().milliseconds ) + ".png");
+			
+			b=imageByteArray;
+			
+			thumbImage.source=imageByteArray;
+			thumbImage.visible=true; 
+			
+			var fileStream:FileStream = new FileStream();
+			fileStream.addEventListener(Event.COMPLETE, streamComplete);
+			fileStream.addEventListener(IOErrorEvent.IO_ERROR,streamError);
+			fileStream.open(newfile, FileMode.WRITE);                         
+			fileStream.writeBytes(b,0,b.bytesAvailable);
+			fileStream.close();
+			
+			//restUploadFile(newfile);
+			imageComp.addEventListener(ImageEvent.UPLOAD_READY,uploadready);
+			imageComp.addEventListener(ImageEvent.UPLOAD_FAILURE,uploadfailure);
+			imageComp.restUploadFile(newfile, "images");
+			
+			
+		}	 
+		
+		private function streamComplete(event:Event):void {
+			//imageComp.restUploadFile(event.file, "images");
+			if(imageComp!=null && imageComp.im_file!=null)
+				drawImageSource = imageComp.im_file;
+			else
+				drawImageSource = thumbImage.source as String;
+			 
+		}
+		private function streamError(event:Event):void {
+			trace("Error saving file");
+		 
+		}
+		
+		private function uploadready(event:ImageEvent):void {
+			currentState="normal";
+			parentApplication.notBusy();
+			publishButton.enabled=true;
+			drawButton.enabled=true;
+			imageComp.removeEventListener(ImageEvent.UPLOAD_READY,uploadready);
+			imageComp.removeEventListener(ImageEvent.UPLOAD_FAILURE,uploadfailure);
+		}
+		private function uploadfailure(event:ImageEvent):void {
+		 	parentApplication.notBusy();
+			publishButton.enabled=true;
+			drawButton.enabled=true;
+			imageComp.removeEventListener(ImageEvent.UPLOAD_READY,uploadready);
+			imageComp.removeEventListener(ImageEvent.UPLOAD_FAILURE,uploadfailure);
+		}
+		
+		/****************************************************
+		 * ACCESSORIES LIST									*
+		 * 													*
+		 ****************************************************/
+		/****************************************************************
+		 * ACCESSORY - XML												*
+		 * 																*
+		 ****************************************************************/
+		private function loadAccessories():void {
+			
+			//Fetch accessories from server now so it could be changed
+			//				accessoriesService.url = GlobalConstants.XML_URL+"accessories.xml";
+			accessoriesService.url = "wardrobe/accessories.xml";					//local for now
+			accessoriesService.send();
+		}
+		
+		private function accessoriesResultHandler(event:ResultEvent):void {
+			buildLists(event.result as XML);
+		}
+		
+		//Load accessories locally since server is unavailable
+		private function accessoriesFaultHandler(event:FaultEvent):void {
+			//Don't loop back here again if fault again
+			accessoriesService.removeEventListener(FaultEvent.FAULT,accessoriesFaultHandler);
+			
+			accessoriesService.url = "wardrobe/accessories.xml";	
+			accessoriesService.send();
+		}
+		
+		
+		private function buildLists(accessoriesXML:XML):void {
+			var accessoriesXLC:XMLListCollection = new XMLListCollection(accessoriesXML.children());
+			
+			//Clear lists
+			accessoriesAC.removeAll();
+			 
+			//Build lists
+			for each(var child:XML in accessoriesXLC) {
+				
+				var tmpObj:Object = new Object();					
+				tmpObj.type = child.@type;
+				tmpObj.name=child.@title;
+				tmpObj.label=parentApplication.Language[child.@title]; //Title is fetched from Language-xml-files
+				tmpObj.tid=child.@tid;
+				tmpObj.price = child.@price;
+				
+				if(tmpObj.type=="accessory" || tmpObj.type=="clothes") {
+					tmpObj.message = parentApplication.Language.general_price+": "+tmpObj.price; //Price
+					if(tmpObj.price=="0")
+						tmpObj.message=parentApplication.Language.general_price+": 0";	//Price free
+					
+					tmpObj.icon = "/wardrobe/icons/"+child.@icon+".png";
+					tmpObj.image = "/wardrobe/images/"+child.@icon+".png";
+					accessoriesAC.addItem(tmpObj);
+				}					 
+				else if(tmpObj.type=="special") {
+					tmpObj.message = "";
+					tmpObj.label=parentApplication.Language.general_nothing;//"NONE";
+					tmpObj.icon = "";
+					tmpObj.image = "";
+					accessoriesAC.addItem(tmpObj);
+				}						 
+			}
+			 
+		}
+		
+		
+		/********************************************************
+		 * CHECK IF TO SAVE PREVIOUS ITEM						*
+		 * 														*
+		 ********************************************************/
+		private function checkSaveAccessoryItem():void {
+			if(accessoriesList.selectedIndex==0) {	//Nothing
+				if(accessoryGroup.numElements>0)
+					accessoryGroup.removeElementAt(accessoryGroup.numElements-1);
+				accessoriesCallout.close(true);
+			}
+			else {
+/*				if(accessoryGroup.numElements>0) {
+					accessoriesCallout.close(true);
+					parentApplication.addEventListener(DialogEvent.DIALOG_OK,saveFirstAccept);
+					parentApplication.addEventListener(DialogEvent.DIALOG_CANCEL,saveFirstReject);
+					
+					//"Do you want to remove your last wadrobe item before choosing a new one?"
+					parentApplication.showDialog(null,parentApplication.Language.wardrobe_dialog_remove_head,parentApplication.Language.wardrobe_dialog_remove_body,parentApplication.Language.general_yes,parentApplication.Language.general_no,2);
+				}
+				else {
+					addAccessory();
+				}
+				sliderGroup.visible=true;
+				currentAccessoryBitmap.source = accessoriesList.selectedItem.image;
+			}
+*/
+				addAccessory();
+				sliderGroup.visible=true;
+				currentAccessoryBitmap.source = accessoriesList.selectedItem.image;
+			}
+		}
+		
+		private function saveFirstAccept(event:Event):void {
+			
+			addAccessory();
+			
+			//Clean
+			parentApplication.removeEventListener(DialogEvent.DIALOG_OK,saveFirstAccept);
+			parentApplication.removeEventListener(DialogEvent.DIALOG_CANCEL,saveFirstReject);
+		}
+		
+		private function saveFirstReject(event:Event):void {
+			saveAccessory();	
+			addAccessory();
+			//Clean
+			parentApplication.removeEventListener(DialogEvent.DIALOG_OK,saveFirstAccept);
+			parentApplication.removeEventListener(DialogEvent.DIALOG_CANCEL,saveFirstReject);
+		}
+		
+		
+		/********************************************************
+		 * ACCESSORIES											*
+		 * 														*
+		 ********************************************************/
+		
+		private var myAccessories:Array = new Array();
+		
+		private function saveAccessory():void {
+			if(accessoryGroup.numElements>0)
+				pictureDirty=true;
+			
+			takeSnapshot();
+		
+		}
+		
+		private function takeSnapshot():void {
+			drawCharacterGroup.visible=false;	//We don't want the character in the result
+			var imageSnap:ImageSnapshot = ImageSnapshot.captureImage(imageResult as IBitmapDrawable);
+			var imageByteArray:ByteArray = imageSnap.data as ByteArray;
+			
+			//drawImage.source = imageByteArray;
+			profileImage2.source = imageByteArray;
+			profileImage2.height=imageResult.height;
+			profileImage2.width=imageResult.width;
+			accessoryGroup.removeAllElements();
+			
+			drawCharacterGroup.visible=true;
+		}
+		
+		protected function viewActivateHandler(event:ViewNavigatorEvent):void
+		{
+			getPoints();
+			loadAccessories(); 
+		}
+		
+		public function setCharacterImage(inCharacterString:String):void {
+			if(inCharacterString.length>0) {
+				drawCharacterGroup.visible=true;
+				drawCharacter.source = inCharacterString;
+				
+				drawCharacter.scaleX=1;
+				drawCharacter.scaleY=1;
+				drawCharacter.rotation=0;
+				drawCharacter.y=300;
+				drawCharacter.x=200;
+				
+				Multitouch.inputMode = MultitouchInputMode.GESTURE;
+				
+				drawCharacterGroup.removeEventListener(TransformGestureEvent.GESTURE_ROTATE,onRotate);
+				drawCharacterGroup.removeEventListener(TransformGestureEvent.GESTURE_ZOOM, onZoom);
+				drawCharacterGroup.removeEventListener(MouseEvent.MOUSE_DOWN,onDragBegin);
+				drawCharacterGroup.removeEventListener(MouseEvent.MOUSE_UP,onDragEnd);
+				
+				drawCharacterGroup.addEventListener(TransformGestureEvent.GESTURE_ROTATE,onRotate,false,0,true);
+				drawCharacterGroup.addEventListener(TransformGestureEvent.GESTURE_ZOOM, onZoom);
+				drawCharacterGroup.addEventListener(MouseEvent.MOUSE_DOWN,onDragBegin,false,0,true);
+				drawCharacterGroup.addEventListener(MouseEvent.MOUSE_UP,onDragEnd,false,0,true);
+ 
+			}
+			else {
+				drawCharacterGroup.visible=false;
+			}
+		}
+		
+		private function drawLabelText():void {
+			drawLabel.text=drawText.text;
+			
+			if(drawLabel.text.length>0) {
+				drawLabelGroup.visible=true;
+				drawLabel.horizontalCenter=0;
+				bubbla.visible=true;
+				bubbla.horizontalCenter=0;
+				
+				Multitouch.inputMode = MultitouchInputMode.GESTURE;
+				
+				drawLayer.removeEventListener(TransformGestureEvent.GESTURE_ROTATE,onRotate);
+				drawLayer.removeEventListener(TransformGestureEvent.GESTURE_ZOOM, onZoom);
+				drawLayer.removeEventListener(MouseEvent.MOUSE_DOWN,onDragBegin);
+				drawLayer.removeEventListener(MouseEvent.MOUSE_UP,onDragEnd);
+				
+				drawLayer.addEventListener(TransformGestureEvent.GESTURE_ROTATE,onRotate,false,0,true);
+				drawLayer.addEventListener(TransformGestureEvent.GESTURE_ZOOM, onZoom);
+				drawLayer.addEventListener(MouseEvent.MOUSE_DOWN,onDragBegin,false,0,true);
+				drawLayer.addEventListener(MouseEvent.MOUSE_UP,onDragEnd,false,0,true);
+			}
+			else {
+				bubbla.visible=false;
+			}
+		}
+		
+		private function addAccessory():void {
+			sliderGroup.visible=true;
+					
+			currentAccessoryBitmap.source = accessoriesList.selectedItem.image;
+			currentAccessoryBitmap.smooth=true;
+			currentAccessoryBitmap.x = -150;
+			currentAccessoryBitmap.y = -150;
+			
+			Multitouch.inputMode = MultitouchInputMode.GESTURE;
+			
+			currentAccessoryBitmap.removeEventListener(MouseEvent.MOUSE_DOWN,onDragBegin);
+			currentAccessoryBitmap.removeEventListener(MouseEvent.MOUSE_UP,onDragEnd);
+			currentAccessoryBitmap.removeEventListener(TransformGestureEvent.GESTURE_ROTATE,onRotate);
+			currentAccessoryBitmap.removeEventListener(TransformGestureEvent.GESTURE_ZOOM, onZoom);
+			
+			currentAccessoryBitmap.addEventListener(MouseEvent.MOUSE_DOWN,onDragBegin,false,0,true);
+			currentAccessoryBitmap.addEventListener(MouseEvent.MOUSE_UP,onDragEnd,false,0,true);
+			currentAccessoryBitmap.addEventListener(TransformGestureEvent.GESTURE_ROTATE,onRotate,false,0,true);
+			currentAccessoryBitmap.addEventListener(TransformGestureEvent.GESTURE_ZOOM, onZoom);
+//			currentAccessoryBitmap.addEventListener(TransformGestureEvent.GESTURE_ZOOM,onResize,false,0,true);
+			
+			accessoryGroup.addElement(currentAccessoryBitmap);
+			
+			accessoriesList.selectedItem.message="Currently in use!";
+			accessoriesList.invalidateProperties();
+			
+			accessoriesCallout.close(true);
+			
+			currentAccessoryBitmap.filters = [shadowFilter];	//Default is on now
+		}
+		
+		private function onZoom(e:TransformGestureEvent):void
+		{ 
+			if(!isInDrag) {
+				var drawobj:Sprite = e.target as Sprite;
+				drawobj.scaleX *= e.scaleX;
+				drawobj.scaleY *= e.scaleY;
+			
+				if(drawobj.scaleX > 4)
+					drawobj.scaleX = 4;
+				if(drawobj.scaleY > 4)
+					drawobj.scaleY = 4;
+			}
+		}
+		
+		private function onRotate(e:TransformGestureEvent):void
+		{
+			if(!isInDrag) {
+				var drawobj:Sprite = e.target as Sprite;
+				drawobj.rotation += e.rotation;
+			}
+		}
+		
+		/********************************************************
+		 * ACCESSORY EDIT										*
+		 * 														*
+		 ********************************************************/
+		
+		private function changeAccessoryScale():void {
+			currentAccessoryBitmap.scaleX=scaleSlider.value;
+			currentAccessoryBitmap.scaleY=scaleSlider.value;
+		}
+		
+		private function changeAccessoryRotation():void {
+//			currentAccessoryBitmap.rotation=rotationSlider.value;
+			var drawobj:Sprite = currentAccessoryBitmap as Sprite;
+			drawobj.rotation = rotationSlider.value;
+		}
+		
+		private function changeAccessoryAlpha():void {
+			currentAccessoryBitmap.alpha = alphaSlider.value;
+		}
+		
+		//GESTURE EVENTS
+		private var theDragItem:*;
+		
+		private function onResize(evt:TransformGestureEvent):void {
+			
+			theDragItem.dispatchEvent(new MouseEvent(MouseEvent.MOUSE_UP));	//Turn of drag first
+			
+			evt.target.scaleX *= evt.scaleX;
+			evt.target.scaleY *= evt.scaleX;
+			
+			if(evt.target.scaleX>3) {
+				evt.target.scaleX=3;
+				evt.target.scaleY=3;
+			}
+			if(evt.target.scaleX<0.1) {
+				evt.target.scaleX=0.1;
+				evt.target.scaleY=0.1;
+			}			
+			
+			scaleSlider.value *= evt.target.scaleX;
+			trace("scale");
+		}
+		
+		private var isInDrag:Boolean=false;
+		
+		private function onDragBegin(evt:MouseEvent):void { 
+			evt.target.startDrag(); // DragManager.doDrag(e.currentTarget as IUIComponent, null, e);
+			trace("touchbegin");
+			stage.addEventListener(Event.ENTER_FRAME, testMouseLocation, false, 0, true);     
+			theDragItem = evt.currentTarget; 
+			
+			isInDrag=true;
+		}
+		
+		
+		private function testMouseLocation(evt:Event):void{
+			//This is to limit the area that the item can be moved within.
+/*			if (stage.mouseX < 5 || stage.mouseX > (drawImage.width+drawImage.x) || stage.mouseY < 5 || stage.mouseY > 630) {
+				theDragItem.dispatchEvent(new MouseEvent(MouseEvent.MOUSE_UP));
+				stage.removeEventListener(Event.ENTER_FRAME, testMouseLocation);       
+			}
+*/		}
+		
+		private function onDragEnd(evt:MouseEvent):void { 
+			evt.target.stopDrag(); 
+			trace("touchend");
+			isInDrag=false;
+		}
+		
+		private function changeAccessoryPosition(event:MouseEvent):void {
+			//			 	currentAccessoryBitmap.x = event.stageX-260 - (currentAccessoryBitmap.width/2);
+			//				currentAccessoryBitmap.y = event.stageY-290 - (currentAccessoryBitmap.height/2);		
+			
+		}
+		
+		private function keepAccessory():void {
+			saveAccessory();
+			currentState="draw";
+		}
+		
+		private function cancelAccessory():void {
+			accessoryGroup.removeAllElements();
+			accessoriesCallout.close(true);
+			currentState='draw';
+		}
+		
+		private function removeAccessories():void {
+			currentAccessoryBitmap.alpha=1;
+			currentAccessoryBitmap.x=300;
+			currentAccessoryBitmap.y=300;
+			currentAccessoryBitmap.scaleX=1;
+			currentAccessoryBitmap.scaleY=1;
+			currentAccessoryBitmap.rotation=0;
+			profileImage2.source=null;
+			drawCharacter.source=null;
+			drawLabelGroup.visible=false;
+			accessoryGroup.removeAllElements();
+			
+		}
+		
+		/********************************************************
+		 * FACEBOOK												*
+		 * 														*
+		 ********************************************************/
+		private function checkFacebook():void {
+			if(!parentApplication.checkIsFacebookAuthenticated()) {
+				parentApplication.authenticateWithFacebook();
+			}
+		}
+		
+		private function startFacebookPublish():void {
+			// if the user is not already logged in... 
+			if(!parentApplication.checkIsFacebookAuthenticated()) {
+				parentApplication.authenticateWithFacebook();
+			}
+			else {
+				doFacebookPublish();
+			}
+		}		
+		
+		public function doFacebookPublish():void {
+				
+			if(drawImage!=null && drawImage.bytesTotal>0) {
+				parentApplication.publishImageOnFacebook(feed_text,drawImage.bitmapData);
+			}
+			else {
+				parentApplication.publishOnFacebook(parentApplication.myPetDAO.currentPetName+" "+parentApplication.Language.contestant_textarea_prompt,	//title 
+												"",	//caption 
+												"", 
+												feed_text, 					//content
+												"http://www.petiit.com",	//link
+												feed_image_uri );			//imagelink - should start with http://	
+			}
+		}
+		 
+		
+		/********************************************************
+		 * TWITTER												*
+		 * 														*
+		 ********************************************************/
+		private function startTwitterPublish():void {
+			
+			if(!parentApplication.checkIsTwitterkAuthenticated) {
+				trace("Twitter not ready");
+				parentApplication.showToastFX("Twitter not found",false);
+			}
+			else {
+				if(drawImage!=null && drawImage.bytesTotal>0) {
+					parentApplication.publishImageOnTwitter(feed_text,drawImage.bitmapData);
+				}
+				else {
+					parentApplication.publishOnTwitter(feed_text);
+				}
+			}
+		}
+		
+		//************************************
+		private function getPoints():void {
+			pointstring =  parentApplication.Language.profile_page1_points + ': ' + parentApplication.myUserDAO.user.points;
+		}
+		
+		
+	]]>
+	</fx:Script>
+	<s:BitmapImage id="bg" visible="true" x="0" y="0" width="100%" height="100%" scaleMode="stretch" source="@Embed('/assets/images/Petiit-SunBurst-iP5-violet.png')"   />
+	
+	<s:BitmapImage id="commentBG1" top="-50" left="0" source="@Embed('/assets/images/textfield/Text-Input-Area-top-03.png')" alpha="0.9" width="100%" includeIn="normal"/>
+	<s:BitmapImage id="commentBG2" top="-50" left="0" source="@Embed('/assets/images/textfield/Text-Input-Area-bottom-03.png')" alpha="0.9" width="100%" includeIn="normal"/>
+	<s:TextArea id="textfeedText" x="10" y="10" skinClass="spark.skins.mobile.StageTextAreaSkin" includeIn="normal" 
+				prompt="{parentApplication.myPetDAO.currentPetName} {parentApplication.Language.createfeed_textprompt}..."
+				softKeyboardType="default" autoCapitalize="sentence" returnKeyLabel="done"
+				width="620" color="#444444" height="210" contentBackgroundAlpha="0" borderVisible="false" contentBackgroundColor="#ffffff"
+				focusIn="continueButton.visible=true;continueButton.height=650;videoComp.visible=false;galleryComp.visible=false;imageComp.visible=false;" focusOut="textfeedText.text=parentApplication.cleanseChatText(textfeedText.text);"
+				/>
+	
+	<!-- GET IMAGE/VIDEO  BUTTONS-->
+	<s:Group width="100%" minWidth="640" color="#ffffff" y="360" includeIn="normal">
+		<views:getGallery id="galleryComp" horizontalCenter="-155" />
+		<views:getVideo id="videoComp" horizontalCenter="25" />
+		<views:getImage id="imageComp" horizontalCenter="205" />			
+		<!--views:getSound id="soundComp" x="20" y="442"/-->
+	</s:Group>
+	<s:Group y="500" color="#ffffff" width="100%" includeIn="normal">
+		<s:Label text="{parentApplication.Language.createfeed_gallery}" fontSize="32" width="200" x="{galleryComp.x-30}" textAlign="center"/>	
+		<s:Label text="{parentApplication.Language.createfeed_video}" fontSize="32"  width="200" x="{videoComp.x+40}"/>
+		<s:Label text="{parentApplication.Language.createfeed_camera}" fontSize="32" textAlign="center" width="200" x="{imageComp.x-30}"/>
+		</s:Group>	
+	
+	<!-- STATUS AREA-->
+	<s:Group id="statusArea" y="570" width="100%" includeIn="normal">
+		<s:BitmapImage  width="200" height="200" id="thumbImage" visible="true" x="42" scaleMode="stretch" complete="thumbframe.visible=true;deleteGroup.visible=true;	"/>
+		<s:Image width="{thumbImage.width+12}" height="{thumbImage.height+16}" id="thumbframe" visible="false" x="37" top="-5" scaleMode="stretch" source="@Embed('/assets/images/card200x200.png')" click="fullscreenGroup.visible=true;"/>
+		
+		<s:VGroup id="playGroup" paddingTop="20" width="200" horizontalAlign="center" horizontalCenter="0" visible="false"
+				  height="100" depth="2">
+			<s:Image id="playButton" visible="true" cacheAsBitmap="true"
+					 click="playVideo(event)"  
+					 source="@Embed('/assets/images/btn_play.png')"/>
+			<s:Label id="recordLabel" width="200" 
+						 fontSize="24"
+						 text="{parentApplication.Language.createfeed_status_play}"
+						 verticalAlign="middle" textAlign="center"
+						 click="startstopRecording()"/>
+			<s:Label id="storlek" text="{parentApplication.Language.createfeed_status_recorded}." fontSize="24" visible="false"/>
+		</s:VGroup>	
+		
+		<s:VGroup id="deleteGroup" width="200" horizontalAlign="center" paddingTop="20" right="20" visible="false"
+				  height="100" depth="2">
+			<s:Image id="deleteVideoButton" click="deleteVideo();" source="@Embed('/assets/images/icn_delete.png')"/>
+			<s:Label width="200" 
+					 fontSize="24" textAlign="center"
+					 text="{parentApplication.Language.createfeed_status_delete}"
+					 verticalAlign="middle"
+					 click="deleteVideo()"/>
+		</s:VGroup>	
+	</s:Group>
+	
+	<!-- SHARING -->
+	<s:Rect id="darktoner" height="300" width="100%"	includeIn="sharing">
+		<s:fill>
+			<s:LinearGradient rotation="90">
+				<s:GradientEntry color="#000000" alpha="0.6"/>
+				<s:GradientEntry color="#000000" alpha="0.4"/>
+				<s:GradientEntry color="#000000" alpha="0.0"/>
+			</s:LinearGradient>
+		</s:fill>
+	</s:Rect>
+	<s:Label id="shareheader" text="{parentApplication.Language.createfeed_shareheader}" includeIn="sharing" fontFamily="MyriadPro" fontWeight="bold" fontSize="44" color="#ffffff" lineBreak="toFit" y="20" width="600" horizontalCenter="0" textAlign="left"/>
+	<s:VGroup id="sharingGroupImages" y="340" includeIn="sharing" left="20" gap="50" horizontalAlign="left">
+		<s:BitmapImage id="facebooklogo" source="@Embed('/assets/images/facebooklogo.png')" height="64"/>
+		<s:BitmapImage id="twitterlogo" source="@Embed('/assets/images/twitterlogo.png')" height="64"/>
+		<s:BitmapImage id="petiitlogo" source="@Embed('/assets/icons/icon64.png')" height="64"/>
+	</s:VGroup>
+	<s:VGroup id="sharingGroup" y="340" includeIn="sharing" left="20" gap="50">
+		<s:HGroup horizontalAlign="center" horizontalCenter="0" verticalAlign="middle" height="64">
+			<s:CheckBox selected="false" id="facebookcheckbox" color="#ffffff" skinClass="skins.customCheckbox" change="if(facebookcheckbox.selected==true) checkFacebook();" />
+			<s:Label text="{parentApplication.Language.sharing_shareonfacebook}" fontSize="44" id="facebookcheckboxLabel" color="#ffffff" fontFamily="MyriadPro" maxWidth="560" click="if(facebookcheckbox.selected) facebookcheckbox.selected=false;else facebookcheckbox.selected=true;"/>
+		</s:HGroup>
+		<s:HGroup horizontalAlign="center" horizontalCenter="0" verticalAlign="middle" height="64">
+			<s:CheckBox selected="false" id="twittercheckbox" color="#ffffff" skinClass="skins.customCheckbox" />
+			<s:Label text="{parentApplication.Language.sharing_shareontwitter}" fontSize="44" id="twittercheckboxLabel" color="#ffffff" fontFamily="MyriadPro" maxWidth="560" click="if(twittercheckbox.selected) twittercheckbox.selected=false;else twittercheckbox.selected=true;"/>
+		</s:HGroup>
+		<s:HGroup horizontalAlign="center" horizontalCenter="0" verticalAlign="middle" minHeight="64">
+			<s:CheckBox selected="false" id="restriction" color="#ffffff" skinClass="skins.customCheckbox" />
+			<s:Label text="{parentApplication.Language.createfeed_restrictionlabel}" fontSize="44" id="checkboxLabel" fontFamily="MyriadPro" color="#ffffff" lineBreak="explicit" maxWidth="570" click="if(restriction.selected) restriction.selected=false;else restriction.selected=true;" />
+		</s:HGroup>
+	</s:VGroup>
+	
+	
+	<!-- CONTINUE -->
+	<s:Group id="continueButton" top="300" height="0" visible="false" width="100%" horizontalCenter="0" >
+		<s:Rect id="darkerBG" height="100%" width="100%">
+			<s:fill>
+				<s:LinearGradient rotation="90">
+					<s:GradientEntry color="#000000" alpha="0.0"/>
+					<s:GradientEntry color="#000000" alpha="0.8"/>
+					<s:GradientEntry color="#000000" alpha="0.0"/>
+				</s:LinearGradient>
+			</s:fill>
+		</s:Rect>
+		<s:HGroup horizontalAlign="center" width="100%" horizontalCenter="0" height="80">
+			<s:Button id="realContinueButton" label="{parentApplication.Language.general_continue.toUpperCase()}" click="doFocusOut();" width="600" height="80" fontSize="44" color="#000000" fontFamily="MyriadPro"/>
+		</s:HGroup>
+	</s:Group>
+	
+	<!--DRAW GROUP -->
+	<s:Group id="drawGroup" width="100%" minWidth="640" height="100%" minHeight="960" horizontalCenter="0" verticalCenter="0" includeIn="draw,drawaccessories">
+		<s:Rect id="darkerBG2" height="100%" width="100%">
+			<s:fill>
+				<s:LinearGradient rotation="90">
+					<s:GradientEntry color="#000000" alpha="0.9"/>
+					<s:GradientEntry color="#000000" alpha="1"/>
+					<s:GradientEntry color="#000000" alpha="0.9"/>
+				</s:LinearGradient>
+			</s:fill>
+		</s:Rect>
+		<!--BACKGROUND-->
+		<s:BitmapImage id="drawBGimage" source="@Embed('/assets/skin/BG.png')" x="0" y="0" height="100%" width="100%" scaleMode="stretch" />
+		 
+		<!-- RESULT -->
+		<s:Group id="resultImage" x="0" width="100%" height="100%" minWidth="640" minHeight="640">
+			<s:BitmapImage id="drawImage" horizontalCenter="0" y="0" filters="{shadowFilter}"/>
+			
+			<!-- ACESSORIES -->
+			<s:Group id="imageResult" width="100%" height="100%" click="changeAccessoryPosition(event);" y="3" horizontalCenter="0" depth="3">
+				<s:Group id="drawCharacterGroup" visible="false" width="100%" height="100%" minWidth="640" minHeight="640" depth="3">
+					<s:Image id="drawCharacter" width="400" height="400" scaleMode="stretch" horizontalCenter="0" depth="3" verticalCenter="0"/>
+				</s:Group>
+				<s:BitmapImage id="profileImage2" width="580" height="580" depth="3"/> 
+				<s:Group id="accessoryGroupReady" width="100%" height="100%" minWidth="640" minHeight="640" depth="4">
+					<!-- accessories are added in AS to here-->
+				</s:Group>
+				<s:Group id="accessoryGroup" height="1" width="1" horizontalCenter="0" verticalCenter="0" depth="4">
+					<!-- accessories are added in AS to here-->
+				</s:Group>
+			</s:Group>
+			<s:Image id="currentAccessoryBitmap" horizontalCenter="0" y="300" depth="4"/>
+			
+			<!--BUBBLE-->
+			<s:Group id="drawLayer" width="100%" height="100%" minWidth="640" minHeight="640" depth="6">
+				<s:Group id="drawLabelGroup" visible="false" width="100%" y="40">
+					<s:BitmapImage id="bubbla" source="@Embed('/assets/images/busybackground2.png')" y="{drawLabel.y-50}" width="{drawLabel.width+100}" height="{drawLabel.height+120}" 
+								   alpha="0.97" scaleMode="stretch" horizontalCenter="0" horizontalAlign="center" filters="{shadowFilter}"/>
+					<s:Label id="drawLabel" y="50" fontSize="44" color="#444444" fontFamily="MyriadPro" text="test" maxWidth="540" lineBreak="toFit" horizontalCenter="0" mouseEnabled="false"/>
+				</s:Group>
+			</s:Group>
+			
+		</s:Group>
+		<s:HGroup bottom="20" horizontalCenter="0" excludeFrom="drawaccessories,normal,sharing">
+			<views:getDrawImage id="drawComp1" color="#ffffff"/>
+			<!--s:Image source="/assets/images/editSound.png" id="drawComp2" click="drawLabel.text=drawText.text;drawLabelGroup.visible=true;"/-->
+			<s:Image source="/assets/images/editDraw.png" id="drawComp3" click="drawCallout.open(drawComp3);" />
+			<s:Image source="/assets/images/editAccessories.png" id="drawComp4" click="accessoriesCallout.open(drawComp4);currentState='drawaccessories';"/>
+		</s:HGroup>
+	</s:Group>	
+	
+	<!-- ACESSORIES EDIT SLIDERS-->
+	<s:Group width="100%" id="sliderGroup" visible="false" height="100%" horizontalCenter="0" top="0" bottom="0" includeIn="drawaccessories">
+		<s:VGroup horizontalCenter="-140" bottom="152" gap="37" horizontalAlign="left">
+			<s:Label text="{parentApplication.Language.wardrobe_slider_size}" fontSize="26" color="#000000" width="150"/>
+			<s:Label text="{parentApplication.Language.wardrobe_slider_rotation}" fontSize="26" color="#000000" width="150"/>
+			<s:Label text="{parentApplication.Language.wardrobe_slider_alpha}" fontSize="26" color="#000000" width="150"/>	
+		</s:VGroup>
+		<s:VGroup horizontalCenter="0" horizontalAlign="left" bottom="168" gap="4">
+			<s:HSlider minimum="0.1" maximum="3"  value="{sizeVal}" change="changeAccessoryScale();" stepSize="0.1" id="scaleSlider" skinClass="spark.skins.mobile.HSliderSkin" width="600"/>
+			<s:HSlider minimum="1" maximum="360" value="{rotationVal}" change="changeAccessoryRotation();" stepSize="0.5" id="rotationSlider"  skinClass="spark.skins.mobile.HSliderSkin" width="600"/>
+			<s:HSlider minimum="0.0" maximum="1" value="{alphaVal}" change="changeAccessoryAlpha();" stepSize="0.1" id="alphaSlider" skinClass="spark.skins.mobile.HSliderSkin" width="600"/>	
+		</s:VGroup>
+	</s:Group>
+	 
+
+	<!-- MAIN MENU -->
+	<s:Group id="console" bottom="0" width="100%">
+		<s:BitmapImage source="@Embed('/assets/skin/menu/Petiit_Console.png')" scaleMode="stretch" bottom="0" width="100%"/>
+		<s:HGroup bottom="5" width="100%" horizontalAlign="center" gap="0" left="-8" id="consoleButtons">
+			<components:menuButton id="backButton" click="back();" label.normal="{parentApplication.Language.general_back.toUpperCase()}" label.draw="{parentApplication.Language.general_cancel.toUpperCase()}" label.drawaccessories="{parentApplication.Language.general_cancel.toUpperCase()}"
+								   label.sharing="{parentApplication.Language.general_cancel.toUpperCase()}"/>	
+			<components:menuButton id="removeAccButton" click="removeAccessories();" label="{parentApplication.Language.wardrobe_dialog_remove_head}" includeIn="draw"/>	
+			<components:menuButton id="saveButton" click="saveDrawPicture();" label="{parentApplication.Language.general_save.toUpperCase()}" includeIn="draw"/>	
+			<components:menuButton id="keepButton" click="keepAccessory();" label="{parentApplication.Language.createfeed_button_keep}" includeIn="drawaccessories"/>	
+			<components:menuButton id="drawButton" click="drawOnPicture();" label="{parentApplication.Language.general_edit.toUpperCase()}" includeIn="normal"/>	
+			<components:menuButton id="publishButton" click="publish();" label.normal="{parentApplication.Language.general_ready}" 
+								   label.sharing="{parentApplication.Language.createfeed_button_publish.toUpperCase()}" includeIn="normal,sharing"/>	
+		</s:HGroup>
+	</s:Group>
+	
+	<s:Rect id="halfblack" width="100%" height="800" x="0" y="260" visible="false">
+		<s:fill>
+			<s:SolidColor color="#000000" alpha="0.8"/>
+		</s:fill>
+	</s:Rect>
+	
+	<!--FULLSCREEN-->
+	<s:Group id="fullscreenGroup" visible="false" width="100%" height="100%" x="0" y="0" depth="100" 
+			 click="if(fullscreenGroup.visible) {fullscreenGroup.visible=false;}else {fullscreenGroup.visible=true;}">
+		<s:Rect id="blackbackground" left="0" right="0" top="0" bottom="0" >
+			<s:fill>
+				<s:SolidColor color="#000000"/>
+			</s:fill>
+		</s:Rect>
+		<s:Scroller height="100%" width="100%" horizontalCenter="0" verticalCenter="0">
+			<s:Group>
+				<s:BitmapImage id="fullscreenImage" horizontalCenter="0" verticalCenter="0" horizontalAlign="center" verticalAlign="middle" source="{thumbImage.source}"/>			
+			</s:Group>
+		</s:Scroller>
+		<s:BitmapImage source="@Embed('/assets/skin/menu/Petiit_Console.png')" scaleMode="stretch" bottom="0" width="100%"/>
+		<s:HGroup bottom="0" width="100%" horizontalAlign="center" gap="0" left="-8" id="consoleButtons2" mouseDown="fullscreenGroup.visible=false;" depth="102">
+			<s:BitmapImage visible="true" id="fullscreenBackButton" source="@Embed('/assets/buttons/btn_goback_off.png')" />
+		</s:HGroup>
+	</s:Group>	
+	
+	<fx:Declarations>
+		<s:Callout id="drawCallout" width="620" horizontalCenter="0" y="100" skinClass="skins.PetiitCalloutSkin">
+			<s:VGroup horizontalAlign="center" horizontalCenter="0" gap="20" paddingTop="40" paddingBottom="40">
+				<s:Label text="{parentApplication.Language.createfeed_textbubbletitle}" paddingTop="20" paddingBottom="5" color="#000000" fontSize="30" fontFamily="MyriadPro" width="100%" textAlign="left"/>
+				<s:Group width="580" height="80" id="drawtextGroup">
+					<components:petiitTextInputBackground width="100%" height="100%" />
+					<s:TextInput width="100%" prompt="" text="" skinClass="spark.skins.mobile.TextInputSkin" contentBackgroundAlpha="0" focusThickness="0"
+								 height="100%" fontSize="36" borderVisible="false" fontFamily="MyriadPro" focusOut="drawLabelText();"
+								 color="#000000" id="drawText"/>
+				</s:Group> 
+				<s:HGroup paddingTop="50">
+					<components:pinkButton label="{parentApplication.Language.general_cancel}" click="drawCallout.close(true);"/>
+					<components:pinkButton label="{parentApplication.Language.general_save}" click="drawCallout.close(true);"/>
+				</s:HGroup>
+			</s:VGroup>
+		</s:Callout>
+		<s:Callout id="accessoriesCallout" width="600" horizontalCenter="0" verticalCenter="0" skinClass="skins.PetiitCalloutSkin">
+			<s:VGroup horizontalAlign="center" horizontalCenter="0" gap="0" paddingTop="0" paddingBottom="0">
+				<s:Label paddingTop="10" paddingBottom="0" textAlign="center" width="580" backgroundColor="#000000" text="{pointstring}" fontSize="36" fontFamily="MyriadPro" fontWeight="bold" color="#ffffff"/>
+				<s:List width="580" height="550" id="accessoriesList" dataProvider="{accessoriesAC}" interactionMode="touch" itemRenderer="wardrobe.myIconItemRenderer" 
+						contentBackgroundAlpha="0.2" filters="{shadowFilter}" click="checkSaveAccessoryItem();"/>
+				 <s:HGroup paddingTop="20" paddingBottom="40">
+					<components:pinkButton label="Avbryt" click="cancelAccessory();"/>
+					<components:pinkButton label="Spara" click="accessoriesCallout.close(true);currentState='draw';"/>
+				</s:HGroup>
+			</s:VGroup>
+		</s:Callout>
+		<s:DropShadowFilter color="#000000" distance="6" alpha="0.28" angle="92.3" blurX="6" blurY="6" id="shadowFilter"/>
+	</fx:Declarations>
+</s:View>

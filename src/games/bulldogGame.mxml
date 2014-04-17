@@ -1,0 +1,610 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark" title="main" xmlns:components="components.*"
+		actionBarVisible="false" height="100%" tabBarVisible="false" currentState="start"
+		 viewActivate="viewActivateHandler(event)" backgroundAlpha="0" creationComplete="loadWindowBytes();" 
+		>
+	
+	
+	<s:states>
+		<s:State name="playing"/>
+		<s:State name="start"/>
+		<s:State name="finish"/>
+	</s:states>
+	
+	<fx:Script>
+		<![CDATA[
+			import flash.utils.clearInterval;
+			import flash.utils.setInterval;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.SWFLoader;
+			import mx.graphics.BitmapFillMode;
+			import mx.graphics.BitmapScaleMode;
+			
+			import spark.events.ViewNavigatorEvent;
+			import spark.layouts.HorizontalAlign;
+			import spark.layouts.VerticalAlign;
+			
+			import events.GameEvent;
+			
+			import views.leaderBoard;
+			
+			[Embed(source="/assets/games/butterfly.png")]
+			public static const butterflyClass:Class;
+
+			[Embed(source="/assets/characters/CoolCat.png")]
+			public static const pet1:Class;
+			[Embed(source="/assets/characters/CoolHamster.png")]
+			public static const pet2:Class;
+			[Embed(source="/assets/characters/Dog.png")]
+			public static const pet3:Class;
+			[Embed(source="/assets/characters/GingerCat.png")]
+			public static const pet4:Class;
+			[Embed(source="/assets/characters/Mouse.png")]
+			public static const pet5:Class;
+			[Embed(source="/assets/characters/Petiitimals-Rabbit.png")]
+			public static const pet6:Class;
+			[Embed(source="/assets/characters/Piglet.png")]
+			public static const pet7:Class;
+			[Embed(source="/assets/characters/Turtle.png")]
+			public static const pet8:Class;
+			[Embed(source="/assets/characters/Petiitimals-Guinea-pig.png")]
+			public static const pet9:Class;
+			[Embed(source="/assets/characters/Petiitimals-BullDog2.png")]
+			public static const pet10:Class;
+			[Embed(source="/assets/characters/Petiitimals-BullDog.png")]
+			public static const pet11:Class;
+			
+			private var positionArr:Array = new Array(
+				new Array(263,249),
+				new Array(116,408),
+				new Array(266,427),
+				new Array(438,407),
+				new Array(135,570),
+				new Array(363,572),
+				new Array(100,728),		//left bottom
+				new Array(436,739),		//right bottom 
+				new Array(276,785)		//door
+			);
+			 
+			private var pets:Array = new Array();
+		 	
+			private var windowObjects:Array = new Array();
+			private var petObjects:Array = new Array();
+			
+			private var intervals:Array = new Array(9);
+			private var hideIntervals:Array = new Array(9);
+			
+			[Bindable]
+			private var points:int=0;
+			
+			private var totaltime:int=60;
+			
+			private var starttime:Number=0;
+			[Bindable]
+			private var playedtime:Number=0;
+			
+			private var currentpet:int=-1;
+		 	private var currentpetIndex:int=-1;
+			private var lastOpened:Object;
+
+			private var windowmc:MovieClip;
+			private var doormc:MovieClip;	//level1
+			 
+			private var windowmcArray:Array = new Array();
+
+			private var firsttime:Boolean=true;
+			private var loadedObjects:int=0;
+			
+			private var windowbytes:ByteArray = new ByteArray();
+			 
+			private function windowAnimReady(event:Event):void {
+				if(event.target.content!=null) {
+					windowmc = event.target.content;
+					windowmc.stop();
+					windowmc.addEventListener(Event.ENTER_FRAME,windowFrameListener);
+					windowmcArray[parseInt(event.target.loaderContext.parameters.which)] = windowmc; 
+					windowObjects[parseInt(event.target.loaderContext.parameters.which)] = event.target;
+					
+					if(loadedObjects>=8 && firsttime)
+						windowStart();
+					else
+						loadedObjects++;
+				}
+			}
+ 
+			private function doorAnimReady(event:Event):void {
+				if(event.target.content!=null) {
+					doormc = event.target.content;
+					doormc.stop();
+					doormc.addEventListener(Event.ENTER_FRAME,windowFrameListener);
+					windowmcArray[8] = doormc; 
+					
+					if(loadedObjects>=8 && firsttime)
+						windowStart();
+					else
+						loadedObjects++;
+				}
+			}	
+			
+		  
+			private function windowFrameListener(event:Event):void {
+				 if(event.target !=null) {
+						trace("Currentframe="+event.target.currentFrame);
+					 if(event.target.currentFrame==7 || event.target.currentFrame==25)	
+						event.target.stop();
+				 }
+			}
+			
+			private function loadWindowBytes():void {
+				var uldr : URLLoader = new URLLoader();
+				uldr.dataFormat = URLLoaderDataFormat.BINARY;
+				uldr.addEventListener(Event.COMPLETE, onBytesComplete);
+				uldr.load(new URLRequest("/assets/games/BulldogOpenWindows.swf"));
+			}
+			 
+			private function onBytesComplete(e : Event) : void {
+				windowbytes = (e.target as URLLoader).data;	//Now we have the bytes of the swf
+			}
+			
+			private function initGame():void {
+				//setup open windows
+				windowGroup.removeAllElements();
+				 
+				while(windowObjects.length>0)
+					windowObjects.pop();
+				
+				for(var j:int=0;j<9;j++) {
+					var windowImage:SWFLoader = new SWFLoader();
+					windowImage.x = positionArr[j][0]-120;// + (parentApplication.stage.width-house.width/2);
+					windowImage.y = positionArr[j][1]-152;
+					windowImage.visible=true;
+					windowImage.addEventListener(MouseEvent.CLICK,house_clickHandler);
+				
+					if(j==8) {	//load
+						var context:LoaderContext = new LoaderContext(false, ApplicationDomain.currentDomain, null); 
+						windowImage.addEventListener(Event.COMPLETE, doorAnimReady,false,0,true);
+					 	windowImage.loaderContext=context;
+						windowImage.source ="/assets/games/whackadoor.swf"; 
+						windowObjects[8] = windowImage;
+						
+					}
+					else {
+						windowImage.addEventListener(Event.COMPLETE, windowAnimReady,false,0,true)
+							
+/*						var swfWindow:MovieClip;
+						swfWindow = new openwindowClass();
+						
+						var byteArray:ByteArray = swfWindow.movieClipData; 
+*/
+						var loaderContext: LoaderContext = new LoaderContext(false, ApplicationDomain.currentDomain, null);
+					 	loaderContext.parameters = {which:j.toString()};
+						loaderContext.allowCodeImport = true; 
+						windowImage.loaderContext = loaderContext;
+						
+//						windowImage.source = byteArray;
+						windowImage.source = windowbytes;
+					}
+					windowGroup.addElement(windowImage);
+						
+				}
+				
+				//Setup pets
+				while(pets.length>0)
+					pets.pop();
+				playGroup.removeAllElements();
+				while(petObjects.length>0)
+					petObjects.pop();
+
+				pets.push(pet1);
+				pets.push(pet2);
+				pets.push(pet3);
+				pets.push(pet4);
+				pets.push(pet5);
+				pets.push(pet6);
+				pets.push(pet7);
+				pets.push(pet8);
+				pets.push(pet9);
+				pets.push(pet10);
+				pets.push(pet11);
+				 
+				for(var i:int=0;i<9;i++) {
+					var tmpImage:Image = new Image();
+					tmpImage.addEventListener(MouseEvent.CLICK,petClicked);
+					tmpImage.height=110;
+					tmpImage.width=110;
+					tmpImage.fillMode = mx.graphics.BitmapFillMode.SCALE;
+					tmpImage.horizontalAlign=HorizontalAlign.CENTER;
+					tmpImage.verticalAlign=VerticalAlign.MIDDLE;
+					tmpImage.scaleMode=mx.graphics.BitmapScaleMode.STRETCH;
+					tmpImage.scaleX=1;
+					tmpImage.scaleY=1;
+					tmpImage.smooth=true;
+					tmpImage.source = pets[i];
+					tmpImage.x = positionArr[i][0]+115;// + (parentApplication.stage.width-house.width/2);
+					tmpImage.y = positionArr[i][1];
+					tmpImage.visible=false;
+					
+					petObjects.push(tmpImage);
+					playGroup.addElement(tmpImage);
+				}
+				
+				setupButterfly();
+	
+			}
+		
+			
+			private function windowStart():void {
+				firsttime=false;
+				
+				var rndtime:int = Math.round(Math.random()*5000); 
+				intervals[0] = setInterval(windowShow,rndtime,0);
+				rndtime = Math.round(Math.random()*6000); 
+				intervals[1] = setInterval(windowShow,rndtime,1);
+				rndtime = Math.round(Math.random()*7000); 
+				intervals[2] = setInterval(windowShow,rndtime,2);
+				rndtime = Math.round(Math.random()*8000); 
+				intervals[3] = setInterval(windowShow,rndtime,3);
+				rndtime = Math.round(Math.random()*8000); 
+				intervals[4] = setInterval(windowShow,rndtime,4);
+				rndtime = Math.round(Math.random()*9000); 
+				intervals[5] = setInterval(windowShow,rndtime,5);
+				rndtime = Math.round(Math.random()*10000); 
+				intervals[6] = setInterval(windowShow,rndtime,6);
+				rndtime = Math.round(Math.random()*11000); 
+				intervals[7] = setInterval(windowShow,rndtime,7);
+				rndtime = Math.round(Math.random()*12000); 
+				intervals[8] = setInterval(windowShow,rndtime,8);
+				 
+			}
+			
+			private function windowShow(which:*):void {
+				if(windowmcArray[which]!=null)
+					windowmcArray[which].gotoAndPlay(1);
+							
+				clearInterval(intervals[which]);
+				
+				 
+				
+				//Check time
+				var currenttime:Number = new Date().time;
+				playedtime = totaltime - ((currenttime - starttime)/1000);
+				
+				if(playedtime<0) {
+					endGame();
+				}
+				else {
+					var rndtime:int = Math.round(Math.random()*1500)+1500; 
+					intervals[which] = setInterval(windowHide,rndtime,which);
+					
+					triggerButterfly();
+				}
+				
+				petObjects[which].visible=true;
+			}
+			
+			private function windowHide(which:*):void {
+				petObjects[which].visible=false;
+				clearInterval(intervals[which]);
+				if(windowmcArray[which]!=null)
+					windowmcArray[which].gotoAndPlay(19);
+				
+			 
+				
+				//Check time
+				var currenttime:Number = new Date().time;
+				playedtime = totaltime - ((currenttime - starttime)/1000);
+				
+				if(playedtime<0) {
+					endGame();
+				}
+				else {
+					//change pet
+					var rndPet:int = Math.round(Math.random()*(pets.length-1));
+					petObjects[which].source = pets[rndPet];
+					
+					var rndtime:int = Math.round(Math.random()*9000); 
+					intervals[which] = setInterval(windowShow,rndtime,which);
+				}
+			}
+			 
+			
+			private function petClicked(event:Event):void {
+				var which:int;
+				
+				if(event.currentTarget.scaleX==1) {	//only react if not clicked on
+				
+					if(event.currentTarget.sourceHeight==342 && event.currentTarget.sourceWidth==304) {	//BULLDOG image size
+						parentApplication.audioUtil.playSoundFX("/assets/soundfx/bulldogbark.mp3");
+												
+						for(var i:int=0;i<intervals.length;i++) {
+							clearInterval(intervals[i]);
+						}
+						for(i=0;i<hideIntervals.length;i++) {
+							clearInterval(hideIntervals[i]);
+						}
+						
+						event.currentTarget.height=528;
+						event.currentTarget.width=500;
+						event.currentTarget.horizontalCenter=0;
+						event.currentTarget.verticalCenter=0;
+					 
+						//hide
+						hideIntervals[which]= setInterval(endGame,2500);
+
+					}
+					else {
+						parentApplication.audioUtil.playSoundFX("/assets/soundfx/comedy_spring_twang_or_pluck_004.mp3");
+					
+						//find clicked object
+						for(which=0;which<playGroup.numElements;which++) {
+							trace(playGroup.getElementAt(which).x);
+							if(playGroup.getElementAt(which).x==(event.currentTarget.x) && playGroup.getElementAt(which).y==(event.currentTarget.y)) {
+								break;
+							}
+						} 
+						
+						clearInterval(hideIntervals[which]);
+						clearInterval(intervals[which]);
+						
+						points += (10+which);
+						
+						//show points
+						pointFlashLabel.x = event.currentTarget.x+20;
+						pointFlashLabel.y = event.currentTarget.y+10;
+						pointFlashLabel.text="10";
+						pointFlashLabel.visible=true;
+					
+						//hide
+						hideIntervals[which]= setInterval(hidePet,250,which,event.currentTarget);
+						
+						event.currentTarget.scaleX=1.5;
+						event.currentTarget.scaleY=1.5;
+						event.currentTarget.x=event.currentTarget.x-27;	//compensate for centerpoint
+						event.currentTarget.y=event.currentTarget.y-27;	//compensate for centerpoint
+						
+						//Check time
+						var currenttime:Number = new Date().time;
+						playedtime = totaltime - ((currenttime - starttime)/1000);
+						
+						if(playedtime<0) {
+							endGame();
+						}
+						else {
+						 
+							var rndtime:int = Math.round(Math.random()*5000); 
+							intervals[which] = setInterval(windowShow,rndtime,which);
+						 
+						}
+					}
+				}
+			} 
+			
+			private function hidePet(param1:*,param2:*):void {
+				pointFlashLabel.visible=false;
+				param2.visible=false;
+				param2.scaleX=1;
+				param2.scaleY=1;
+				param2.x=param2.x+27;	//compensate for centerpoint
+				param2.y=param2.y+27;	//compensate for centerpoint
+				
+				//change pet
+				var rndPet:int = Math.round(Math.random()*(pets.length-1));
+				petObjects[param1].source = pets[rndPet];
+				
+				clearInterval(hideIntervals[param1]);
+			}
+			
+			 
+			private function removePets():void {
+				 playGroup.removeAllElements();
+				
+				 
+				//Check time
+				var currenttime:Number = new Date().time;
+				playedtime = totaltime - ((currenttime - starttime)/1000);
+				
+			}
+			  
+			private function startGame():void {
+				currentState="playing";
+				
+				points=0;
+				firsttime=true;
+				
+				starttime= new Date().time;
+					
+				parentApplication.audioUtil.stopSoundFX();
+				
+				parentApplication.audioUtil.decreaseBackgroundMusicVolume();
+				
+				initGame(); 
+				
+				
+			}
+			
+			private function endGame():void {
+				if(currentState!="finish") {
+					currentState="finish"; 
+					endButterfly();
+					
+					parentApplication.audioUtil.increaseBackgroundMusicVolume();
+					
+					for(var i:int=0;i<intervals.length;i++) {
+						clearInterval(intervals[i]);
+					}
+					for(i=0;i<hideIntervals.length;i++) {
+						clearInterval(hideIntervals[i]);
+					}
+					
+					var endtime:Number = new Date().time;
+					
+					playedtime = totaltime - ((endtime - starttime)/1000);
+				
+					petImage.source=null;
+				
+					resultMessage.text="";
+					parentApplication.audioUtil.playSoundFX("/assets/soundfx/comedy_accent_bonks_razz_twang.mp3");
+					
+					finishButton.visible=true;
+					pointsFinishText.visible=true;
+				
+					var obj:Object=new Object();
+					obj.score = points;
+					parentApplication.myCompetitionDAO.dispatchEvent(new GameEvent(GameEvent.GET_HIGHSCORE,obj));
+				
+					for(i=0;i<hideIntervals.length;i++) {
+						clearInterval(hideIntervals[i]);
+					}
+				
+				}
+			} 
+			
+			
+			/************************************************
+			 * BUTTERFLY									*
+			 * 												*
+			 ************************************************/
+			
+			private var butterflyImage:Image = new Image();
+			private var butterflyInterval:int;
+			
+			private function setupButterfly():void {
+							
+				butterflyImage.addEventListener(MouseEvent.CLICK,butterflyClicked);
+				butterflyImage.height=110;
+				butterflyImage.width=110;
+				butterflyImage.fillMode = mx.graphics.BitmapFillMode.SCALE;
+				butterflyImage.horizontalAlign=HorizontalAlign.CENTER;
+				butterflyImage.verticalAlign=VerticalAlign.MIDDLE;
+				butterflyImage.scaleMode=mx.graphics.BitmapScaleMode.STRETCH;
+				butterflyImage.scaleX=1;
+				butterflyImage.scaleY=1;
+				butterflyImage.smooth=true;
+				butterflyImage.source = butterflyClass;
+				butterflyImage.x = -150;
+				butterflyImage.y = 150;
+				butterflyImage.visible=false;
+				this.addElement(butterflyImage);
+			
+			}
+			
+			
+			private function butterflyClicked(event:MouseEvent):void {
+				points +=500;
+				parentApplication.audioUtil.playSoundFX("/assets/soundfx/comedy_spring_twang_or_pluck_004.mp3");
+				
+				//show points
+				pointFlashLabel.x = event.currentTarget.x+20;
+				pointFlashLabel.y = event.currentTarget.y+10;
+				pointFlashLabel.text="50";
+				pointFlashLabel.visible=true;
+				
+				endButterfly();
+			}
+			 
+			private function triggerButterfly():void {
+				if(butterflyImage.visible==false) {
+					var chance:int = Math.round(Math.random()*20);
+					
+					if(chance==10) {
+						var starty:Number = (Math.random()*300)+100;
+						butterflyImage.x = -150;
+						butterflyImage.y = starty;
+						butterflyImage.visible=true;
+						butterflyInterval = setInterval(moveButterfly,100);
+					}
+					}
+			}
+			
+			private function moveButterfly():void {
+				if(butterflyImage.x>this.width)
+					endButterfly();
+				
+				butterflyImage.x+=4;
+				
+				var randval:int = Math.round(Math.random()*10)-5;
+				butterflyImage.y = butterflyImage.y + randval;
+				
+				randval = Math.round(Math.random()*4)-2;
+				butterflyImage.rotation = butterflyImage.rotation + randval;
+				
+			}
+			
+			private function endButterfly():void {
+				pointFlashLabel.visible=false;
+				butterflyImage.visible=false;
+				clearInterval(butterflyInterval);
+			}
+			
+			
+			/**************************************************/
+						
+			protected function viewActivateHandler(event:ViewNavigatorEvent):void
+			{
+				currentState="start";
+				parentApplication.audioUtil.loadBackgroundMusic("music2.mp3",0);
+			}
+			
+			private function back():void {
+				parentApplication.audioUtil.stopSoundFX();
+				parentApplication.audioUtil.stopBackgroundMusic();
+				parentApplication.competeNav.popView();
+			}
+			
+			protected function house_clickHandler(event:MouseEvent):void
+			{
+				points -= 10;
+				parentApplication.audioUtil.playSoundFX("/assets/soundfx/comedy_twang_003.mp3");
+			}
+			
+			protected function musicon_checkbox_changeHandler(event:Event):void
+			{
+				if(!musiccheckbox.selected)
+					parentApplication.audioUtil.stopBackgroundMusic();
+				else {
+					parentApplication.audioUtil.loadBackgroundMusic("music2.mp3",0);
+				}
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations>
+		<s:DropShadowFilter color="#000000" distance="6" alpha="0.28" angle="92.3" blurX="6" blurY="6" id="shadowFilter"/>
+		<s:Fade id="fadeOutFX" alphaFrom="1" alphaTo="0" duration="700"/>
+	</fx:Declarations>
+	
+	<s:Group horizontalCenter="0" verticalCenter="0">
+		<s:Image id="house" visible="true" left="0" top="0" alpha="1" includeIn="playing" click="house_clickHandler(event)" width="100%"
+					   fillMode="clip" source="@Embed('/assets/games/house.png')"
+					   />
+		<s:Group id="windowGroup" x="0" y="0" width="100%" height="100%" includeIn="playing"/>
+		<s:Group id="playGroup" x="0" y="0" width="100%" height="100%" includeIn="playing"/>
+		<s:Label id="pointFlashLabel" color="#ffffff" alpha="0" text="10" fontFamily="Badaboom" fontSize="76" show="pointFlashLabel.alpha=1;" hideEffect="{fadeOutFX}"/>
+	</s:Group>	
+	 
+	<s:BitmapImage source="assets/posters/bulldoggameposter.png" includeIn="start" horizontalCenter="0" top="60"/>
+	<s:BitmapImage source="assets/games/NameGameEnd.png" includeIn="finish" horizontalCenter="0" top="50"/>
+	
+	<s:Label text="{parentApplication.Language.game_bulldog_title}" fontFamily="Badaboom" fontSize="64" color.start="#eeeeee" color.finish="#444444" fontSize.finish="64" top="20" horizontalCenter="0" top.finish="70" top.start="70" includeIn="finish"/>
+	<s:Label text="{parentApplication.Language.game_bulldog_helptext}" fontFamily="Badaboom" fontSize="50" color="#ffffff" top="460" width="550" lineBreak="toFit" horizontalCenter="0" includeIn="start" textAlign="center" filters="{shadowFilter}"/>
+	<s:Label id="pointsFinishText" text="{parentApplication.Language.game_finishtext1} {points} {parentApplication.Language.game_finishtext2}" fontFamily="Badaboom" fontSize="36" color="#ffffff" top="360" horizontalCenter="0" includeIn="finish"/>
+	<s:Image id="petImage" horizontalCenter="0" top="80" width="460" height="440" scaleMode="stretch" smooth="true" filters="{shadowFilter}"/>
+	
+	<s:Label id="resultMessage" bottom="60" horizontalCenter="0" fontSize="30" fontWeight="bold" color="#ffffff"/>
+	
+	<s:Label text="{parentApplication.Language.game_time}: {Math.round(playedtime)}" top="10" left="20" color="#ffffff" includeIn="playing"  fontFamily="Badaboom" fontSize="40" filters="{shadowFilter}"/>
+	<s:Label text="{parentApplication.Language.game_score}: {points}" top="10" right="20" color="#ffffff" includeIn="playing"  fontFamily="Badaboom" fontSize="40" filters="{shadowFilter}"/>
+	<components:pinkButton id="giveupButton" label="{parentApplication.Language.game_button_giveup}" click="endGame();" height="100" width="500" horizontalCenter="0" top="10" includeIn="playing"/>
+	<s:CheckBox id="musiccheckbox" label="{parentApplication.Language.game_checkbox_music}" selected="true" color="#ffffff" fontSize="24" bottom="190" horizontalCenter="0" change="musicon_checkbox_changeHandler(event)" includeIn="start"/>
+	<components:pinkButton id="backButton" label="{parentApplication.Language.general_back.toUpperCase()}" click="back();" includeIn="start" horizontalCenter="0" top="5"/>
+	<s:Group horizontalCenter="0" bottom="5">
+		<components:friendsButton id="startButton" label="{parentApplication.Language.game_button_start.toUpperCase()}" click="startGame();" horizontalCenter="0" includeIn="start"/>
+		<s:HGroup horizontalCenter="0" verticalAlign="middle">
+			<components:pinkButton id="restartButton" label="{parentApplication.Language.game_button_restart.toUpperCase()}" click="currentState='start';" includeIn="finish"/>
+			<components:pinkButton id="finishButton" label="{parentApplication.Language.game_button_end.toUpperCase()}" click="back();" includeIn="finish"/>	
+		</s:HGroup>
+	</s:Group>
+</s:View>

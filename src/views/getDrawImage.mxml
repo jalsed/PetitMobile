@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		  height="250" xmlns:components="components.*" xmlns:Renderers="Renderers.*"
+		 >
+	<s:states>
+		<s:State name="normal"/> 
+	</s:states>
+	<fx:Declarations>
+		<s:HTTPService id="charactersService" resultFormat="e4x" method="GET" useProxy="false" result="charactersResultHandler(event)" fault="charactersFaultHandler(event)"/>
+	 </fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			import mx.collections.ArrayList;
+			import mx.collections.XMLListCollection;
+			import mx.events.FlexEvent;
+			import mx.graphics.codec.PNGEncoder;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			import spark.events.IndexChangeEvent;
+			import spark.events.ViewNavigatorEvent;
+			import spark.skins.mobile.StageTextInputSkin;
+			
+			import by.blooddy.crypto.Base64;
+			
+			import classes.GlobalConstants;
+			
+			import events.ImageEvent;
+			import events.PetEvent;
+			import events.UserEvent;
+			
+			import skins.PetiitCalloutSkin;
+			import skins.petiitTextInputSkin;
+			
+			import wardrobe.myIconItemRenderer;
+			
+			
+			public var profile_image_fid:String="";
+			private var profile_image_uri:String="";
+			
+			private var pictureDirty:Boolean=false;	//Set if profile picture should be saved/updated
+	
+			[Bindable]
+			private var charactersAC:ArrayCollection = new ArrayCollection();
+			
+			private var characterChosen:Boolean=false;
+			
+	
+			 
+			/****************************************************************
+			 * XML - CHARACTERS												*
+			 * 																*
+			 ****************************************************************/
+			private function loadCharacters():void {
+				
+				//Fetch accessories from server now so it could be changed
+				//				accessoriesService.url = GlobalConstants.XML_URL+"accessories.xml";
+				charactersService.url = "/assets/xml/characters.xml";					//local for now
+				charactersService.send();
+			}
+			
+			private function charactersResultHandler(event:ResultEvent):void {
+				buildLists(event.result as XML);
+			}
+			
+			//Load accessories locally since server is unavailable
+			private function charactersFaultHandler(event:FaultEvent):void {
+				//Don't loop back here again if fault again
+				charactersService.removeEventListener(FaultEvent.FAULT,charactersFaultHandler);
+				
+				charactersService.url = "/assets/xml/characters.xml";	
+				charactersService.send();
+			}
+			
+			
+			private function buildLists(charactersXML:XML):void {
+				var charactersXLC:XMLListCollection = new XMLListCollection(charactersXML.children());
+				
+				//Clear lists
+				charactersAC.removeAll();
+				
+				//Build lists
+				for each(var child:XML in charactersXLC) {
+					
+					var tmpObj:Object = new Object();					
+					tmpObj.type = child.@type;
+					tmpObj.name=child.@title;
+					tmpObj.label=parentApplication.Language[child.@title]; //Title is fetched from Language-xml-files
+					tmpObj.tid=child.@tid;
+					tmpObj.price = child.@price;
+					
+					tmpObj.message = "";
+					
+					tmpObj.icon = "/assets/characters/icons/"+child.@icon+".png";
+					tmpObj.image = "/assets/characters/"+child.@icon+".png";
+					  
+					charactersAC.addItem(tmpObj);
+						
+				}
+				 
+			}
+			
+			private function chooseCharacter():void {
+				loadCharacters();
+				charactersCallout.open(this);
+			}
+			
+			
+			private function loadCharacterImage():void {
+				
+				if(charactersList.selectedIndex!=-1) {
+					parentDocument.setCharacterImage(charactersList.selectedItem.image);
+				}
+				
+				charactersCallout.close(true);
+			}
+			
+			private function characterImageLoaded(event:Event):void {
+				
+				if(charactersList!=null && charactersList.selectedIndex!=-1) {
+					pictureDirty=true;
+					characterChosen=true;
+				}
+			}
+			
+			private function characterImageLoadedError(event:IOErrorEvent):void {
+				parentApplication.notBusy();
+				trace("Error in character load");	 
+			}
+			
+			 
+			
+		 
+			
+		]]>
+	</fx:Script>
+	<s:Image x="0" y="0" horizontalAlign="center" id="editType" source="@Embed('/assets/images/editType.png')" mouseOut="editType.alpha=1" mouseOver="editType.alpha=0.75" click="charactersCallout.open(this);"/>
+	<s:BitmapImage id="thumbImage" width="120" height="120" scaleMode="stretch" filters="{shadowFilter}" y="150" x="20" complete="characterImageLoaded(event)"/>
+	<fx:Declarations>
+		<s:Callout id="charactersCallout" width="600" horizontalCenter="0" verticalCenter="0" skinClass="skins.PetiitCalloutSkin" open="loadCharacters();" height="680">
+			<s:VGroup horizontalAlign="center" horizontalCenter="0" gap="20" paddingTop="10">
+				<s:List width="580" id="charactersList" dataProvider="{charactersAC}" height="450" 
+					contentBackgroundAlpha="0.2" click="loadCharacterImage();charactersCallout.close(true);" useVirtualLayout="false">
+					<s:itemRenderer>
+						<fx:Component>
+							<Renderers:characterItemRenderer/>
+						</fx:Component>
+					</s:itemRenderer>
+				</s:List>
+				<s:Group horizontalCenter="0">
+					<components:pinkButton label="{parentApplication.Language.general_close.toUpperCase()}" click="parentDocument.setCharacterImage('');charactersCallout.close(true);"/>	
+				</s:Group>
+			</s:VGroup>
+		</s:Callout>
+		<s:DropShadowFilter color="#000000" distance="6" alpha="0.28" angle="92.3" blurX="6" blurY="6" id="shadowFilter"/>
+	</fx:Declarations>
+</s:Group>

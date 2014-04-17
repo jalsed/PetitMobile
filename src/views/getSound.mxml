@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 width="600" height="150" currentState="normal">
+	<s:states>
+		<s:State name="normal"/>
+		<s:State name="active"/>
+	</s:states>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import events.AudioEvent;
+			import events.PetitSoundEvent;
+			import by.blooddy.crypto.Base64;
+			import classes.GlobalConstants;
+			
+			import org.osmf.elements.AudioElement;
+			import org.osmf.events.MediaError;
+			
+			[Embed (source="/assets/images/btn_record.png" )]
+			public static const ICON_BTNRECORD:Class;
+			
+			[Embed (source="/assets/images/btn_play.png" )]
+			public static const ICON_BTNPLAY:Class;
+			
+			[Embed (source="/assets/images/btn_play_paus.png" )]
+			public static const ICON_BTNPAUSE:Class;
+			
+			private var isDirty:Boolean=false;
+			private var soundIsSaved:Boolean=false;
+			
+			public var result_soundURL:String="";
+			
+			/************************************************************
+			 * AUDIO FUNCTIONALITY										*
+			 * 															*
+			 ************************************************************/
+			
+			private function stopRecording():void {
+				if(parentApplication.audioUtil.nowRecording) { //Recording
+					parentApplication.audioUtil.mic.removeEventListener(SampleDataEvent.SAMPLE_DATA,updateRecordSeconds);
+					level.width = 0;
+					playButton.visible=true;
+					playButton.width=75;
+					recordButton.visible = false;
+					recordButton.width=0;
+					recordLabel.text=" "+parentApplication.Language.addnew_tapplay;
+					deleteAudioButton.visible=true;
+					recordLabel.text = "  " + parentApplication.audioUtil.recordedSeconds+" " + parentApplication.Language.addnew_recordedseconds;
+					isDirty=true;
+					
+					parentApplication.audioUtil.stopRecordingIfRolling();
+					
+					
+					//Save to FILE
+					
+					//Upload file to server
+					//restUploadFile(event.data.file,"sound");
+				}
+			}
+			
+			private function startstopRecording(event:MouseEvent):void {
+				if(!parentApplication.audioUtil.nowRecording) { //Recording
+					soundIsSaved=false;
+					parentApplication.audioUtil.mic.addEventListener(SampleDataEvent.SAMPLE_DATA,updateRecordSeconds);
+					recordButton.source = "/assets/images/btn_stop_0_sec.png";
+					recordLabel.text=" "+ parentApplication.Language.addnew_tapstop;
+				}
+				else { //Stopped recording
+					parentApplication.audioUtil.mic.removeEventListener(SampleDataEvent.SAMPLE_DATA,updateRecordSeconds);
+					level.width = 0;
+					playButton.visible=true;
+					playButton.width=75;
+					recordButton.visible = false;
+					recordButton.width=0;
+					recordLabel.text=" "+parentApplication.Language.addnew_tapplay;
+					deleteAudioButton.visible=true;
+					//recordSeoncdsLabel.text = "  " + parentApplication.audioUtil.recordedSeconds+" " + parentApplication.Language.addnew_recordedseconds;
+					recordLabel.text = "  " + parentApplication.audioUtil.recordedSeconds+" " + parentApplication.Language.addnew_recordedseconds;
+					isDirty=true;
+				}
+				parentApplication.audioUtil.onRec();
+				
+			}
+			
+			private function checkIfPlayable():void {
+				if(parentApplication.audioUtil.recordedSeconds>0) {
+					playButton.visible=true;
+					playButton.width=75;
+					recordButton.visible = false;
+					recordButton.width=0
+				}
+				
+			}
+			
+			private function playSound(event:MouseEvent):void {
+				if(!parentApplication.audioUtil.nowPlaying)
+					playButton.source = ICON_BTNPAUSE;
+				else
+					playButton.source = ICON_BTNPLAY;
+				
+				parentApplication.audioUtil.onPlay();
+				parentApplication.audioUtil.channel.removeEventListener(Event.SOUND_COMPLETE, playCompleted);
+				parentApplication.audioUtil.channel.addEventListener(Event.SOUND_COMPLETE, playCompleted);
+			}
+			
+			
+			private function playCompleted(event:Event):void {
+				playButton.source = ICON_BTNPLAY;
+			}
+			
+			private function updateRecordSeconds(event:Event):void {
+				
+				var recordedSeconds:Number = Math.round(parentApplication.audioUtil.recordedBytes.length / 176400);	//44.1kHz, 16 bit, stereo 
+				
+				recordLabel.text = "  " + recordedSeconds +" "+parentApplication.Language.addnew_recordedseconds+" ("+parentApplication.Language.addnew_recorded_max+" 30s)";
+				//recordSeoncdsLabel.text = "  " + recordedSeconds +" "+parentApplication.Language.addnew_recordedseconds+" ("+parentApplication.Language.addnew_recorded_max+" 30s)";
+				
+				if(recordedSeconds>30)	//max 30 seconds is enough
+					startstopRecording(null);
+				
+				//Update sound volume graphics
+				level.width = parentApplication.audioUtil.mic.activityLevel*6;
+				
+			}
+			
+			private function deleteAudio():void {
+				parentApplication.audioUtil.deleteAudioFile(parentApplication.autioUtil.mp3filename);		//Hmmm mp3filename is just the lastest recording
+				deleteAudioButton.visible=false;
+				playButton.visible=false;
+				playButton.width=0;
+				//recordSeoncdsLabel.text = "";
+				recordLabel.text=" "+parentApplication.Language.addnew_tapsound;
+				recordButton.visible=true;
+				recordButton.width=75;
+				recordButton.source = ICON_BTNRECORD;
+				parentApplication.audioUtil.cleanAudio();
+			}
+			
+			/************************************************
+			 * SERVER UPLOAD								*
+			 * 												*
+			 ************************************************/
+			
+			private function restUploadFile(file:File, type:String):void {
+				//uploadIds = [];
+				
+				var fileStream:FileStream = new FileStream();
+				fileStream.open(file, FileMode.READ);
+				var bytes:ByteArray = new ByteArray();
+				fileStream.readBytes(bytes);
+				fileStream.close();
+				
+				var jsonfile:Object = {};
+				jsonfile.filename = file.name;
+				jsonfile.status = 0;
+				jsonfile.filepath = 'public://petit/' + type + '/' + parentApplication.myUserDAO.user.uid.toString() + '/' + file.name;
+				jsonfile.file = by.blooddy.crypto.Base64.encode(bytes);
+				 
+				var urlLoader:URLLoader = new URLLoader();
+				urlLoader.addEventListener(Event.COMPLETE, restUploadFileHandler);
+				urlLoader.addEventListener(IOErrorEvent.IO_ERROR, restUploadFileFaultHandler);
+				var uploadUrl:String = GlobalConstants.DRUPAL_PATH + "file";
+				var urlRequest:URLRequest = new URLRequest(uploadUrl);
+				urlRequest.requestHeaders.push(new URLRequestHeader("Accept", "application/json"));
+				urlRequest.contentType = "application/json";
+				urlRequest.method = URLRequestMethod.POST;
+				
+				urlRequest.data = JSON.stringify(jsonfile);
+				urlLoader.load(urlRequest);
+			}
+			
+			private function restUploadFileFaultHandler(event:IOErrorEvent):void {
+				dispatchEvent(new PetitSoundEvent(PetitSoundEvent.UPLOAD_FAILURE,""));
+			}
+			
+			private function restUploadFileHandler(event:Event):void {
+				var loader:URLLoader = URLLoader(event.target);
+				var obj:Object = JSON.parse(loader.data);
+				//uploadIds.push(obj.fid);
+				
+				//if (uploadIds.length == productFiles.length) {
+				//    isDirty = false;
+				//    dispatchEvent(new Event("imageUploadComplete", true));
+				//}
+				
+				dispatchEvent(new PetitSoundEvent(PetitSoundEvent.UPLOAD_READY,obj));
+				
+			}
+		]]>
+	</fx:Script>
+	
+	  
+		<s:Rect id="level" height="90" alpha="0.18" width="0">
+			<s:fill>
+				<s:SolidColor color="0xff0022"/>
+			</s:fill>
+		</s:Rect>
+		<s:HGroup id="soundGroup" includeIn="active" left="0" bottom="45" width="100%"
+				  height="100" depth="2"
+				  paddingLeft="20">
+			<s:Image click="startstopRecording(event)" id="recordButton" source="@Embed('/assets/images/btn_record.png')" height="90" cacheAsBitmap="true"/>
+			<s:Image id="playButton" visible="false" height="90" cacheAsBitmap="true" left="20"
+					 click="playSound(event)" width="0"
+					 source="@Embed('/assets/images/btn_play.png')"/>
+			<s:VGroup width="420" height="90" verticalAlign="middle">
+				<s:Label id="recordLabel" width="400" height="80" color="#777777"
+						 fontFamily="UniversLTStd" fontSize="50"
+						 text="  Click to record sound."
+						 verticalAlign="middle"
+						 click="startstopRecording(event)"/>
+			</s:VGroup>
+			<s:Image id="deleteAudioButton" height="90" click="deleteAudio();" source="@Embed('/assets/images/icn_delete.png')" visible="false"/>
+		</s:HGroup>	
+	 
+	
+	
+	
+	<s:Image includeIn="normal" x="447" y="10" click="currentState=&quot;active&quot;;" mouseOut="chooseTypeSound.alpha=1" mouseOver="chooseTypeSound.alpha=0.75"
+			 source="/assets/images/chooseTypeSound.png" id="chooseTypeSound"/>
+	<s:Label includeIn="normal" y="66" left="10" fontSize="24" text="Record sound with microphone."/>
+</s:Group>

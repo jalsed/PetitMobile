@@ -1,0 +1,884 @@
+<?xml version="1.0" encoding="utf-8"?>
+<language id="sv">
+<adminheader>Admin meddelande</adminheader>
+<adminmessage></adminmessage>
+<general_language>sv-SE</general_language>
+<general_cancel>Avbryt</general_cancel>
+<general_ok>OK</general_ok>
+<general_shortCurrency>kr</general_shortCurrency>
+<general_back>Tillbaka</general_back>
+<general_yes>Ja</general_yes>
+<general_no>Nej</general_no>
+<general_continue>FORTSÄTT</general_continue>
+<general_close>STÄNG</general_close>
+<general_next>NÄSTA</general_next>
+<general_previous>FÖREGÅENDE</general_previous>
+<general_reply>Svara</general_reply>
+<general_send>Skicka</general_send>
+<general_search>Sök</general_search>
+<general_searching>Söker</general_searching>
+<general_save>Spara</general_save>
+<general_edit>Redigera</general_edit>
+<general_ready>Klar</general_ready>
+<general_price>Pris</general_price>
+<general_nothing>Inget</general_nothing>
+<general_petiitpoints>Petiit poäng</general_petiitpoints>
+<busy_login>Loggar in...</busy_login>
+<busy_getcompetitions>Hämtar tävlingar...</busy_getcompetitions>
+<busy_getmyentries>Hämtar möjliga tävlingsbidrag...</busy_getmyentries>
+<busy_getentries>Hämtar tävlingsbidrag...</busy_getentries>
+<toast_welcomeback>Välkommen!</toast_welcomeback>
+<toast_loginfailed>Inloggning misslyckades</toast_loginfailed>
+<book_header1>Mina vänner</book_header1>
+<book_notapproved>Inte godkänd än</book_notapproved>
+<sharing_shareonfacebook>Lägg ut på Facebook</sharing_shareonfacebook>
+<sharing_shareontwitter>Lägg ut på Twitter</sharing_shareontwitter>
+<welcome_header>Välkommen till Petiit!</welcome_header>
+<welcome_description>Tävla, spela spel, titta på roliga videos och träffa andra husdjursvänner.
+
+Registrera dig gratis för att hitta vänner, delta i tävlingar och rösta.</welcome_description>
+<welcome_button_register>REGISTRERA/LOGIN</welcome_button_register>
+<welcome_button_look>TITTA BARA</welcome_button_look>
+<login_logintext>Logga in med din registrerade epostadress och lösenord.</login_logintext>
+<help_checkboxtext>Fortsätt visa hjälptexter</help_checkboxtext>
+<invitation_email_header>Inbjudan till Petiit</invitation_email_header>
+<inviation_email_body>Din vän #1 saknar #2 på Petiit!
+
+Petiit är ett socialt nätverk för husdjur med massor av roliga tävlingar
+att titta på och vara med i.
+Du hittar mer information om Petiit på hemsidan http://www.petiit.se eller ladda ner appen för iPhone på Appstore här:
+http://www.apple.com/appstore?appid=petiit
+eller appen för Android på Google Play.</inviation_email_body>
+<navigation_competitions>Tävlingar</navigation_competitions>
+<navigation_news>Nyheter</navigation_news>
+<navigation_friends>Vänner</navigation_friends>
+<createfeed_textprompt>säger (tryck här för att skriva)</createfeed_textprompt>
+<createfeed_restrictionlabel>Alla på Petiit får se detta inlägg</createfeed_restrictionlabel>
+<createfeed_gallery>Galleri</createfeed_gallery>
+<createfeed_video>Video</createfeed_video>
+<createfeed_camera>Kamera</createfeed_camera>
+<createfeed_status_play>Spela</createfeed_status_play>
+<createfeed_status_recorded>0 kb inspelat</createfeed_status_recorded>
+<createfeed_status_delete>Radera</createfeed_status_delete>
+<createfeed_button_publish>Publicera</createfeed_button_publish>
+<createfeed_toast_imageuploaded>Bild överförd</createfeed_toast_imageuploaded>
+<createfeed_toast_imageuploaderror>Problem vid bildöverföring</createfeed_toast_imageuploaderror>
+<createfeed_toast_videouploaded>Video överförd</createfeed_toast_videouploaded>
+<createfeed_toast_videouploaderror>Problem vide videoöverföring</createfeed_toast_videouploaderror>
+<createfeed_toast_publishready>Publicering klar</createfeed_toast_publishready>
+<createfeed_toast_publishfailed>Fel vid publicering</createfeed_toast_publishfailed>
+<createfeed_shareheader>Klar för att publiceras!
+Nedan kan du kryssa i hur du vill dela med dig av inlägget. Kryssasr du inte i något ser bara dina godkända vänner inlägget.</createfeed_shareheader>
+<createfeed_textbubbletitle>Text för pratbubblan</createfeed_textbubbletitle>
+<createfeed_button_keep>Behåll</createfeed_button_keep>
+<contestant_votedialog_header>REDAN RÖSTAT</contestant_votedialog_header>
+<contestant_votedialog_body>Du har redan röstat på ett annat alternativ i denna tävlingen. Är du säker på att du vil ändra din röst till detta alternativ?</contestant_votedialog_body>
+<contestant_votedialog_yes>Yes, change</contestant_votedialog_yes>
+<contestant_textarea_prompt>säger...</contestant_textarea_prompt>
+<contestant_comment_prompt>Skriv en kommentar här</contestant_comment_prompt>
+<contestant_comment_send>Skicka</contestant_comment_send>
+<contestant_button_vote>Rösta!</contestant_button_vote>
+<contestan_toastmessage_voted>Röstat!</contestan_toastmessage_voted>
+<feeddetail_deletedialog_header>Radera</feeddetail_deletedialog_header>
+<feeddetail_deletedialog_body>Är du säker på att du vill radera denna nyhet/inlägg?</feeddetail_deletedialog_body>
+<feeddetail_deletedialog_yes>Ja, radera</feeddetail_deletedialog_yes>
+<feeddetail_deletedialog_no>Nej, ångra</feeddetail_deletedialog_no>
+<feeddetail_deletetoast>Raderar...</feeddetail_deletetoast>
+<feeddetail_toast_deleted>Raderad</feeddetail_toast_deleted>
+<feeddetail_toast_deletefailed>Fel vid radering</feeddetail_toast_deletefailed>
+<feeddetail_reportdialog_header>ANMÄL</feeddetail_reportdialog_header>
+<feeddetail_reportdialog_body>Är du verkligen säker på att du vill anmäla detta inlägg? Det kommer då starta en undersökning som kan leda till avstängning av den som skapat inlägget.</feeddetail_reportdialog_body>
+<feeddetail_reportdialog_yes>Ja, anmäl</feeddetail_reportdialog_yes>
+<feeddetail_reportdialog_no>Nej, ångra</feeddetail_reportdialog_no>
+<feeddetail_reporttoast>Anmäler...</feeddetail_reporttoast>
+<feeddetail_toast_reported>Anmälan klar</feeddetail_toast_reported>
+<feeddetail_toast_reportfailed>Anmälan misslyckades</feeddetail_toast_reportfailed>
+<feeddetail_toast_loadingvideo>Hämtar video</feeddetail_toast_loadingvideo>
+<feeddetail_report>Anmäl</feeddetail_report>
+<friends_toast_getfriends>Hämtar vänner</friends_toast_getfriends>
+<friends_button_register>Registrera</friends_button_register>
+<friends_button_profile>Ändra min profil</friends_button_profile>
+<friends_button_friends>Mina vänner</friends_button_friends>
+<friends_button_wardrobe>Min garderob</friends_button_wardrobe>
+<friends_button_login>Logga in</friends_button_login>
+<friends_button_logout>Logga ut</friends_button_logout>
+<friends_headlabel>Mina vänner</friends_headlabel>
+<friends_invitetext>Om du inte hittar en vän på Petiit så fyll i deras epost-adress här så skickar vi en färdig inbjudan till dem!</friends_invitetext>
+<friends_prompt_email>epost</friends_prompt_email>
+<friends_prompt_petname>Husdjurets namn</friends_prompt_petname>
+<friends_button_sendinvitation>Skicka inbjudan</friends_button_sendinvitation>
+<friends_prompt_search>Sök husdjur/ägare</friends_prompt_search>
+<friends_button_nearbypets>Husdjur i närheten</friends_button_nearbypets>
+<friends_button_invite>Bjud in via epost</friends_button_invite>
+<friends_searchpaneltext>Sök efter nya vänner i Petiit</friends_searchpaneltext>
+<friends_searchinlist>Inga vänner?
+Tryck här för att hitta fler gamla och nya vänner.</friends_searchinlist>
+<friends_search_nothingfound>Ingenting hittades. Du kan söka på ägarens namn eller husdjurets namn.</friends_search_nothingfound>
+<frienddetail_email_head>Meddelande från</frienddetail_email_head>
+<frienddetail_email_body>Hej</frienddetail_email_body>
+<frienddetail_label_name>Namn</frienddetail_label_name>
+<frienddetail_label_owner>Ägare</frienddetail_label_owner>
+<frienddetail_label_owneremail>Ägar-epost</frienddetail_label_owneremail>
+<frienddetail_label_ownercity>Plats</frienddetail_label_ownercity>
+<frienddetail_label_race>Ras</frienddetail_label_race>
+<frienddetail_label_birthday>Födelsedag</frienddetail_label_birthday>
+<frienddetail_label_gender>Kön</frienddetail_label_gender>
+<frienddetail_label_status>Status</frienddetail_label_status>
+<frienddetail_label_relationheader>Detta är min...</frienddetail_label_relationheader>
+<frienddetail_label_relationheader2>Detta är min</frienddetail_label_relationheader2>
+<frienddetail_relationtype_parent>förälder</frienddetail_relationtype_parent>
+<frienddetail_relationtype_sibling>syskon</frienddetail_relationtype_sibling>
+<frienddetail_relationtype_child>barn</frienddetail_relationtype_child>
+<frienddetail_relationtype_relative>släkting</frienddetail_relationtype_relative>
+<frienddetail_relationtype_friend>vän</frienddetail_relationtype_friend>
+<frienddetail_relationtype_norelation>Ingen relation (avsluta relation)</frienddetail_relationtype_norelation>
+<frienddetail_relationtype_norelation2>Ingen relation</frienddetail_relationtype_norelation2>
+<frienddetail_label_messagetext>Meddelande</frienddetail_label_messagetext>
+<frienddetail_prompt_message>Skriv meddelandet här</frienddetail_prompt_message>
+<frienddetail_label_sendgift>Skicka gåva</frienddetail_label_sendgift>
+<frienddetail_label_choosegift>Välj gåva</frienddetail_label_choosegift>
+<frienddetail_label_sendmessage>Skicka meddelande</frienddetail_label_sendmessage>
+<frienddetail_button_privatemessage>PRIVAT MEDDELANDE</frienddetail_button_privatemessage>
+<frenddetail_label_messageto>till</frenddetail_label_messageto>
+<frienddetail_button_gift>Skicka gåva</frienddetail_button_gift>
+<frienddetail_gift_chargelabel>Denna gåva kostar Petiitpoäng. Poängen dras när du väljer Skicka gåva.</frienddetail_gift_chargelabel>
+<frienddetail_gift_toast_send_success>Gåva skickad</frienddetail_gift_toast_send_success>
+<frienddetail_gift_toast_send_failure>Skicka gåva misslyckades</frienddetail_gift_toast_send_failure>
+<frienddetail_button_changerelation>ÄNDRA RELATION</frienddetail_button_changerelation>
+<gamedetail_popup_price_title>Vinst</gamedetail_popup_price_title>
+<gamedetail_popup_highscore_title>Highscore</gamedetail_popup_highscore_title>
+<gamedetail_popup_highscore_body1>hade tur och fick</gamedetail_popup_highscore_body1>
+<gamedetail_popup_highscore_body2>poäng den</gamedetail_popup_highscore_body2>
+<gamedetail_popup_highscore_body3>Försök slå det!</gamedetail_popup_highscore_body3>
+<gamedetail_register_success>Du är registrerad!</gamedetail_register_success>
+<gamedetail_register_failed>Fel vid registrering</gamedetail_register_failed>
+<gamedetail_button_prize>Pris</gamedetail_button_prize>
+<gamedetail_button_playgame>Spela</gamedetail_button_playgame>
+<getgallery_recorded>är inspelat</getgallery_recorded>
+<getgallery_busy_uploadvideo>Överför video...</getgallery_busy_uploadvideo>
+<getgallery_busy_uploadimage>Överför bild...</getgallery_busy_uploadimage>
+<joinview_toast_notloggedin>Ej inloggad</joinview_toast_notloggedin>
+<leaderboard_button_join>Tävla</leaderboard_button_join>
+<leaderboard_button_exit>Gå ur</leaderboard_button_exit>
+<leaderboard_head_comments>Kommentarer</leaderboard_head_comments>
+<leaderboard_head_totalvotes_part1>Totalt </leaderboard_head_totalvotes_part1>
+<leaderboard_head_totalvotes_part2>röster</leaderboard_head_totalvotes_part2>
+<leaderboard_head_daysleft>dagar kvar</leaderboard_head_daysleft>
+<leaderboard_head_daysrun>dagar har gått</leaderboard_head_daysrun>
+<leaderboard_head_startdate>Startdatum</leaderboard_head_startdate>
+<leaderboard_head_enddate>Slutdatum</leaderboard_head_enddate>
+<leaderboard_button_prize>Vinst</leaderboard_button_prize>
+<leaderboard_button_info>Info</leaderboard_button_info>
+<leaderboard_unregister_unregisterbutton>Gå ur tävling</leaderboard_unregister_unregisterbutton>
+<leaderboard_unregister_head>Gå ur tävling</leaderboard_unregister_head>
+<leaderboard_unregister_body>Är du säker på att du vill gå ur denna tävlingen? Alla röster du fått kommer då att gå förlorade.</leaderboard_unregister_body>
+<leaderboard_unregister_toast_success>Avregistrering klar</leaderboard_unregister_toast_success>
+<leaderboard_unregister_toast_failure>Avregistrering misslyckades</leaderboard_unregister_toast_failure>
+<leaderboard_register_toast_success>Du deltar nu i tävlingen!</leaderboard_register_toast_success>
+<leaderboard_register_toast_failure>Registration misslyckades</leaderboard_register_toast_failure>
+<leaderboard_popup_rules>Regler och krav för denna tävling</leaderboard_popup_rules>
+<leaderboard_popup_prize>Priser för denna tävling</leaderboard_popup_prize>
+<newsview_toast_updatinglist>Uppdaterar nyheter</newsview_toast_updatinglist>
+<newsview_pulltorefresh>Dra för att uppdatera listan</newsview_pulltorefresh>
+<newsview_releasetorefresh>Släpp för att uppdatera listan</newsview_releasetorefresh>
+<newsview_friendrequest_head>vänförfrågan</newsview_friendrequest_head>
+<newsview_friendrequest_accepted>GODKÄND</newsview_friendrequest_accepted>
+<newsview_friendrequest_acceptedtext>har godkänt din vänförfrågan!</newsview_friendrequest_acceptedtext>
+<newsview_friendrequest_message>vill blir din vän. Godkänner du det?</newsview_friendrequest_message>
+<newsview_friendrequest_header>Vänförfrågan</newsview_friendrequest_header>
+<newsview_friendrequest_header_approved>Vänförfrågan godkänd</newsview_friendrequest_header_approved>
+<newsview_friendrequest_body_approved>är nu vän med dig! Vill du se mer information om denna vän nu?</newsview_friendrequest_body_approved>
+<newsview_sentmessage>Mitt skickade meddelande</newsview_sentmessage>
+<newsview_toast_newfriendadded>Vän tillagd</newsview_toast_newfriendadded>
+<newsview_toast_newfriendaddedfailure>Fel vid lägga till vän</newsview_toast_newfriendaddedfailure>
+<newsview_toast_message_sent>Meddelande skickat!</newsview_toast_message_sent>
+<newsview_toast_message_sent_failed>Fel vid skicka meddelande</newsview_toast_message_sent_failed>
+<newsview_ownedby>ägd av</newsview_ownedby>
+<newsview_label_gift_from>Gåva från</newsview_label_gift_from>
+<newsview_alreadyaccepted>Din vänförfrågan har accepterats av</newsview_alreadyaccepted>
+<playview_button_play>Spela</playview_button_play>
+<playview_button_stop>Stoppa</playview_button_stop>
+<profile_toast_ownersaved>Ägaruppgifter sparade</profile_toast_ownersaved>
+<profile_busy_savingpet>Sparar husdjur</profile_busy_savingpet>
+<profile_busy_petregistered>Husdjur registrerat</profile_busy_petregistered>
+<profile_busy_petregister_failure>Fel vid registrering</profile_busy_petregister_failure>
+<profile_busy_petupdated>Uppdaterat husdjur</profile_busy_petupdated>
+<profile_busy_petupdate_failure>Fel vid uppdatering</profile_busy_petupdate_failure>
+<profile_dialog_profileimage_header>Profilbild saknas</profile_dialog_profileimage_header>
+<profile_dialog_profileimage_body>Du måste ha en profilbild för att kunna registera. Har du redan tagit en bild behöver du vänta tills den blivit helt uppladdad till servern.</profile_dialog_profileimage_body>
+<profile_page1_head>ÄGARUPPGIFTER</profile_page1_head>
+<profile_page1_prompt_name>För- och efternamn</profile_page1_prompt_name>
+<profile_page1_prompt_email>Epost</profile_page1_prompt_email>
+<profile_page1_prompt_password>Ange ett lösenord</profile_page1_prompt_password>
+<profile_page1_prompt_area>Postnr</profile_page1_prompt_area>
+<profile_page1_button_saveowner>SPARA ÄGARE</profile_page1_button_saveowner>
+<profile_page1_points>Petiit poäng kvar</profile_page1_points>
+<profile_page2_head>HUSDJUR UPPGIFTER (1/2)</profile_page2_head>
+<profile_page2_name>Namn</profile_page2_name>
+<profile_page2_button_camera>Kamera</profile_page2_button_camera>
+<profile_page2_button_gallery>Galleri</profile_page2_button_gallery>
+<profile_page2_button_characters>Karaktärer</profile_page2_button_characters>
+<profile_page3_head>HUSDJUR UPPGIFTER (2/2)</profile_page3_head>
+<profile_page3_prompt_birthday>Födelsedag</profile_page3_prompt_birthday>
+<profile_page3_prompt_colors>Päls och färgbeskrivning</profile_page3_prompt_colors>
+<profile_page3_prompt_description>En beskrivning av mig (max 500 tecken)</profile_page3_prompt_description>
+<profile_page3_radio_male>Hane</profile_page3_radio_male>
+<profile_page3_radio_female>Hona</profile_page3_radio_female>
+<profile_page3_button_savepet>SPARA HUSDJUR</profile_page3_button_savepet>
+<wardrobe_welcomtext>Välkommen till Petiit-garderoben</wardrobe_welcomtext>
+<wardrobe_loading_image>Laddar profilbild...</wardrobe_loading_image>
+<wardrobe_slider_size>Storlek</wardrobe_slider_size>
+<wardrobe_slider_rotation>Rotation</wardrobe_slider_rotation>
+<wardrobe_slider_alpha>Genomskinlighet</wardrobe_slider_alpha>
+<wardrobe_publish_header>Publicera</wardrobe_publish_header>
+<wardrobe_publish_message>Vill du tala om för dina vänner att du har en ny profilbild?</wardrobe_publish_message>
+<wardrobe_publish_body>Titta på min nya profilbild!</wardrobe_publish_body>
+<wardrobe_publish_toast_ready>Publicering klar</wardrobe_publish_toast_ready>
+<wardrobe_publish_toast_failed>Publicering misslyckades</wardrobe_publish_toast_failed>
+<wardrobe_dialog_remove_head>Radera</wardrobe_dialog_remove_head>
+<wardrobe_dialog_remove_body>Vill du ta bort den senaste garderob-bilden innan du lägger till en ny?</wardrobe_dialog_remove_body>
+<wardrobe_button_wardrobe>Garderob</wardrobe_button_wardrobe>
+<wardrobe_button_restoreimage>Återställ bild</wardrobe_button_restoreimage>
+<renderer_competition_loading>Hämtar...</renderer_competition_loading>
+<renderer_competition_open>Öppen</renderer_competition_open>
+<renderer_competition_closed>Stängd</renderer_competition_closed>
+<renderer_competition_willopen>Öppnar</renderer_competition_willopen>
+<renderer_competition_willclose>Stänger</renderer_competition_willclose>
+<renderer_competition_results>Resultat</renderer_competition_results>
+<renderer_competition_archived>Arkiverad</renderer_competition_archived>
+<renderer_competition_closed_information>Denna tävling är nu stängd. Inga fler bidrag kan läggas in och röstningen är över. När en vinnare utsetts kommer tävlingsresultatet finnas här. Det kan ta några dagar.</renderer_competition_closed_information>
+<renderer_join_choose>Välj</renderer_join_choose>
+<renderer_pets_owner>(ägare)</renderer_pets_owner>
+<renderer_relation_since>Sedan</renderer_relation_since>
+<renderer_pets_joined>Gick med Petiit</renderer_pets_joined>
+<renderer_contestant_votedon>Jag röstar på denna!</renderer_contestant_votedon>
+<game_namegame_title>Gissa mitt namn</game_namegame_title>
+<game_namegame_helptext>Gissa namnet på varje husdjur innan ljuset har tänts helt.</game_namegame_helptext>
+<game_namegame_inarow>i rad</game_namegame_inarow>
+<game_pairgame_title>Memory spel</game_pairgame_title>
+<game_pairgame_helptext>Hitta alla par innan korten försvinner från skärmen.</game_pairgame_helptext>
+<game_pairgame_pairs>Par</game_pairgame_pairs>
+<game_pairgame_bonuslevel>poäng så här långt! Gör dig beredd för en BONUS nivå!</game_pairgame_bonuslevel>
+<game_pairgame_nextlevel>poäng så här långt! Gör dig beredd för nivå</game_pairgame_nextlevel>
+<game_bulldog_title>BULLDOG spel</game_bulldog_title>
+<game_bulldog_helptext>Klappa så många husdjur som möjligt men akta dig för den arga Bulldog-hunden!</game_bulldog_helptext>
+<game_finishtext1>Du fick </game_finishtext1>
+<game_finishtext2>poäng!</game_finishtext2>
+<game_time>Tid</game_time>
+<game_score>Poäng</game_score>
+<game_turn>Omgång</game_turn>
+<game_level>Nivå</game_level>
+<game_correct>Rätt</game_correct>
+<game_wronganswer>Fel svar</game_wronganswer>
+<game_checkbox_music>Bakgrundsmusik</game_checkbox_music>
+<game_button_giveup>Ge upp</game_button_giveup>
+<game_button_giveupthislevel>Ge upp denna nivå</game_button_giveupthislevel>
+<game_button_start>Starta</game_button_start>
+<game_button_restart>Starta om</game_button_restart>
+<game_button_end>Avsluta</game_button_end>
+<game_leaderboard_busy>Hämtar highscore</game_leaderboard_busy>
+<help_wardrobe_header>Garderoben</help_wardrobe_header>
+<help_wardrobe_body>Öppna garderoben så ser du olika bilder du kan använda på din profilbild. Använd reglagen för att ändra storlek mm tills du är nöjd.</help_wardrobe_body>
+<mainraces_cat>Katt</mainraces_cat>
+<mainraces_dog>Hund</mainraces_dog>
+<mainraces_rabbit>Kanin</mainraces_rabbit>
+<mainraces_rodent>Gnagare</mainraces_rodent>
+<mainraces_bird>Fågel</mainraces_bird>
+<mainraces_reptile>Reptiler</mainraces_reptile>
+<mainraces_other>Övriga</mainraces_other>
+<race_abyssinian>Abyssinian</race_abyssinian>
+<race_american_bobtail>American Bobtail</race_american_bobtail>
+<race_american_curl_longhair>American Curl - longhair</race_american_curl_longhair>
+<race_american_curl_shorthair>American Curl - shorthair</race_american_curl_shorthair>
+<race_american_shorthair>American Shorthair</race_american_shorthair>
+<race_american_wirehair>American Wirehair</race_american_wirehair>
+<race_asian>Asian</race_asian>
+<race_australian_mist>Australian Mist</race_australian_mist>
+<race_balinese>Balinese</race_balinese>
+<race_bengal>Bengal</race_bengal>
+<race_birman>Birman</race_birman>
+<race_bombay>Bombay</race_bombay>
+<race_bristolkatze>BristolKatze</race_bristolkatze>
+<race_britisch_kurzhaar_colourpoint>Britisch Kurzhaar Colourpoint</race_britisch_kurzhaar_colourpoint>
+<race_british_angora>British Angora</race_british_angora>
+<race_british_longhair>British Longhair</race_british_longhair>
+<race_british_shorthair>British Shorthair</race_british_shorthair>
+<race_burmese>Burmese</race_burmese>
+<race_burmilla>Burmilla</race_burmilla>
+<race_california_spangled>California Spangled</race_california_spangled>
+<race_ceylonese>Ceylonese</race_ceylonese>
+<race_chartreux>Chartreux</race_chartreux>
+<race_chinese_harlequin>Chinese Harlequin</race_chinese_harlequin>
+<race_colorpoint_shorthair>Colorpoint Shorthair</race_colorpoint_shorthair>
+<race_colourpoint-perser>Colourpoint-Perser</race_colourpoint-perser>
+<race_cornish_rex>Cornish Rex</race_cornish_rex>
+<race_coupari>Coupari</race_coupari>
+<race_cymric>Cymric</race_cymric>
+<race_devonshire_rex>Devonshire Rex</race_devonshire_rex>
+<race_domestic_short_hair>Domestic Short Hair</race_domestic_short_hair>
+<race_domestic_long_hair>Domestic Long Hair</race_domestic_long_hair>
+<race_don_sphynx>Don Sphynx</race_don_sphynx>
+<race_dutch_rex>Dutch Rex</race_dutch_rex>
+<race_egyptian_mau>Egyptian Mau</race_egyptian_mau>
+<race_european_shorthair>European Short Hair</race_european_shorthair>
+<race_europäisch_kurzhaar_colourpoint>Europäisch Kurzhaar Colourpoint</race_europäisch_kurzhaar_colourpoint>
+<race_exotic_shorthair>Exotic Shorthair</race_exotic_shorthair>
+<race_german_rex>German Rex</race_german_rex>
+<race_havana_brown>Havana Brown</race_havana_brown>
+<race_highland_fold>Highland Fold</race_highland_fold>
+<race_himalayan>Himalayan</race_himalayan>
+<race_honey_bear>Honey Bear</race_honey_bear>	
+<race_italian_rex>Italian Rex</race_italian_rex>
+<race_japanese_bobtail>Japanese Bobtail</race_japanese_bobtail>
+<race_japanese_bobtail_langhaar>Japanese Bobtail Langhaar</race_japanese_bobtail_langhaar>
+<race_javanese>Javanese</race_javanese>
+<race_karelian_bobtail>Karelian Bobtail</race_karelian_bobtail>
+<race_kartäuser>Kartäuser</race_kartäuser>
+<race_kashmir>Kashmir</race_kashmir>
+<race_korat>Korat</race_korat>
+<race_kurilean_bobtail_longhair>Kurilean Bobtail Longhair</race_kurilean_bobtail_longhair>
+<race_kurilean_bobtail_shorthair>Kurilean Bobtail Shorthair</race_kurilean_bobtail_shorthair>
+<race_laperm>LePerm</race_laperm>
+<race_maine_coon>Maine Coon</race_maine_coon>
+<race_malayan>Malayan</race_malayan>
+<race_manx>Manx</race_manx>
+<race_mexikanische_nacktkatze>Mexikanische Nacktkatze</race_mexikanische_nacktkatze>
+<race_mixed_breed>Blandras</race_mixed_breed>
+<race_munchkin>Munchkin</race_munchkin>
+<race_nebelung>Nebelung</race_nebelung>
+<race_non-recognized_breed>Non-recognized breed</race_non-recognized_breed>
+<race_norwegian_forest_cat>Norweigan Forest Cat</race_norwegian_forest_cat>
+<race_ocicat>Ocicat</race_ocicat>
+<race_ohio_rex>Ohio Rex</race_ohio_rex>
+<race_ojos_azules>Ojos Azules</race_ojos_azules>
+<race_oregon_rex>Oregon Rex</race_oregon_rex>
+<race_oriental_longhair>Oriental Longhair</race_oriental_longhair>
+<race_oriental_shorthair>Oriental Shorthair</race_oriental_shorthair>
+<race_peke-face>Peke-Face</race_peke-face>
+<race_persian>Persian</race_persian>
+<race_peterbald>Peterbald</race_peterbald>
+<race_pixie-bob>Pixie-Bob</race_pixie-bob>
+<race_preussisch_rex>Preussisch Rex</race_preussisch_rex>
+<race_racekatte>Racekatte (Rugkatt)</race_racekatte>
+<race_ragamuffin>Ragamuffin</race_ragamuffin>
+<race_ragdoll>Ragdoll</race_ragdoll>
+<race_rexed_maine_coon>Rexed Maine Coon</race_rexed_maine_coon>
+<race_russian_black>Russian Black</race_russian_black>
+<race_russian_blue>Russian Blue</race_russian_blue>
+<race_russian_white>Russian White</race_russian_white>
+<race_safarikatze>Safarikatze</race_safarikatze>
+<race_scottish_fold>Scottish Fold</race_scottish_fold>
+<race_selkirk_rex>Selkirk Rex</race_selkirk_rex>
+<race_seychellois_longhair>Seychellois Longhair</race_seychellois_longhair>
+<race_seychellois_shorthair>Seychellois Shorthair</race_seychellois_shorthair>
+<race_si-rex>Si-Rex</race_si-rex>
+<race_siamese>Siamese</race_siamese>
+<race_sibirische_waldkatze>Sibirische Waldkatze</race_sibirische_waldkatze>
+<race_singapura>Singapura</race_singapura>
+<race_snow_cat>Snow Cat</race_snow_cat>
+<race_snowshoe>Snowshoe</race_snowshoe>
+<race_sokoke>Sokoke</race_sokoke>
+<race_somali>Somali</race_somali>
+<race_sphynx>Sphynx</race_sphynx>
+<race_spotted_mist>Spotted Mist</race_spotted_mist>
+<race_sterling>Sterling</race_sterling>
+<race_suqutranese>Suqutranese</race_suqutranese>
+<race_thai>Thai</race_thai>
+<race_tiffanie>Tiffanie</race_tiffanie>
+<race_tiffany>Tiffany</race_tiffany>
+<race_Tonkinese>Tonkinese</race_Tonkinese>
+<race_turkish_angora>Turkish Angora</race_turkish_angora>
+<race_turkish_van>Turkish Van</race_turkish_van>
+<race_ural_rex>Ural Rex</race_ural_rex>
+<race_uruguai_cirramon>Uruguai Cirramon</race_uruguai_cirramon>
+<race_wild_abyssinian>Wild Abyssinian</race_wild_abyssinian>
+<race_york_chocolate>York Chocolate</race_york_chocolate>
+<race_mixed>Mixed</race_mixed>
+<dograce_affenpinscher>Affenpischer</dograce_affenpinscher>
+<dograce_afghan_hound>Afghan Hound</dograce_afghan_hound>
+<dograce_airedale_terrier>Airedale Terrier</dograce_airedale_terrier>
+<dograce_akita>Akita</dograce_akita>
+<dograce_alaskan_malamute>Alaskan Malamute</dograce_alaskan_malamute>
+<dograce_alentejo_mastiff>Alentejo mastiff</dograce_alentejo_mastiff>
+<dograce_alpine_dachsbracke>Alpine dachsbracke</dograce_alpine_dachsbracke>
+<dograce_american_cocker_spaniel>American Cocker Spaniel</dograce_american_cocker_spaniel>
+<dograce_american_eskimo_dog>American Eskimo Dog</dograce_american_eskimo_dog>
+<dograce_american_pit_bull_terrier>American Pit Bull Terrier</dograce_american_pit_bull_terrier>
+<dograce_american_rat_terrier>American Rat Terrier</dograce_american_rat_terrier>
+<dograce_american_staffordshire_terrier>American Staffordshire Terrier</dograce_american_staffordshire_terrier>
+<dograce_american_water_spaniel>American Water Spaniel</dograce_american_water_spaniel>
+<dograce_american_akita>American Akita</dograce_american_akita>
+<dograce_american_bulldog>American Bulldog</dograce_american_bulldog>
+<dograce_american_foxhound>American Foxhound</dograce_american_foxhound>
+<dograce_anatolian_shepherd_dog>Anatolian Shepherd Dog</dograce_anatolian_shepherd_dog>
+<dograce_andalusian_hound>Andalusian Hound</dograce_andalusian_hound>
+<dograce_anglo-francais_de_petite_venerie>Anglo-francais de petite Venerie</dograce_anglo-francais_de_petite_venerie>
+<dograce_appenzeller_cattledog>Appenzeller Cattledog</dograce_appenzeller_cattledog>
+<dograce_arabian_greyhound_sloughi>Arabian Greyhound - Sloughi</dograce_arabian_greyhound_sloughi>
+<dograce_ardennes_cattle_dog>Ardennes Cattledog</dograce_ardennes_cattle_dog>
+<dograce_ariege_pointing_dog>Ariege Pointing Dog</dograce_ariege_pointing_dog>
+<dograce_ariegeois>Ariegeois</dograce_ariegeois>
+<dograce_artesien-norman_basset>Artesien-Norman Basset</dograce_artesien-norman_basset>
+<dograce_artois_hound>Artois Hound</dograce_artois_hound>
+<dograce_atlas_shepherd_dog>Atlas Shepherd Dog</dograce_atlas_shepherd_dog>
+<dograce_australian_cattle_dog>Australian Cattledog</dograce_australian_cattle_dog>
+<dograce_australian_kelpie>Australian Kelpie</dograce_australian_kelpie>
+<dograce_australian_shepherd>Australian Shepherd</dograce_australian_shepherd>
+<dograce_australian_silky_terrier>>Australian Silky Terrier</dograce_australian_silky_terrier>
+<dograce_australian_terrier>Australian Terrier</dograce_australian_terrier>
+<dograce_austrian_blackandtan_hound>Austrian Black and Tan hound</dograce_austrian_blackandtan_hound>
+<dograce_austrian_shorthaired_pinscher>Austrian Shorthaired Pinscher</dograce_austrian_shorthaired_pinscher>
+<dograce_auvergne_pointing_dog>Auvergne Pointing Dog</dograce_auvergne_pointing_dog>
+<dograce_azawakh>Azawakh</dograce_azawakh>
+<dograce_bandog>Bandog</dograce_bandog>
+<dograce_basenji>Basenji</dograce_basenji>
+<dograce_basque_shepherd>Basque Shepherd</dograce_basque_shepherd>
+<dograce_basset_bleu_de_gascogne>Basset Bleu de Gascogne</dograce_basset_bleu_de_gascogne>
+<dograce_basset_hound>Basset Hound</dograce_basset_hound>
+<dograce_bavarian_mountain_scenthound>Bavarian Mountain Scenthound</dograce_bavarian_mountain_scenthound>
+<dograce_beagle>Beagle</dograce_beagle>
+<dograce_beagle-harrier>Beagle-harrier</dograce_beagle-harrier>
+<dograce_bearded_collie>Bearded Collie</dograce_bearded_collie>
+<dograce_beauceron>Beauceron</dograce_beauceron>
+<dograce_bedlington_terrier>Bedlington Terrier</dograce_bedlington_terrier>
+<dograce_belgian_griffon>Belgian Griffon</dograce_belgian_griffon>
+<dograce_belgian_shepherd_dog>Belgian Shepherd Dog</dograce_belgian_shepherd_dog>
+<dograce_bergamasco_shepherd_dog>Bergamasco Shepherd Dog</dograce_bergamasco_shepherd_dog>
+<dograce_bernese_mountain_dog>Bernese Mountain Dog</dograce_bernese_mountain_dog>
+<dograce_bichon_frise>Bichon Frise</dograce_bichon_frise>
+<dograce_billy>Billy</dograce_billy>
+<dograce_black_terrier>Black Terrier</dograce_black_terrier>
+<dograce_bloodhound>Bloodhound</dograce_bloodhound>
+<dograce_blue_gascony_griffon>Blue Gascony Griffon</dograce_blue_gascony_griffon>
+<dograce_blue_picardy_spaniel>Blue Picardy Spaniel</dograce_blue_picardy_spaniel>
+<dograce_boerboel>Boerboel</dograce_boerboel>
+<dograce_boerenfox>Boerenfox</dograce_boerenfox>
+<dograce_bohemian_wire-haired_pointing_griffon>Bohemian Pointing Griffon</dograce_bohemian_wire-haired_pointing_griffon>
+<dograce_bolognese>Bolognese</dograce_bolognese>
+<dograce_border_collie>Border Collie</dograce_border_collie>
+<dograce_border_terrier>Border Terrier</dograce_border_terrier>
+<dograce_borzoi>Borzoi</dograce_borzoi>
+<dograce_barak>Bosnian Hound - Barak</dograce_barak>
+<dograce_boston_terrier>Boston Terrier</dograce_boston_terrier>
+<dograce_bourbonnais_pointing_dog>Bourbonnais Pointing Dog</dograce_bourbonnais_pointing_dog>
+<dograce_bouvier_des_flandres>Bouvier des Flandres</dograce_bouvier_des_flandres>
+<dograce_boxer>Boxer</dograce_boxer>
+<dograce_brazilian_terrier>Brazilian Terrier</dograce_brazilian_terrier>
+<dograce_briard>Briard</dograce_briard>
+<dograce_brittany>Brittany - Epagneul Breton</dograce_brittany>
+<dograce_broholmer>Broholmer</dograce_broholmer>
+<dograce_brussels_griffon>Brussels Griffon</dograce_brussels_griffon>
+<dograce_bull_terrier>Bull Terrier</dograce_bull_terrier>
+<dograce_bulldog>Bulldog</dograce_bulldog>
+<dograce_bullmastiff>Bullmastiff</dograce_bullmastiff>
+<dograce_burgos_pointing_dog>Burgos Pointing Dog</dograce_burgos_pointing_dog>
+<dograce_cairn_terrier>Cairn Terrier</dograce_cairn_terrier>
+<dograce_canaan_dog>Canaan Dog</dograce_canaan_dog>
+<dograce_canadian_eskimo_dog>Canadian Eskimo Dog</dograce_canadian_eskimo_dog>
+<dograce_canarian_warren_hound>Canarian Warren Hound</dograce_canarian_warren_hound>
+<dograce_castro_laboreiro_dog>Castro Laboreiro Dog</dograce_castro_laboreiro_dog>
+<dograce_catalan_sheepdog>Catalan Sheepdog</dograce_catalan_sheepdog>
+<dograce_caucasian_shepherd_dog>Caucasian Shepherd Dog</dograce_caucasian_shepherd_dog>
+<dograce_cavalier_king_charles_spaniel>Cavalier King Charles Spaniel</dograce_cavalier_king_charles_spaniel>
+<dograce_central_asia_shepherd_dog-ovtcharka>Central Asia Shepherd Dog - Ovtcharka</dograce_central_asia_shepherd_dog-ovtcharka>
+<dograce_cesky_terrier>Cesky Terrier</dograce_cesky_terrier>
+<dograce_chechoslovakian_wolfdog>Chechoslovakian Wolfdog</dograce_chechoslovakian_wolfdog>	
+<dograce_chesapeake_bay_retriever>Chesapeake Bay Retriever</dograce_chesapeake_bay_retriever>
+<dograce_chihuahua>Chihuahua</dograce_chihuahua>
+<dograce_chinese_crested_dog>Chinese Crested Dog</dograce_chinese_crested_dog>
+<dograce_chortaya>Chortaya</dograce_chortaya>
+<dograce_chow_chow>Chow Chow</dograce_chow_chow>
+<dograce_cirneco_del_etna>Cirneco dell'etna</dograce_cirneco_del_etna>
+<dograce_clumber_spaniel>Clumber Spaniel</dograce_clumber_spaniel>
+<dograce_collie>Collie</dograce_collie>
+<dograce_continental_toy_spaniel-papillon>Cont. Toy Spaniel Papillon</dograce_continental_toy_spaniel-papillon>
+<dograce_continental_toy_spaniel-phalene>Cont. Toy Spaniel Phalene</dograce_continental_toy_spaniel-phalene>	
+<dograce_coonhound>Coonhound</dograce_coonhound>
+<dograce_coton_de_tulear>Coton de Tulear</dograce_coton_de_tulear>
+<dograce_croatian_sheepdog>Croatian Sheepdog</dograce_croatian_sheepdog>
+<dograce_croatian_tornjak>Croatian Tornjak</dograce_croatian_tornjak>
+<dograce_curly_coated_retriever>Curly Coated Retriever</dograce_curly_coated_retriever>
+<dograce_dachshund>Dachshund</dograce_dachshund>
+<dograce_dalmatian>Dalmatian</dograce_dalmatian>
+<dograce_dandie_dinmont_terrier>Dandie Dinmont Terrier</dograce_dandie_dinmont_terrier>
+<dograce_danish-swedish_yard_dog>Danish-Swedish Yard Dog</dograce_danish-swedish_yard_dog>
+<dograce_deerhound>Deerhound</dograce_deerhound>
+<dograce_do-khy>Do-Khy</dograce_do-khy>
+<dograce_dobermann>Dobermann</dograce_dobermann>
+<dograce_dogo_argentino>Dogo Argentino</dograce_dogo_argentino>
+<dograce_dogo_canario>Dogo Canario</dograce_dogo_canario>
+<dograce_dogue_de_bordeaux>Dogue de Bordeaux</dograce_dogue_de_bordeaux>
+<dograce_drentse_partridge_dog>Drentse Partridge Dog</dograce_drentse_partridge_dog>
+<dograce_dutch_shepherd_dog>Dutch Shepherd Dog</dograce_dutch_shepherd_dog>
+<dograce_east_european_shepherd>East European Shepherd</dograce_east_european_shepherd>
+<dograce_east_siberian_laika>East Siberian Laika</dograce_east_siberian_laika>
+<dograce_english_cocker_spaniel>English Cocker Spaniel</dograce_english_cocker_spaniel>
+<dograce_english_pointer>English Pointer</dograce_english_pointer>
+<dograce_english_setter>English Setter</dograce_english_setter>
+<dograce_english_springer_spaniel>English Springer Spaniel</dograce_english_springer_spaniel>
+<dograce_english_toy_terrier>English Toy Terrier</dograce_english_toy_terrier>
+<dograce_english_foxhound>English Foxhound</dograce_english_foxhound>
+<dograce_entlebuch_cattle_dog>Entlebuch Cattle Dog</dograce_entlebuch_cattle_dog>
+<dograce_estonian_hound>Estonian hound</dograce_estonian_hound>
+<dograce_estrela_mountain_dog>Estrela Mountain Dog</dograce_estrela_mountain_dog>
+<dograce_eurasian>Eurasian</dograce_eurasian>
+<dograce_fawn_brittany_basset>Fawn Brittany Basset</dograce_fawn_brittany_basset>
+<dograce_fawn_brittany_griffon>Fawn Brittany Griffon</dograce_fawn_brittany_griffon>
+<dograce_field_spaniel>Field Spaniel</dograce_field_spaniel>
+<dograce_fila_brasileiro>Fila Brasileiro</dograce_fila_brasileiro>
+<dograce_fila_de_saint_miguel>Fila de Saint Miguel</dograce_fila_de_saint_miguel>
+<dograce_finnish_hound>Finnish Hound</dograce_finnish_hound>
+<dograce_finnish_lapphund>Finnish Lapphund</dograce_finnish_lapphund>
+<dograce_finnish_reindeer_herder>Finnish Reindeer Herder</dograce_finnish_reindeer_herder>
+<dograce_finnish_spitz>Finnish Spitz</dograce_finnish_spitz>
+<dograce_flanders_cattle_dog>Flanders Cattle Dog</dograce_flanders_cattle_dog>
+<dograce_flat_coated_retriever>Flat Coated Retriever</dograce_flat_coated_retriever>
+<dograce_fox_terrier>Fox Terrier</dograce_fox_terrier>
+<dograce_french_bulldog>French Bulldog</dograce_french_bulldog>
+<dograce_french_tricolour_hound>French Tricolour Hound</dograce_french_tricolour_hound>
+<dograce_french_waterdog>French Waterdog</dograce_french_waterdog> 
+<dograce_french_whiteandblack_hound>French White and Black Hound</dograce_french_whiteandblack_hound>
+<dograce_french_pointing_griffon>French Pointing Griffon</dograce_french_pointing_griffon>
+<dograce_french_pointing_dog>French Pointing Dog</dograce_french_pointing_dog>
+<dograce_french_spaniel>French Spaniel</dograce_french_spaniel>
+<dograce_frisian_pointing_dog>Frisian Pointing dog</dograce_frisian_pointing_dog>
+<dograce_frisian_waterdog>Frisian Waterdog</dograce_frisian_waterdog> 
+<dograce_gascony_blue>Gascony Blue</dograce_gascony_blue>
+<dograce_german_hunting_terrier>German Hunting Terrier</dograce_german_hunting_terrier>
+<dograce_german_pinscher>German Pinscher</dograce_german_pinscher>
+<dograce_german_shepherd_dog>German Shepherd Dog</dograce_german_shepherd_dog>
+<dograce_german_spaniel>German Spaniel</dograce_german_spaniel>
+<dograce_german_spitz_keeshond>German Spitz Keeshond</dograce_german_spitz_keeshond>
+<dograce_german_spitz_pomeranian>German Spitz Pomeranian</dograce_german_spitz_pomeranian>
+<dograce_german_spitz>German Spitz</dograce_german_spitz>
+<dograce_german_hound>German Hound</dograce_german_hound>
+<dograce_german_pointing_dog>German Pointing Dog</dograce_german_pointing_dog>
+<dograce_giant_schnauzer>Giant Schnauzer</dograce_giant_schnauzer>
+<dograce_golden_retriever>Golden Retriever</dograce_golden_retriever>
+<dograce_goldendoodle>Goldendoodle</dograce_goldendoodle>
+<dograce_gordon_setter>Gordon Setter</dograce_gordon_setter>
+<dograce_grand_basset_griffon_vendeen>Grand Basset Griffon Vendéen</dograce_grand_basset_griffon_vendeen>
+<dograce_grand_griffon_vendeen>Grand Griffon Vendéen</dograce_grand_griffon_vendeen>
+<dograce_great_anglofrench_hound>Great Anglo-French Tricolour Hound</dograce_great_anglofrench_hound>
+<dograce_great_dane>Great Dane</dograce_great_dane>
+<dograce_great_swiss_mountain_dog>Great Swiss Mountain Dog</dograce_great_swiss_mountain_dog>
+<dograce_great_gascon_saintongeois>Great Gascon Saintongeois</dograce_great_gascon_saintongeois>
+<dograce_greenland_dog>Greenland Dog</dograce_greenland_dog>
+<dograce_greyhound>Greyhound</dograce_greyhound>
+<dograce_griffon_nivernais>Griffon Nivernais</dograce_griffon_nivernais>
+<dograce_halden_hound>Halden Hound</dograce_halden_hound>
+<dograce_hamilton_hound>Hamilton Hound</dograce_hamilton_hound>
+<dograce_hanoverian_scenthound>Hanoverian Scenthound</dograce_hanoverian_scenthound>
+<dograce_harrier>Harrier</dograce_harrier>
+<dograce_havanese>Havenese</dograce_havanese>
+<dograce_hellenic_hound>Hellenic Hound</dograce_hellenic_hound>
+<dograce_hokkaido>Hokkaido</dograce_hokkaido>
+<dograce_hollandse_smoushound>Hollandse Smoushound</dograce_hollandse_smoushound>
+<dograce_hovawart>Hovawart</dograce_hovawart>
+<dograce_hungerian_greyhound>Hungerian Greyhound</dograce_hungerian_greyhound>
+<dograce_hungerian_pointed_dog>Hungerian Pointed Dog</dograce_hungerian_pointed_dog>
+<dograce_hygen_hound>Hygen Hound</dograce_hygen_hound>
+<dograce_ibizan_warren_hound>Ibizan Warren Hound</dograce_ibizan_warren_hound>
+<dograce_icelandic_sheepdog>Icelandic Sheepdog</dograce_icelandic_sheepdog>
+<dograce_irish_glen_of_imaal_terrier>Irish Glen of Imaal Terrier</dograce_irish_glen_of_imaal_terrier>
+<dograce_irish_red_setter>Irish Red Setter</dograce_irish_red_setter>
+<dograce_irish_red_and_white_setter>Irish red and white Setter</dograce_irish_red_and_white_setter>
+<dograce_irish_soft_coated_wheaten_terrier>Irish soft coated wheaten Terrier</dograce_irish_soft_coated_wheaten_terrier>
+<dograce_irish_terrier>Irish Terrier</dograce_irish_terrier>
+<dograce_irish_water_spaniel>Irish Water Spaniel</dograce_irish_water_spaniel>
+<dograce_irish_wolfhound>Irish Wolfhound</dograce_irish_wolfhound>
+<dograce_istrian_hound>Istrian Hound</dograce_istrian_hound>
+<dograce_italian_corso_dog>Italian Corso Dog</dograce_italian_corso_dog>
+<dograce_italian_greyhound>Italian Greyhound</dograce_italian_greyhound>
+<dograce_italian_hound>Italian Hound</dograce_italian_hound>
+<dograce_italian_pointing_dog>Italian Pointing Dog</dograce_italian_pointing_dog>
+<dograce_jack_russel_terrier>Jack Russel Terrier</dograce_jack_russel_terrier>	
+<dograce_japanese_chin>Japanese Chin</dograce_japanese_chin>
+<dograce_japanese_spitz>Japanese Spitz</dograce_japanese_spitz>
+<dograce_japanese_terrier>Japanese Terrier</dograce_japanese_terrier>
+<dograce_kai>Kai</dograce_kai>
+<dograce_karelian_bear_dog>Karelian Bear Dog</dograce_karelian_bear_dog>
+<dograce_karelo-finnish_laika>Karelo - Finnish Laika</dograce_karelo-finnish_laika>
+<dograce_karst_shepherd_dog>Karst Shepherd Dog</dograce_karst_shepherd_dog>
+<dograce_kerry_blue_terrier>Kerry Blue Terrier</dograce_kerry_blue_terrier>
+<dograce_king_charles_spaniel>King Charles Spaniel</dograce_king_charles_spaniel>
+<dograce_kishu>Kishu</dograce_kishu>
+<dograce_komondor>Komondor</dograce_komondor>
+<dograce_korea_jindo_dog>Korea Jindo Dog</dograce_korea_jindo_dog>
+<dograce_kromfohrlander>Kromfohrländer</dograce_kromfohrlander>
+<dograce_kuvasz>Kuvasz</dograce_kuvasz>
+<dograce_labrador_retriever_black>Labrador Retriever Black</dograce_labrador_retriever_black>
+<dograce_labrador_retriever_chocolate>Labrador Retriever Chocolate</dograce_labrador_retriever_chocolate>
+<dograce_labrador_retriever_gold>Labrador Retriever Gold</dograce_labrador_retriever_gold>
+<dograce_lakeland_terrier>Lakeland Terrier</dograce_lakeland_terrier>
+<dograce_lancashire_heeler>Lancashire Heeler</dograce_lancashire_heeler>
+<dograce_landseer>Landseer</dograce_landseer>
+<dograce_large_munsterlander>Large Munsterlander</dograce_large_munsterlander>
+<dograce_latvian_hound>Latvian Hound</dograce_latvian_hound>
+<dograce_leonberger>Leonberger</dograce_leonberger>
+<dograce_lhasa_apso>Lhasa Apso</dograce_lhasa_apso>
+<dograce_lithuanian_hound>Lithuanian Hound</dograce_lithuanian_hound>
+<dograce_little_lion_dog>Little Lion Dog</dograce_little_lion_dog>
+<dograce_majorca_mastiff>Majorca Mastiff</dograce_majorca_mastiff>
+<dograce_majorca_shepherd_dog>Majorca Shepherd Dog</dograce_majorca_shepherd_dog>
+<dograce_maltese>Maltese</dograce_maltese>
+<dograce_manchester_terrier>Manchester Terrier</dograce_manchester_terrier>
+<dograce_maremma_and_abruzzes_sheepdog>Maremma and Abruzzes Sheepdog</dograce_maremma_and_abruzzes_sheepdog>
+<dograce_mastiff>Mastiff</dograce_mastiff>
+<dograce_medium_griffon_vendeen>Medium Griffon Vendéen</dograce_medium_griffon_vendeen>
+<dograce_mexican_hairless_dog>Mexican Hairless Dog</dograce_mexican_hairless_dog>
+<dograce_mixed_breed>Mixed Breed</dograce_mixed_breed>
+<dograce_moscow_watchdog>Moscow Watchdog</dograce_moscow_watchdog>
+<dograce_mudi>Mudi</dograce_mudi>
+<dograce_munstlander>Munstlander</dograce_munstlander>
+<dograce_neapolitan_mastiff>Neapolitan Mastiff</dograce_neapolitan_mastiff>
+<dograce_newfoundland>Newfoundland</dograce_newfoundland>
+<dograce_norfolk_terrier>Norfolk Terrier</dograce_norfolk_terrier>
+<dograce_norrbottenspitz>Norbottenspitz</dograce_norrbottenspitz>
+<dograce_norweigan_buhund>Norweigan Buhund</dograce_norweigan_buhund>
+<dograce_norweigan_elkhound>Norweigan Elkhound</dograce_norweigan_elkhound>
+<dograce_norweigan_lundehund>Norweigan Lundehund</dograce_norweigan_lundehund>
+<dograce_norweigan_hound>Norweigan Hound</dograce_norweigan_hound>
+<dograce_norwich_terrier>Norwich Terrier</dograce_norwich_terrier>
+<dograce_nova_scotia_duck_tolling_retriever>Nova Scotia duck tolling Retriever</dograce_nova_scotia_duck_tolling_retriever>
+<dograce_old_danish_pointing_dog>Old Danish Pointing Dog</dograce_old_danish_pointing_dog>
+<dograce_old_english_sheepdog>Old English Sheepdog</dograce_old_english_sheepdog>	
+<dograce_otterhound>Otterhound</dograce_otterhound>
+<dograce_parson_russel_terrier>Parson Russell Terrier</dograce_parson_russel_terrier>
+<dograce_patterdale_terrier>Patterdale Terrier</dograce_patterdale_terrier>
+<dograce_pekingese>Pekingese</dograce_pekingese>
+<dograce_peruvian_hairless_dog>Peruvian Hairless Dog</dograce_peruvian_hairless_dog>
+<dograce_pharaoh_hound>Pharaoh Hound</dograce_pharaoh_hound>
+<dograce_picardy_sheepdog>Picardy Sheepdog</dograce_picardy_sheepdog>
+<dograce_picardy_spaniel>Picardy Spaniel</dograce_picardy_spaniel>
+<dograce_pinscher_miniature>Pinscher miniature</dograce_pinscher_miniature>
+<dograce_poitevin>Poitevin</dograce_poitevin>
+<dograce_polish_greyhound>Polish Greyhound</dograce_polish_greyhound>
+<dograce_polish_hound>Polish Hound</dograce_polish_hound>
+<dograce_polish_hunting_dog>Polish Hunting Dog</dograce_polish_hunting_dog>
+<dograce_polish_lowland_sheepdog>Polish Lowland Sheepdog</dograce_polish_lowland_sheepdog>
+<dograce_pont-audemer_spaniel>Pont-Audemer Spaniel</dograce_pont-audemer_spaniel>
+<dograce_poodle_standard>Poodle - standard</dograce_poodle_standard>
+<dograce_poodle_medium>Poodle - medium</dograce_poodle_medium>
+<dograce_poodle_miniature>Poodle - miniature</dograce_poodle_miniature>
+<dograce_poodle_toy>Poodle - toy</dograce_poodle_toy>
+<dograce_porcelain>Porcelain</dograce_porcelain>
+<dograce_portuguese_sheepdog>Portuguese Sheepdog</dograce_portuguese_sheepdog>
+<dograce_portuguese_warren_hound>Portuguese Warren Hound</dograce_portuguese_warren_hound>
+<dograce_portuguese_water_dog>Portuguese Water Dog</dograce_portuguese_water_dog>
+<dograce_portuguese_pointing_dog>Portuguese Pointing Dog</dograce_portuguese_pointing_dog>
+<dograce_posavaz_hound>Posavaz Hound</dograce_posavaz_hound>
+<dograce_pudelpointer>Pudelpointer</dograce_pudelpointer>
+<dograce_pug>Pug</dograce_pug>
+<dograce_puli>Puli</dograce_puli>
+<dograce_pumi>Pumi</dograce_pumi>
+<dograce_pyrenean_mastiff>Pyrenean Mastiff</dograce_pyrenean_mastiff>	
+<dograce_pyrenean_mountain_dog>Pyrenean Mountain Dog</dograce_pyrenean_mountain_dog>
+<dograce_pyrenean_sheepdog>Pyrenean Sheepdog</dograce_pyrenean_sheepdog>
+<dograce_rafeiro_of_alentejo>Rafeiro of Alentejo</dograce_rafeiro_of_alentejo>
+<dograce_rat_terrier>Rat Terrier</dograce_rat_terrier>
+<dograce_rhodesian_ridgeback>Rhodesian Ridgeback</dograce_rhodesian_ridgeback>
+<dograce_romagna_water_dog>Romagna Water Dog</dograce_romagna_water_dog>
+<dograce_romanian_carpathian_shepherd_dog>Romanian Carpathian Shepherd Dog</dograce_romanian_carpathian_shepherd_dog>
+<dograce_romanian_mioritic_shepherd_dog>Romanian Mioritic Shepherd Dog</dograce_romanian_mioritic_shepherd_dog>
+<dograce_rottweiler>Rottweiler</dograce_rottweiler>
+<dograce_russian_hound>Russian Hound</dograce_russian_hound>
+<dograce_russian_pied_hound>Russian Pied Hound</dograce_russian_pied_hound>
+<dograce_russian_spaniel>Russian Spaniel</dograce_russian_spaniel>
+<dograce_russian_toy_terrier>Russian Toy Terrier</dograce_russian_toy_terrier>
+<dograce_russian_european_laika>Russian European Laika</dograce_russian_european_laika>
+<dograce_saarloos_wolfdog>Saarloos Wolfdog</dograce_saarloos_wolfdog>
+<dograce_saint_bernard_dog>Saint Bernard Dog</dograce_saint_bernard_dog>
+<dograce_saluki>Saluki</dograce_saluki>
+<dograce_samoyed>Samoyed</dograce_samoyed>
+<dograce_schapendoes>Schapendoes</dograce_schapendoes>
+<dograce_schiller_hound>Schiller Hound</dograce_schiller_hound>
+<dograce_schipperke>Schipperke</dograce_schipperke>
+<dograce_schnauzer>Schnauzer</dograce_schnauzer>
+<dograce_schnauzer_miniature>Schnauzer miniature</dograce_schnauzer_miniature>
+<dograce_scottish_terrier>Scottish Terrier</dograce_scottish_terrier>
+<dograce_sealyham_terrier>Sealyham Terrier</dograce_sealyham_terrier>
+<dograce_serbian_hound>Serbian Hound</dograce_serbian_hound>
+<dograce_shar_pei>Shar Pei</dograce_shar_pei>
+<dograce_shetland_sheepdog>Shetland Sheepdog</dograce_shetland_sheepdog>
+<dograce_shiba>Shiba</dograce_shiba>
+<dograce_shih_tzu>Shih Tzu</dograce_shih_tzu>	
+<dograce_shikoku>Shikoku</dograce_shikoku>
+<dograce_siberian_husky>Siberian Husky</dograce_siberian_husky>
+<dograce_skye_terrier>Skye Terrier</dograce_skye_terrier>
+<dograce_slovakian_chuvach>Slovakian Chuvach</dograce_slovakian_chuvach>
+<dograce_slovakian_hound>Slovakian Hound</dograce_slovakian_hound>
+<dograce_slovakian_pointing_dog>Slovakian Pointing Dog</dograce_slovakian_pointing_dog>
+<dograce_small_brabant_griffon>Small Brabant Griffon</dograce_small_brabant_griffon>
+<dograce_small_dutch_waterfowl_dog>Small Dutch Waterfowl Dog</dograce_small_dutch_waterfowl_dog>
+<dograce_small_munsterlander>Small Munsterlander</dograce_small_munsterlander>
+<dograce_small_basset_griffon_vendeen>Small Basset Griffon Vendéen</dograce_small_basset_griffon_vendeen>	
+<dograce_small_blue_gascony_hound>Small Blue Gascony Hound</dograce_small_blue_gascony_hound>
+<dograce_small_gascon_saintongeois_bis>Small Gascon Saintongeois Bis</dograce_small_gascon_saintongeois_bis>
+<dograce_south_russian_shepherd_dog>South Russian Shepherd Dog</dograce_south_russian_shepherd_dog>
+<dograce_spanish_greyhound>Spanish Greyhound</dograce_spanish_greyhound>
+<dograce_spanish_mastiff>Spanish Mastiff</dograce_spanish_mastiff>
+<dograce_spanish_waterdog>Spanish Waterdog</dograce_spanish_waterdog>
+<dograce_spanish_hound>Spanish Hound</dograce_spanish_hound>
+<dograce_spinone>Spinone</dograce_spinone>
+<dograce_st_petersburg_orchid>St. Petersburg Orchid</dograce_st_petersburg_orchid>
+<dograce_st_germain_pointing_dog>St. Germain Pointing Dog</dograce_st_germain_pointing_dog>
+<dograce_staffordshire_bull_terrier>Straffordshire Bull Terrier</dograce_staffordshire_bull_terrier>
+<dograce_styrian_hound>Styrian Hound</dograce_styrian_hound>
+<dograce_sussex_spaniel>Sussex Spaniel</dograce_sussex_spaniel>
+<dograce_swedish_dachsbracke>Swedish Dachsbracke</dograce_swedish_dachsbracke>
+<dograce_swedish_elkhound>Swedish Elkhound</dograce_swedish_elkhound>
+<dograce_swedish_lapphund>Swedish Lapphund</dograce_swedish_lapphund>
+<dograce_swedish_vallhund>Swedish Vallhund</dograce_swedish_vallhund>
+<dograce_swiss_small_bernese_hound>Swiss Small Bernese Hound</dograce_swiss_small_bernese_hound>
+<dograce_swiss_small_jura_hound>Swiss Small Jura Hound</dograce_swiss_small_jura_hound>
+<dograce_swiss_small_lucerne_hound>Swiss Small Lucerne Hound</dograce_swiss_small_lucerne_hound>
+<dograce_swiss_small_schwyz_hound>Swiss Small Schwyz Hound</dograce_swiss_small_schwyz_hound>
+<dograce_swiss_bernese_hound>Swiss Bernese Hound</dograce_swiss_bernese_hound>
+<dograce_swiss_jura_hound>Swiss Jura Hound</dograce_swiss_jura_hound>
+<dograce_swiss_lucerne_hound>Swis Lucerne Hound</dograce_swiss_lucerne_hound>
+<dograce_swiss_schwyz_hound>Swiss Schwyz Hound</dograce_swiss_schwyz_hound>
+<dograce_taigan>Taigan</dograce_taigan>
+<dograce_taiwan_dog>Taiwan Dog</dograce_taiwan_dog>
+<dograce_tamaskan_dog>Tamaskan Dog</dograce_tamaskan_dog>
+<dograce_tatra_shepherd_dog>Tatra Shepherd Dog</dograce_tatra_shepherd_dog>
+<dograce_tazi>Tazi</dograce_tazi>
+<dograce_thai_ridgeback_dog>Thai Ridgeback Dog</dograce_thai_ridgeback_dog>
+<dograce_tibetan_spaniel>Tibetan Spaniel</dograce_tibetan_spaniel>
+<dograce_tibetan_terrier>Tibetan Terrier</dograce_tibetan_terrier>
+<dograce_tosa>Tosa</dograce_tosa>
+<dograce_toy_fox_terrier>Toy Fox Terrier</dograce_toy_fox_terrier>
+<dograce_transylvanian_hound>Transylvaninan Hound</dograce_transylvanian_hound>
+<dograce_tyrolean_hound>Tyrolean Hound</dograce_tyrolean_hound>
+<dograce_uruguayan_cimarron>Uruguayan Cimarron</dograce_uruguayan_cimarron>
+<dograce_valencian_ratter>Valencian Ratter</dograce_valencian_ratter>
+<dograce_volpino_italiano>Volpino Italiano</dograce_volpino_italiano>
+<dograce_weimaraner>Weimaraner</dograce_weimaraner>
+<dograce_welsh_corgi_cardigan>Welsh Corgi Cardigan</dograce_welsh_corgi_cardigan>
+<dograce_welsh_corgi_pembroke>Welsh Corgi Pembroke</dograce_welsh_corgi_pembroke>
+<dograce_welsh_springer_spaniel>Welsh Springer Spaniel</dograce_welsh_springer_spaniel>
+<dograce_welsh_terrier>Welsh Terrier</dograce_welsh_terrier>
+<dograce_west_highland_white_terrier>West Highland White Terrier</dograce_west_highland_white_terrier>
+<dograce_west_siberian_laika>West Siberian Laika</dograce_west_siberian_laika>
+<dograce_westphalian_dachsbracke>Westphalian Dachsbracke</dograce_westphalian_dachsbracke>
+<dograce_whippet>Whippet</dograce_whippet>
+<dograce_whire_swedish_elkhound>Whire Swedish Elkhound</dograce_whire_swedish_elkhound>	
+<dograce_white_swiss_shepherd_dog>White Swiss Shepherd Dog</dograce_white_swiss_shepherd_dog>
+<dograce_yorkshire_terrier>Yorkshire Terrier</dograce_yorkshire_terrier>
+<dograce_yugoslavian_herder>Yugoslavian Herder</dograce_yugoslavian_herder>
+<dograce_yugoslavian_mountain_hound>Yugoslavian Mountain Hound</dograce_yugoslavian_mountain_hound>
+<dograce_yugoslavian_tricolour_hound>Yugoslavian Tricolour Hound</dograce_yugoslavian_tricolour_hound>
+<rabbitrace_alaska>Alaska</rabbitrace_alaska>
+<rabbitrace_angora>Angorakanin</rabbitrace_angora>
+<rabbitrace_argente>Stora silver</rabbitrace_argente>
+<rabbitrace_belgian_hare>Belgisk hare</rabbitrace_belgian_hare>
+<rabbitrace_beveren>Beveren</rabbitrace_beveren>
+<rabbitrace_blancdehotot>Blanc de Hotot</rabbitrace_blancdehotot>
+<rabbitrace_brittaniapetite>Brittania Petite</rabbitrace_brittaniapetite>
+<rabbitrace_californian>Californian</rabbitrace_californian>
+<rabbitrace_checkeredgiant>Checkered Giant</rabbitrace_checkeredgiant>
+<rabbitrace_chinchilla>Chinchillakanin</rabbitrace_chinchilla>
+<rabbitrace_dutch>Holländsk kanin</rabbitrace_dutch>
+<rabbitrace_dwarf_lop>Dvärgvädur</rabbitrace_dwarf_lop>
+<rabbitrace_elfin>Elfin</rabbitrace_elfin>
+<rabbitrace_english_spot>English Spot</rabbitrace_english_spot>
+<rabbitrace_english_lop>Engelsk vädur</rabbitrace_english_lop>
+<rabbitrace_flemish_giant>Belgisk jätte</rabbitrace_flemish_giant>
+<rabbitrace_french_lop>Fransk vädur</rabbitrace_french_lop>
+<rabbitrace_giant_papillon>Giant Papillon</rabbitrace_giant_papillon>
+<rabbitrace_gotland>Gotlandskanin</rabbitrace_gotland>
+<rabbitrace_harlequin>Harlequin</rabbitrace_harlequin>
+<rabbitrace_havana>Havana</rabbitrace_havana>
+<rabbitrace_himalayan>Himalayan</rabbitrace_himalayan>
+<rabbitrace_lilac>Lilac</rabbitrace_lilac>
+<rabbitrace_lionhead>Lejonhuvad kanin</rabbitrace_lionhead>
+<rabbitrace_mellerud>Mellerud</rabbitrace_mellerud>
+<rabbitrace_miniature_lop>Miniture Lop</rabbitrace_miniature_lop>
+<rabbitrace_netherland_dwarf>Hermelinkanin</rabbitrace_netherland_dwarf>
+<rabbitrace_new_zealand>New Zealand</rabbitrace_new_zealand>
+<rabbitrace_orestad>Örestad</rabbitrace_orestad>
+<rabbitrace_polish>Polsk</rabbitrace_polish>
+<rabbitrace_rex>Rexkanin</rabbitrace_rex>
+<rabbitrace_rhinelander>Rhinelander</rabbitrace_rhinelander>
+<rabbitrace_sallander>Sallander</rabbitrace_sallander>
+<rabbitrace_satin>Satinkanin</rabbitrace_satin>
+<rabbitrace_silver>Silver</rabbitrace_silver>
+<rabbitrace_silver_fox>Silver Fox</rabbitrace_silver_fox>
+<rabbitrace_tan>Tan</rabbitrace_tan>
+<rabbitrace_thrianta>Thrianta</rabbitrace_thrianta>
+<rabbitrace_thuringer>Thuringer</rabbitrace_thuringer>
+<rabbitrace_vienna>Vienna</rabbitrace_vienna>
+<rabbitrace_wheaten>Wheaten</rabbitrace_wheaten>
+<rabbitrace_american_blue>American Blue</rabbitrace_american_blue>
+<rabbitrace_american_white>American White</rabbitrace_american_white>
+<rabbitrace_american_fuzzy_lop>American Fuzzy Lop</rabbitrace_american_fuzzy_lop>
+<rabbitrace_american_sable>American Sable</rabbitrace_american_sable>
+<rabbitrace_blue_of_sint_niklaas>Blue of Sint-Niklaas</rabbitrace_blue_of_sint_niklaas>
+<rabbitrace_favue_de_bourgogne>Fauve de Bourgogne</rabbitrace_favue_de_bourgogne>
+<rabbitrace_jamora>Jamora/Dvärgangora</rabbitrace_jamora>
+<rabbitrace_lionhead_mini_lop>Lejonhuvad dvärgvädur</rabbitrace_lionhead_mini_lop>
+<rodentrace_gerbil>Ökenråtta</rodentrace_gerbil>
+<rodentrace_rat>Råtta</rodentrace_rat>
+<rodentrace_guineapig>Marsvin</rodentrace_guineapig>
+<rodentrace_hamster>Hamster</rodentrace_hamster>
+<rodentrace_mouse>Mus</rodentrace_mouse>
+<birdrace_amazone>Amason</birdrace_amazone>
+<birdrace_ara>Ara</birdrace_ara>
+<birdrace_grajako>Grå Jako</birdrace_grajako>
+<birdrace_kakadua>Kakadua</birdrace_kakadua>
+<birdrace_alexanderparakit>AlexanderParakit</birdrace_alexanderparakit>
+<birdrace_nymfkakadua>NymfKakadua</birdrace_nymfkakadua>
+<birdrace_undulat>Undulat</birdrace_undulat>
+<birdrace_sebrafink>Sebrafink</birdrace_sebrafink>
+<birdrace_canary>Kanariefågel</birdrace_canary>
+<birdrace_dwarfpapegoja>Dvärgpapegoja</birdrace_dwarfpapegoja>
+<birdrace_caique>Caique</birdrace_caique>
+<birdrace_pigeon>Duva</birdrace_pigeon>
+<birdrace_conures>Conures</birdrace_conures>
+<birdrace_macaws>Macaws</birdrace_macaws>
+<birdrace_amazons>Amazoner</birdrace_amazons>
+<birdrace_cockatoos>Cockatoos</birdrace_cockatoos>
+<birdrace_african_greys>African greys</birdrace_african_greys>
+<birdrace_lovebirds>Lovebirds</birdrace_lovebirds>
+<birdrace_cockatiels>Cockatiels</birdrace_cockatiels>
+<birdrace_budgerigars>Undulater</birdrace_budgerigars>
+<birdrace_eclectus>Eclectus</birdrace_eclectus>
+<birdrace_caiques>Caiques</birdrace_caiques>
+<birdrace_parakeets>Parakeets</birdrace_parakeets>
+<birdrace_pionus>Pionus</birdrace_pionus>
+<birdrace_poicephalus>Poicephalus</birdrace_poicephalus>
+<reptilerace_lizard>Ödla</reptilerace_lizard>
+<reptilerace_turtle>Sköldpadda</reptilerace_turtle>
+<reptilerace_snake>Orm</reptilerace_snake>
+<reptilerace_frog>Groda</reptilerace_frog>
+<race_pig>Gris</race_pig>
+<race_horse>Häst</race_horse>
+<race_fish>Akvariefisk</race_fish>
+<race_insect>Insekt</race_insect>
+<character_dog1>Tuff katt</character_dog1>
+<character_cat1>Hund</character_cat1>
+<character_pig1>Gris</character_pig1>
+<character_turtle1>Sköldpadda</character_turtle1>
+<character_bulldog>Bulldog</character_bulldog>
+<character_hamster>Hamster</character_hamster>
+<character_gingercat>Röd katt</character_gingercat>
+<character_mouse>Mus</character_mouse>
+<character_rabbit>Kanin</character_rabbit>
+<character_guineapig>Marsvin</character_guineapig>
+<accessory_umbrella1>Paraply</accessory_umbrella1>
+<accessory_necklace1>Halsband</accessory_necklace1>
+<accessory_handkerchief1>Näsduk</accessory_handkerchief1>
+<accessory_ribbon1>Hårband</accessory_ribbon1>
+<accessory_beard1>Skägg</accessory_beard1>
+<accessory_moustache1>Mustasch</accessory_moustache1>
+<accessory_hair1>Hår</accessory_hair1>
+<accessory_handbag1>Handväska</accessory_handbag1>
+<accessory_stars>Stjärnor</accessory_stars>
+<clothes_tie1>Slips</clothes_tie1>
+<clothes_hat1>Hatt</clothes_hat1>
+<clothes_cap1>Keps</clothes_cap1>
+<clothes_luva1>Luva</clothes_luva1>>
+<clothes_shoes1>Skor</clothes_shoes1>
+<clothes_gloves1>Handskar</clothes_gloves1>
+<clothes_mittens1>Vantar</clothes_mittens1>
+</language>

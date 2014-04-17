@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" width="400" height="300"
+		 click="//parentDocument.gotoFromBookPage(petID);"  
+		 >
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.events.FlexEvent;
+		
+		[Bindable]
+		public var	petName:String="";
+		[Bindable]
+		public var	ownername:String="";
+		[Bindable]
+		public var	imageURL:String="";
+		[Bindable]
+		public var	imageURLthumb:String="";
+		[Bindable]
+		public var	memberDate:String="";
+		[Bindable]
+		public var	relationType:String="";
+		[Bindable]
+		public var	petID:String="";
+		[Bindable]
+		public var	status:String="";
+		[Bindable]
+		private var	pagecounter:int=1;
+		[Bindable]
+		public var	bgColor:int=0xff3333;
+			
+		public function set pagenumber(value:int):void {
+			if(value%2 != 0) {
+				pageBox.left=10;
+		 	}
+			else {
+				pageBox.right=10;
+		 	}
+			
+			pagecounter=value;
+		}
+			
+		]]>
+	</fx:Script>
+			
+			
+	<s:Rect width="310" height="450">
+		<s:fill>
+			<s:SolidColor color="{bgColor}"/>
+		</s:fill>
+	</s:Rect>
+	<s:BitmapImage source="@Embed('/assets/images/pageBG.png')" width="310" height="450" scaleMode="stretch" alpha="0.4"/>
+
+	<s:BitmapImage bottom="0" id="silhouette" horizontalCenter="0" source="@Embed('/assets/images/watermark_friend_request.png')" alpha="0.25" />
+	<s:Group id="picGroup" top="10" width="132" x="10">
+		<s:BitmapImage id="picborder" source="@Embed('/assets/images/pictureborder.png')" smooth="true"/>
+		<s:BitmapImage id="thumb" x="10" y="5" scaleMode="stretch" width="112" height="162" smooth="true"  source="{imageURLthumb}"/>
+		<s:Image id="pic" x="10" y="5" scaleMode="zoom" width="112" height="162" source="{imageURL}" click="parentDocument.gotoFromBookPage(petID);" />
+	</s:Group>
+	 
+	<s:VGroup contentBackgroundAlpha="0" gap="10" id="titleGroup"
+			  paddingBottom="0" paddingLeft="0" paddingRight="0" paddingTop="0"
+			  left="145" right="10" top="10">
+		<s:Label id="titleBox"  color="#000000" fontFamily="MyriadPro" fontWeight="bold"
+				 lineBreak="toFit" text="{petName}"
+				 textAlign="left" verticalAlign="top"
+				 width="170" fontSize="30"/>
+	</s:VGroup>	
+	<s:VGroup contentBackgroundAlpha="0" gap="10"
+			  paddingBottom="0" paddingLeft="0" paddingRight="0" paddingTop="0"
+			  left="15" right="15" top="210">
+		<s:Label id="relationBox" color="#000000" fontFamily="MyriadPro" text="{relationType}"
+				 lineBreak="explicit" textAlign="left"
+				 verticalAlign="top"
+				 width="100%" height="30" fontSize="30"/>
+		<s:Label id="dateBox" height="30" color="#000000" fontFamily="MyriadPro" text="{parentApplication.Language.renderer_relation_since} {memberDate}"
+				 lineBreak="explicit"  
+				 textAlign="left" verticalAlign="top"
+				 width="100%" fontSize="30"/>
+		<s:Label id="ownerBox" height="30" color="#000000" fontFamily="MyriadPro" 
+				 lineBreak="explicit" text="{ownername} {parentApplication.Language.renderer_pets_owner}"
+				 textAlign="left" verticalAlign="top"
+				 width="100%" fontSize="30"/>
+		<s:Label id="statusBox" height="30" color="#000000" fontFamily="MyriadPro" 
+				 lineBreak="explicit" text="{status}"
+				 textAlign="left" verticalAlign="top"
+				 width="100%" fontSize="30"/>
+	</s:VGroup>	
+	<s:Image id="moreBox" click="parentDocument.gotoFromBookPage(petID);" horizontalCenter="0" bottom="45" source="@Embed('/assets/images/infoicon.png')" smooth="true" alpha="0.9"/>
+	<s:Label id="pageBox" color="#000000" fontFamily="MyriadPro" fontStyle="italic" bottom="10"  
+			 lineBreak="explicit" text="{pagecounter}"
+			 textAlign="center" verticalAlign="bottom"
+			 fontSize="22"/>
+</s:Group>	

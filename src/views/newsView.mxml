@@ -1,0 +1,856 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark"
+		xmlns:components="components.*"
+		title="" actionBarVisible="false" tabBarVisible="false"
+	 	creationComplete="start();" backgroundAlpha="0" height="100%" updateComplete="view1_updateCompleteHandler(event)"
+		destructionPolicy="never" viewDeactivate="viewDeactivateHandler(event)" viewActivate="viewActivateHandler(event)"
+	 >
+ 	
+	<s:states>
+		<s:State name="normal"/>
+		<s:State name="messageWindow" enterState="parentApplication.hideNotificationCirle();" exitState="parentApplication.showNotificationCirle();"/>
+		<s:State name="replymessage" enterState="parentApplication.hideNotificationCirle();" exitState="parentApplication.showNotificationCirle();"/>
+	</s:states>
+	
+	<fx:Declarations>
+		<s:Move id="showConsoleFX" yFrom="{currentConsolePos}" yTo="{currentConsolePos-80}" duration="300" target="{console}" effectEnd="currentConsolePos=console.y;" />
+		<s:Move id="hideConsoleFX" yFrom="{currentConsolePos}" yTo="{currentConsolePos+80}" duration="300" target="{console}" effectEnd="currentConsolePos=console.y;" />
+		
+		<s:DateTimeFormatter id="dateformat" dateTimePattern="YYYY-MM-DD" timeStyle="none"/>
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import flash.utils.setInterval;
+			
+			import mx.collections.ArrayCollection;
+			import mx.events.FlexEvent;
+			import mx.events.TouchInteractionEvent;
+			
+			import spark.components.supportClasses.ListBase;
+			import spark.events.ViewNavigatorEvent;
+			import spark.transitions.SlideViewTransition;
+			import spark.transitions.ViewTransitionDirection;
+			
+			import classes.GlobalConstants;
+			
+			import events.DialogEvent;
+			import events.FeedEvent;
+			import events.MessageEvent;
+			import events.PetEvent;
+			import events.RelationEvent;
+			import events.UserEvent;
+			
+			import models.MessageVO;
+			
+			[Bindable]
+			private var currentConsolePos:uint=1000;
+			
+			private var interval:uint;
+			
+			[Bindable]
+			private var messages:ArrayCollection = new ArrayCollection();
+			 
+			[Bindable]
+			private var messageTextColor:Number = 0x976a97;
+			
+			public function scrollToVisible():void {
+				//Make selected item visible. 225 = item height + gap
+				 endScrollPos = (messageList.selectedIndex * 225);	
+			 
+				startSmoothScroll();
+			}
+			 
+			[Bindable]
+			private var violetbg:Boolean=false;
+			
+			//SMOOTH VERTICAL LIST-SCROLL
+			private var currentScrollPos:Number=0;
+			private var endScrollPos:Number=0;
+			private var scrollVelocity:Number=5;
+			private var scrollDelay:Number=1;	//every 2 ms
+			private var scrollDirection:int=-1;
+			private var intervalId:uint;
+			
+			private function startSmoothScroll():void {
+				if(endScrollPos>messageList.scroller.contentMouseY)
+					scrollDirection=-1;													//boardList.scroller.maxVerticalPosition = 870    boardList.scroller.contentMouseY=256
+				else
+					scrollDirection=1;
+				currentScrollPos = listTile.verticalScrollPosition+messageList.y;
+				intervalId = setInterval(animateScrolling,scrollDelay);
+			}
+			
+			private function animateScrolling():void {
+				 
+				currentScrollPos = currentScrollPos - (scrollVelocity*scrollDirection);
+				listTile.verticalScrollPosition = currentScrollPos;
+				 
+				if(scrollDirection==1 && currentScrollPos <= endScrollPos)
+					clearInterval(intervalId);
+				else if(scrollDirection==-1 && currentScrollPos >= endScrollPos)
+					clearInterval(intervalId);
+				
+			}
+			//----------------------------------------------
+			
+			public function refreshNewsList(event:FeedEvent):void {
+				parentApplication.myMessageDAO.addEventListener(MessageEvent.Message_GETLIST_READY,messageListReady);
+				parentApplication.myMessageDAO.addEventListener(MessageEvent.Message_GETLIST_FAILED,messageListFailed);
+				parentApplication.myMessageDAO.restGetMessages(parentApplication.myUserDAO.user.uid,0,50);	//0=page, 50=pagesize
+			}
+			
+			private function update(event:UserEvent):void {
+		
+				parentApplication.myMessageDAO.removeEventListener(MessageEvent.Message_GETLIST_READY,messageListReady);
+				parentApplication.myMessageDAO.removeEventListener(MessageEvent.Message_GETLIST_FAILED,messageListFailed);
+				parentApplication.myMessageDAO.addEventListener(MessageEvent.Message_GETLIST_READY,messageListReady);
+				parentApplication.myMessageDAO.addEventListener(MessageEvent.Message_GETLIST_FAILED,messageListFailed);
+				parentApplication.myMessageDAO.restGetMessages(parentApplication.myUserDAO.user.uid,0,50);	//0=page, 50=pagesize
+			}
+			 
+			protected function start():void
+			{
+				parentApplication.myPetDAO.addEventListener(PetEvent.PET_GET_THIS_PET_READY,updatePetImage);
+				
+ 				parentApplication.addEventListener(FeedEvent.FEED_REFRESH,refreshNewsList);
+				parentApplication.myMessageDAO.addEventListener(MessageEvent.Message_GETLIST_READY,messageListReady);
+				parentApplication.myMessageDAO.addEventListener(MessageEvent.Message_GETLIST_FAILED,messageListFailed);
+		
+				if(parentApplication.smorgasbordLoggedin==true) {
+					parentApplication.myMessageDAO.restGetMessages(parentApplication.myUserDAO.user.uid,0,50);	//0=page, 50=pagesize
+				}
+				else
+					parentApplication.myMessageDAO.restGetPublicMessages(0,50);//0=page, 50=pagesize
+				
+				parentApplication.myUserDAO.addEventListener(UserEvent.LOGIN_READY,update,false);
+				
+				currentConsolePos = (this.height - console.height);
+			}
+			
+			private function setMenuLabels():void {
+				if(parentApplication.Language!=null) {
+					competitionButton.label= parentApplication.Language.navigation_competitions.toUpperCase();//"COMPETITIONS";
+					newsfeedButton.label=parentApplication.Language.navigation_news.toUpperCase(); //"NEWS FEED";
+					friendsButton.label=parentApplication.Language.navigation_friends.toUpperCase(); //"FRIENDS";
+				}
+			}
+			
+			private function removeMenuLabels():void {
+				clearInterval(interval);
+				competitionButton.label="";
+				newsfeedButton.label="";
+				friendsButton.label="";
+			}
+			
+			private function getThisPet(in_id:String):String {
+			
+				//First try to find if it exists in the list. If so we don't need to do anything as it will be available later via the restGetThisPet
+				for each(var mess:Object in messages) {
+					if(mess.type==7 || mess.type==9 || mess.type==2 || mess.type==10 || (mess.type>700 && mess.type<800)) {
+						if(parseInt(in_id) == mess.petID.toString()) {
+							return mess.imageURL;
+							break;
+						}
+					}
+				}
+				
+				//Otherwise get it from the server 
+				parentApplication.myPetDAO.restGetThisPet(parseInt(in_id));
+				return "";
+			}
+			 
+			private function messageListReady(event:MessageEvent):void {
+			 	messages.removeAll();
+				parentApplication.notBusy();
+				
+				
+				if(event.data!=null) {
+					 
+					for each(var mess:Object in event.data) {
+						var newmess:MessageVO = new MessageVO();
+						newmess.messageID = mess.mid;
+						newmess.type = parseInt(mess.type);
+						
+						if(mess.timestamp>0) {
+							var credate:Date = new Date();
+							credate.setTime(mess.timestamp*1000);	//*1000 since we get the data in seconds but milliseconds are required by setTime
+							newmess.timestampDate = dateformat.format(credate);
+						}
+						
+						newmess.description = mess.body.text;
+						newmess.ownerID = mess.body.ownerid;
+						newmess.ownerName = mess.body.ownername; 
+						newmess.petID = mess.body.petid;
+						newmess.petName = mess.body.petname;
+						newmess.title=newmess.petName+" " + parentApplication.Language.contestant_textarea_prompt;	//says... ";						
+						
+						var tmpurl:String=mess.body.image_uri; 
+						if(tmpurl!=null && tmpurl.length>0) {
+					 		var pos:int;
+							pos = tmpurl.lastIndexOf("/",100);
+							pos = tmpurl.lastIndexOf("/",pos-1);
+							newmess.imageURL = GlobalConstants.AMAZON_URL + "styles/petit_small/s3/petit/images" + tmpurl.substr(pos);	//slice off "s3://
+							
+						//				s3://petit/images/7/Petiit_temp_profile_image769.png
+						//->	 		http://petit-prod0.s3.amazonaws.com/styles/petit_small/s3/petit/images/7/Petiit_temp_profile_image769.png
+						}
+						
+						if(mess.body.coverted!=null) {
+							newmess.converted = mess.body.converted;
+						}
+						
+						if(!newmess.converted) {
+							tmpurl=mess.body.thumb_uri; 
+							if(tmpurl!=null && tmpurl.length>0) {
+								newmess.imageURL = GlobalConstants.AMAZON_URL + tmpurl.slice(5);	//slice off "s3://  This is not the videoURL but URL to thumbnail
+							}
+						}
+						else {				
+							tmpurl=mess.body.video_uri; 
+							if(tmpurl!=null && tmpurl.length>0) {
+								newmess.imageURL = GlobalConstants.AMAZON_URL + tmpurl.slice(5);	//slice off "s3://  This is not the videoURL but URL to thumbnail
+							}
+						}
+						 
+						switch(newmess.type) {
+							case 0:
+								newmess.messageID = parseInt(mess.dataid);
+								break;
+							case 1:
+								newmess.messageID = parseInt(mess.dataid);
+								break;
+							case 2:
+								newmess.title = newmess.petName + " " + parentApplication.Language.newsview_friendrequest_head;	//"REQUEST FROM
+								newmess.relationID = parseInt(mess.dataid);
+								//parentApplication.myPetDAO.addEventListener(PetEvent.PET_GET_THIS_PET_READY,updatePetImage);
+								newmess.imageURL=getThisPet(mess.body.petid);
+								break;
+							case 3:	//Competition result
+							case 4:	//Competition reminder
+							case 5:	//Competition announcement
+							case 6:	//Competition vote information
+								newmess.competitionID = parseInt(mess.dataid);
+								if(newmess.imageURL!=null && newmess.imageURL.length>0)
+									newmess.imageURL = mess.imageURL;
+								break;
+							case 7:	//Private message
+								newmess.imageURL=getThisPet(mess.body.petid);
+								break;
+							case 9:
+								//newmess.imageURL = GlobalConstants.AMAZON_URL + parentApplication.myPetDAO.currentPetImageURL.slice(5,parentApplication.myPetDAO.currentPetImageURL.length);
+								//	parentApplication.myPetDAO.addEventListener(PetEvent.PET_GET_THIS_PET_READY,updatePetImage);
+								newmess.imageURL=getThisPet(mess.body.petid);
+								break;
+							case 10:
+								newmess.title= parentApplication.Language.newsview_friendrequest_accepted;	//"ACCEPTED";
+								if(mess.body.ownerid == parentApplication.myUserDAO.user.uid) 
+									newmess.description = newmess.petName + " " + parentApplication.Language.newsview_friendrequest_acceptedtext;//has accepted your relation request!"
+								else
+									newmess.description = parentApplication.Language.newsview_alreadyaccepted + " " + newmess.petName;	
+							
+									newmess.imageURL=getThisPet(mess.body.petid);
+								break;
+							 case 100:
+								 break;
+						}
+						
+						if(newmess.type>700 && newmess.type<800)	{	//Is this a gift-message?
+							newmess.imageURL=getThisPet(mess.body.petid);
+							newmess.title=parentApplication.Language.newsview_label_gift_from+" "+mess.body.petname+"!"; //"Gift from
+						}
+						
+						messages.addItem(newmess);
+					}
+	
+					
+					//	type=0:	own feed
+					//  type=1: other's feed
+					//	type=2: relation request
+					//	type=3: competition result
+					//	type=4: competition reminder
+					//  type=5: competition announcement
+					//	type=6:	vote information
+					//	type=7:	private message
+					//	type=8:	admin message
+					// type=9:  own sent message
+					// type=10: relation OK
+					//type=100: advertisement type 1
+					
+				}
+					
+				addHardCodedMessages();
+				
+				parentApplication.notBusy();
+				
+				//Clean
+				parentApplication.myMessageDAO.removeEventListener(MessageEvent.Message_GETLIST_READY,messageListReady);
+				parentApplication.myMessageDAO.removeEventListener(MessageEvent.Message_GETLIST_FAILED,messageListFailed);
+			}
+			
+			private function messageListFailed(event:MessageEvent):void {
+				parentApplication.notBusy();
+				
+				//Clean
+				parentApplication.myMessageDAO.removeEventListener(MessageEvent.Message_GETLIST_READY,messageListReady);
+				parentApplication.myMessageDAO.removeEventListener(MessageEvent.Message_GETLIST_FAILED,messageListFailed);
+			}
+			
+			private function updatePetImage(event:PetEvent):void {
+			 
+				for each(var mess:Object in messages) {
+					if(mess.type==7 || mess.type==9 || mess.type==2 || mess.type==10 || (mess.type>700 && mess.type<800)) {
+						if(mess.petID.toString() == event.data.nid) {
+							var pos:int;
+							pos = event.data.field_pet_image.und[0].uri.lastIndexOf("/",100);
+							pos = event.data.field_pet_image.und[0].uri.lastIndexOf("/",pos-1);
+							mess.imageURL = GlobalConstants.AMAZON_URL + "styles/petit_small/s3/petit/images" + event.data.field_pet_image.und[0].uri.substr(pos);	//slice off "s3://
+						}
+					}
+				}
+			}
+			
+			
+			
+			private function addHardCodedMessages():void {
+				
+				//hardcoded posts-----
+				var tmp:MessageVO = new MessageVO();
+				
+				tmp = new MessageVO();
+				tmp.messageID=1;
+				tmp.type=100;
+				tmp.title="Vintigo";
+				tmp.description="Hitta eller annonsera husdjur till salu på Vintgio. Gratis annonser. http://www.vintigo.se ";
+				tmp.imageURL="http://jesperalsed.com/petiit/advertisements/vintigoad.png";
+				tmp.timestampDate="2013-06-10";
+				messages.addItem(tmp);
+				
+				tmp = new MessageVO();
+				tmp.messageID=2;
+				tmp.type=5;
+				tmp.title="Competition announcement";
+				tmp.description="Cutest moment 2014 has just started! Have a look or join the competition.";
+				tmp.competitionID=103;
+				tmp.imageURL="/assets/posters/5-cutest_pet.png";//"http://www.bigcheesebadges.com/images/cat_meow.png";
+				messages.addItem(tmp);
+				
+				tmp = new MessageVO();
+				tmp.messageID=5;
+				tmp.type=4;
+				tmp.title="Competition Reminder";
+				tmp.description="Weirdest cat 2014 will soon end! Don't forget to vote if you haven't done already. It's still possible to join the competition but you need to hurry!";
+				tmp.competitionID=41;
+				tmp.imageURL="/assets/posters/4-strangesthabit.png";
+				messages.addItem(tmp);
+				
+				tmp = new MessageVO();
+				tmp.messageID=6;
+				tmp.type=8;
+				tmp.title="MESSAGE FROM PETIT";
+				tmp.description="We will update the server 2014-06-06 due to the big demand! Downtime about 1 hour.";
+				tmp.imageURL="";
+				tmp.timestampDate="2013-02-20";
+				messages.addItem(tmp);
+				
+				tmp = new MessageVO();
+				tmp.messageID=7;
+				tmp.type=100;
+				tmp.title="Whiskas erbjudande";
+				tmp.description="Ta del av vårt Petiit-erbjudande och få 20% rabatt på valfri Whiskasprodukt i vår webshop. Kod är PET11T. Gäller till 2013-12-31. http://whiskas.se";
+				tmp.imageURL="http://jesperalsed.com/petiit/advertisements/whiskas1.png";
+				tmp.timestampDate="2013-06-10";
+				messages.addItem(tmp);
+/**/
+				//---------
+/*				
+				
+				tmp.messageID=1;
+				tmp.type=2;
+				tmp.title="Friend request";
+				tmp.description="Vilse the cat wants to be your friend. Accept?";
+				tmp.petName="Vilse";
+				tmp.relationID = 7;
+				tmp.imageURL="/assets/characters/Mouse.png";
+				tmp.timestampDate="2013-02-18";
+				messages.addItem(tmp);
+				
+				tmp = new MessageVO();
+				tmp.messageID=3;
+				tmp.type=7;
+				tmp.title="Private message";
+				tmp.description="Lex: It's nice here in heaven. I get youghurt breakfast lunch and dinner now.";
+				tmp.imageURL="/assets/characters/CoolCat.png";
+				messages.addItem(tmp);
+				
+				tmp = new MessageVO();
+				tmp.messageID=4;
+				tmp.type=10;
+				tmp.title="New friend!";
+				tmp.petName="Vilse";
+				tmp.relationID = 7;
+				tmp.description="Vilse says hi and accepted your friend invitation!";
+				tmp.imageURL="/assets/characters/Mouse.png";
+				messages.addItem(tmp);
+*/				
+
+				
+			}
+			
+			/************************************************************
+			 * GOTO (DIFFERENT KIND OF) DETAILS							*
+			 * 															*
+			 ************************************************************/
+			
+			private function gotoDetail():void {
+				
+                if (messageList.selectedItem != null) {
+					violetbg=false;
+					
+					if(adminmessagebg!=null)
+						adminmessagebg.visible=false;
+					
+					if(messageList.selectedItem.type==0 || messageList.selectedItem.type==1) {	//FEED own or friends
+						parentApplication.gotoFeedDetail(messageList.selectedItem.messageID,messageList.selectedItem.title);
+					}
+				
+					if(messageList.selectedItem.type==10) {	//RELATION OK
+						
+						//Eventuellt vill man gå till vännens profil här
+						parentApplication.addEventListener(DialogEvent.DIALOG_OK,gotoFriendAccept);
+						parentApplication.addEventListener(DialogEvent.DIALOG_CANCEL,gotoFriendReject);
+						parentApplication.showDialog(messageList.selectedItem.imageURL,parentApplication.Language.newsview_friendrequest_header_approved,messageList.selectedItem.petName+" "+parentApplication.Language.newsview_friendrequest_body_approved,parentApplication.Language.general_yes,parentApplication.Language.general_no,2);
+					 
+					}
+					
+					if(messageList.selectedItem.type==2) {	//RELATION REQUEST
+						
+						parentApplication.addEventListener(DialogEvent.DIALOG_OK,friendRequestAccept);
+						parentApplication.addEventListener(DialogEvent.DIALOG_CANCEL,friendRequestReject);
+						var friendmessage2:String="";
+						friendmessage2 = messageList.selectedItem.petName + " ("+ parentApplication.Language.newsview_ownedby + " " + messageList.selectedItem.ownerName + ") " + parentApplication.Language.newsview_friendrequest_message;	//wants to be your -friend-. Is it ok?";
+						parentApplication.showDialog(messageList.selectedItem.imageURL,parentApplication.Language.newsview_friendrequest_header,friendmessage2,parentApplication.Language.general_yes,parentApplication.Language.general_cancel,2);
+					}
+					
+					if(messageList.selectedItem.type==3 || messageList.selectedItem.type==4 || messageList.selectedItem.type==5 || messageList.selectedItem.type==6) {	//COMPETITION
+						parentApplication.gotoCompetitionDetail(messageList.selectedItem.competitionID,false);
+					}
+
+					if(messageList.selectedItem.type==7) {	//PRIVATE MESSAGE
+						currentState="messageWindow";
+						messageTextColor = 0x976a97;
+						popupMessageTitle.text = messageList.selectedItem.title;
+						popupMessageDescription.text = messageList.selectedItem.description;
+						
+						
+						if(messageList.selectedItem.imageURL!=null && messageList.selectedItem.imageURL.length>0) {
+							dialogpicture.source = messageList.selectedItem.imageURL;
+							dialogpictureframe.visible=true;
+						}
+						
+						deleteMessageButton.visible=false;
+						deleteMessageButton.width=0;
+						replyButton.width=250;
+						replyButton.visible=true;
+						violetbg=true;
+					}
+					
+					if(messageList.selectedItem.type>700 && messageList.selectedItem.type<800) {	//GIFT MESSAGE
+						currentState="messageWindow";
+						messageTextColor = 0x976a97;
+						popupMessageTitle.text = messageList.selectedItem.title;
+						popupMessageDescription.text = messageList.selectedItem.description;
+						
+						
+						if(messageList.selectedItem.imageURL!=null && messageList.selectedItem.imageURL.length>0) {
+							dialogpicture.source = messageList.selectedItem.imageURL;
+							dialogpictureframe.visible=true;
+						}
+						
+						deleteMessageButton.visible=false;
+						deleteMessageButton.width=0;
+						replyButton.width=250;
+						replyButton.visible=true;
+						violetbg=true;
+						
+						showGift(messageList.selectedItem.type.toString());
+					}
+					
+					if(messageList.selectedItem.type==8) {	//ADMIN MESSAGE
+						currentState="messageWindow";
+						messageTextColor=0x444444;
+						popupMessageTitle.text = messageList.selectedItem.title;
+						popupMessageDescription.text = messageList.selectedItem.description;
+						
+						adminmessagebg.visible=true;
+						replyButton.visible=false;
+					}
+					
+					if(messageList.selectedItem.type==9) {	//OWN SENT MESSAGE
+						currentState="messageWindow";
+						messageTextColor = 0x976a97;
+						popupMessageTitle.text = parentApplication.Language.newsview_sentmessage.toUpperCase();	//"MY SENT MESSAGE";
+						popupMessageDescription.text = messageList.selectedItem.description;
+						replyButton.visible=false;
+						replyButton.width=0;
+						deleteMessageButton.visible=true;
+						deleteMessageButton.width=250;
+						violetbg=true;
+					}
+					
+					if(messageList.selectedItem.type==100) {	//ADVERTISEMENT
+				 		parentApplication.showAdDialog(messageList.selectedItem.imageURL, messageList.selectedItem.title,messageList.selectedItem.description,parentApplication.Language.general_ok,"",1);
+					}
+				}
+			}
+			
+			private function friendRequestAccept(event:Event):void {
+				parentApplication.myRelationDAO.addEventListener(RelationEvent.RELATION_ACCEPTED,relationAccepted);
+				parentApplication.myRelationDAO.addEventListener(RelationEvent.RELATION_ACCEPT_FAILED,relationAcceptedFailed);
+				parentApplication.myRelationDAO.restAcceptRelation(messageList.selectedItem.relationID);
+				
+				//Clean
+				parentApplication.removeEventListener(DialogEvent.DIALOG_OK,friendRequestAccept);
+				parentApplication.removeEventListener(DialogEvent.DIALOG_CANCEL,friendRequestReject);
+			}
+		 
+			private function friendRequestReject(event:Event):void {
+			 	
+				//Clean
+				parentApplication.removeEventListener(DialogEvent.DIALOG_OK,friendRequestAccept);
+				parentApplication.removeEventListener(DialogEvent.DIALOG_CANCEL,friendRequestReject);
+			}
+			
+			private function relationAccepted(event:Event):void {
+				parentApplication.showToastFX(parentApplication.Language.newsview_toast_newfriendadded,true);	//"New friend added"
+				
+				deleteMessage(messageList.selectedItem.messageID);	//Remove request when accepted
+				
+				//Clean
+				parentApplication.myRelationDAO.removeEventListener(RelationEvent.RELATION_ACCEPTED,relationAccepted);
+				parentApplication.myRelationDAO.removeEventListener(RelationEvent.RELATION_ACCEPT_FAILED,relationAcceptedFailed);
+			}
+			
+			private function relationAcceptedFailed(event:Event):void {
+				parentApplication.showToastFX(parentApplication.Language.newsview_toast_newfriendaddedfailure,false);	//"Error adding friend
+				
+				//Clean
+				parentApplication.myRelationDAO.removeEventListener(RelationEvent.RELATION_ACCEPTED,relationAccepted);
+				parentApplication.myRelationDAO.removeEventListener(RelationEvent.RELATION_ACCEPT_FAILED,relationAcceptedFailed);
+			}
+			
+			private function gotoFriendAccept(event:Event):void {
+				var whichfriend:int;
+				whichfriend = parseInt(messageList.selectedItem.petID);
+				
+			  	parentApplication.gotoThisPet(whichfriend); //Exchange with direct link to friend profile
+				//Clean
+				parentApplication.removeEventListener(DialogEvent.DIALOG_OK,gotoFriendAccept);
+				parentApplication.removeEventListener(DialogEvent.DIALOG_CANCEL,gotoFriendReject);
+			}
+			
+			private function gotoFriendReject(event:Event):void {
+		 		//Clean
+				parentApplication.removeEventListener(DialogEvent.DIALOG_OK,gotoFriendAccept);
+				parentApplication.removeEventListener(DialogEvent.DIALOG_CANCEL,gotoFriendReject);
+			}
+			
+			
+			/************************************************************
+			 * REPLY MESSAGE											*
+			 * 															*
+			 ************************************************************/ 
+	
+			private function sendReplyMessage():void {
+				parentApplication.myMessageDAO.addEventListener(MessageEvent.Message_PRIVATE_MESSAGE_SENT,sendMessageSuccess);
+				parentApplication.myMessageDAO.addEventListener(MessageEvent.MEssage_PRIVATE_MESSAGE_FAILED,sendMessageFailure);
+				parentApplication.myMessageDAO.restCreatePrivateMessage(parentApplication.myPetDAO.currentPetID,messageList.selectedItem.petID.toString(),privateMessageText.text);
+				currentState="normal";
+			}
+			
+			private function sendMessageSuccess(event:MessageEvent):void {
+				parentApplication.showToastFX(parentApplication.Language.newsview_toast_message_sent,true);	//"Message sent!"
+				
+				parentApplication.myMessageDAO.removeEventListener(MessageEvent.Message_PRIVATE_MESSAGE_SENT,sendMessageSuccess);
+				parentApplication.myMessageDAO.removeEventListener(MessageEvent.MEssage_PRIVATE_MESSAGE_FAILED,sendMessageFailure);
+			}
+			
+			private function sendMessageFailure(event:MessageEvent):void {
+				parentApplication.showToastFX(parentApplication.Language.newsview_toast_message_sent_failed,false);	//"Message failed!
+				
+				parentApplication.myMessageDAO.removeEventListener(MessageEvent.Message_PRIVATE_MESSAGE_SENT,sendMessageSuccess);
+				parentApplication.myMessageDAO.removeEventListener(MessageEvent.MEssage_PRIVATE_MESSAGE_FAILED,sendMessageFailure);
+			}			
+			
+			/********************************************************
+			 * Delete message (not own feed item but message)		*
+			 * 														*
+			 ********************************************************/
+			private function deleteMessage(in_messageID:String):void {
+				
+				parentApplication.myMessageDAO.addEventListener(MessageEvent.Message_DELETED,deleteReady);
+				parentApplication.myMessageDAO.addEventListener(MessageEvent.Message_DELETE_FAILED,deleteFailed);
+				
+				parentApplication.myMessageDAO.restDeleteMessage(in_messageID);
+			}
+			private function deleteReady(event:Event):void {
+				//Clean
+				parentApplication.myMessageDAO.removeEventListener(MessageEvent.Message_DELETED,deleteReady);
+				parentApplication.myMessageDAO.removeEventListener(MessageEvent.Message_DELETE_FAILED,deleteFailed);
+			
+				parentApplication.dispatchEvent(new FeedEvent(FeedEvent.FEED_REFRESH,null,true,true)); 
+			}
+			private function deleteFailed(event:Event):void {
+				//Clean
+				parentApplication.myMessageDAO.removeEventListener(MessageEvent.Message_DELETED,deleteReady);
+				parentApplication.myMessageDAO.removeEventListener(MessageEvent.Message_DELETE_FAILED,deleteFailed);
+			}
+			
+			/********************************************************
+			 * Delete own feed										*
+			 * 														*
+			 ********************************************************/
+			private function deleteMyMessage(in_messageID:String):void {
+				
+				parentApplication.myFeedDAO.addEventListener(FeedEvent.FEED_DELETED,deleteMyMessageReady);
+				parentApplication.myFeedDAO.addEventListener(FeedEvent.FEED_DELETE_FAILED,deleteMyMessageFailed);
+				
+				parentApplication.myFeedDAO.restDeleteFeed(in_messageID);
+			}
+			private function deleteMyMessageReady(event:Event):void {
+				//Clean
+				parentApplication.myFeedDAO.removeEventListener(FeedEvent.FEED_DELETED,deleteMyMessageReady);
+				parentApplication.myFeedDAO.removeEventListener(FeedEvent.FEED_DELETE_FAILED,deleteMyMessageFailed);
+				
+				parentApplication.dispatchEvent(new FeedEvent(FeedEvent.FEED_REFRESH,null,true,true));
+			}
+			private function deleteMyMessageFailed(event:Event):void {
+				//Clean
+				parentApplication.myFeedDAO.removeEventListener(FeedEvent.FEED_DELETED,deleteMyMessageReady);
+				parentApplication.myFeedDAO.removeEventListener(FeedEvent.FEED_DELETE_FAILED,deleteMyMessageFailed);
+			}
+			 			
+			
+			/************************************************************
+			 * CONSOLE ANIMATION										*
+			 * 															*
+			 ************************************************************/
+			private function checkIfActiveConsole():void {
+				if(currentConsolePos != (parentApplication.height - console.height)) {
+					showConsoleFX.play();
+				}
+			}
+			
+			protected function viewDeactivateHandler(event:ViewNavigatorEvent):void {
+				parentApplication.hideNotificationCirle();
+				showConsoleFX.play();
+			}
+			
+			protected function viewActivateHandler(event:ViewNavigatorEvent):void
+			{
+				var slideTrans:SlideViewTransition = new SlideViewTransition();
+				slideTrans.direction = ViewTransitionDirection.LEFT;
+				
+				parentApplication.feedNav.defaultPopTransition = slideTrans;  
+				
+				parentApplication.audioUtil.stopSoundFX();
+				
+				setMenuLabels();
+				interval=setInterval(removeMenuLabels,8000);
+			
+				currentConsolePos = (this.height - console.height);
+				
+				parentApplication.showNotificationCirle();
+				 
+			}
+			
+			protected function view1_updateCompleteHandler(event:FlexEvent):void
+			{
+				currentConsolePos = (this.height - console.height);
+				
+			}
+			
+			/****************************************************************
+			 * SCROLL BEHAVIOUR												*
+			 * 																*
+			 ****************************************************************/
+			private var doListRefresh:Boolean=false; 
+			
+			protected function scrollStart(event:TouchInteractionEvent):void
+			{
+				if(currentConsolePos==(this.height - console.height)) {
+					hideConsoleFX.play();
+					competitionButton.label="";
+					newsfeedButton.label="";
+					friendsButton.label="";
+				} 
+			}
+			
+			protected function newsList_touchInteractionEndHandler(event:TouchInteractionEvent):void {
+				refreshLabel.visible=false;
+					
+				if(doListRefresh) {//do new read
+					parentApplication.isBusy(parentApplication.Language.newsview_toast_updatinglist);
+					messages.removeAll();
+					refreshNewsList(null);
+					doListRefresh=false;
+				}
+			}
+			
+			protected function newsList_mouseMoveHandler(event:MouseEvent):void
+			{
+				if(listTile.verticalScrollPosition<-100) {
+					refreshLabel.text=parentApplication.Language.newsview_releasetorefresh;
+					refreshLabel.visible=true;
+					refreshIcon.visible=true;
+					doListRefresh=true;
+				}
+				else if(listTile.verticalScrollPosition<-50) {//show refresh sign
+					refreshLabel.text=parentApplication.Language.newsview_pulltorefresh;
+					refreshLabel.visible=true;
+				}
+				if(listTile.verticalScrollPosition>-40) {
+					refreshLabel.visible=false;
+					doListRefresh=false;
+					refreshIcon.visible=false;
+					refreshLabel.text="";
+				}
+				//trace("moving. pos:"+listTile.verticalScrollPosition);
+				
+			}
+			
+			/********************************************
+			 * GIFT										*
+			 *											*
+			 ********************************************/
+			
+			private function showGift(in_giftid:String):void {
+				 
+				for each(var obj:Object in parentApplication.giftAC) {
+					 if(obj.tid == in_giftid) {
+						giftpicture.visible=true;
+						giftpicture.source=obj.image;
+						break;
+					}
+				}
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<s:Rect	width="100%" height="100%">
+		<s:fill>
+			<s:SolidColor color="#000000" alpha="0.2"/>
+		</s:fill>
+	</s:Rect>
+	
+	<s:VGroup id="listGroup" visible="true" width="100%" height="100%"
+			  horizontalAlign="center" horizontalCenter="0" paddingLeft="5" paddingRight="5"
+			  paddingTop="0"
+			  y="0" >
+		<s:List id="messageList" width="100%" height="100%" horizontalScrollPolicy="off" interactionMode="touch" pageScrollingEnabled="false" minHeight="960"			 useVirtualLayout="false"
+				verticalScrollPolicy="on" contentBackgroundAlpha="0" dataProvider="{messages}" mouseDown="clearInterval(intervalId);" horizontalCenter="0"
+				itemRenderer="Renderers.newsfeedListRenderer" click="gotoDetail();" 
+				touchInteractionStart="scrollStart(event)" mouseMove="newsList_mouseMoveHandler(event)" touchInteractionEnd="newsList_touchInteractionEndHandler(event)"
+				skinClass="spark.skins.mobile.ListSkin" cacheAsBitmap="false" ><!--cacheAsBitmap="false"-->
+			<s:layout>
+				<s:VerticalLayout id="listTile" horizontalAlign="center"  
+								  paddingBottom="500" 
+								  gap="24"
+								  paddingTop="10"
+								  />
+			</s:layout>
+		</s:List>
+	</s:VGroup>
+	
+	<s:BusyIndicator id="refreshIcon" visible="false" width="36" horizontalCenter="0" rotationInterval="300" symbolColor="white" y="5" height="36"/>
+	<s:Label id="refreshLabel" y="38" horizontalCenter="0" text="{parentApplication.Language.newsview_releasetorefresh}" color="#ffffff" fontSize="40" visible="false" fontWeight="bold"/>
+	
+	<components:addContentButton right="-1" top="-1" id="createFeedButton"  mouseOver="createFeedButton.alpha=0.9;" mouseOut="createFeedButton.alpha=1;"  click="parentApplication.gotoCreateFeed();"/>
+	<!--s:Image id="createFeedButtonGhost" source="@Embed('/assets/buttons/Status-button.png')" width="160" right="0" top="0" scaleMode="stretch" click="parentApplication.gotoCreateFeed();" alpha="0" mouseOver="createFeedButton.alpha=0.9;" mouseOut="createFeedButton.alpha=1;"/-->
+	 
+	<s:Group id="console" y="{currentConsolePos}" width="100%" >
+		<s:BitmapImage source="@Embed('/assets/skin/menu/Petiit_Console.png')" scaleMode="stretch" width="100%" bottom="0"/>
+		<s:HGroup width="100%" horizontalAlign="center" gap="0" left="-8" id="consoleButtons" bottom="0">
+			<components:menuIconButton id="competitionButton" down_pic="assets/skin/menu/btn_competition_on.png" up_pic="/assets/skin/menu/btn_competition_off.png" label="{parentApplication.Language.navigation_competitions.toUpperCase()}" click="if(currentConsolePos==(this.height-console.height)) parentApplication.tabnav.selectedIndex=0; else checkIfActiveConsole();"/>
+			<components:menuIconButton id="newsfeedButton" down_pic="assets/skin/menu/btn_whatsup_on.png" up_pic="/assets/skin/menu/btn_whatsup_on.png" click="checkIfActiveConsole()" label="{parentApplication.Language.navigation_news.toUpperCase()}" active="true"/>
+			<components:menuIconButton id="friendsButton" down_pic="assets/skin/menu/btn_friends_on.png" up_pic="/assets/skin/menu/btn_friends_off.png" label="{parentApplication.Language.navigation_friends.toUpperCase()}" click="if(currentConsolePos==(this.height-console.height)) parentApplication.tabnav.selectedIndex=2; else checkIfActiveConsole();"/>
+		</s:HGroup>
+	</s:Group>
+ 
+	 
+	<!-- GENERAL POPUP -->
+	<s:Group width="100%" height="100%" x="0" y="0" includeIn="messageWindow,replymessage" id="popupMessageWindow">
+		<s:Rect	width="100%" height="100%">
+			<s:fill>
+				<s:SolidColor color="#000000" alpha="0.8"/>
+			</s:fill>
+		</s:Rect>
+		
+		<s:Group width="580" verticalCenter="-20" horizontalCenter="0" height="700">
+			<s:Rect x="0" y="0" radiusX="30" radiusY="30" width="580" height="700" filters="{shadowFilter}" visible="true">
+				<s:fill>
+					<s:BitmapFill source="@Embed('/assets/skin/BG.png')" fillMode="repeat" alpha="0.9"/>
+				</s:fill>
+			</s:Rect>
+
+			<s:Rect x="0" y="0" radiusX="30" radiusY="30" width="580" height="700" alpha="0.76" filters="{shadowFilter}" visible="{violetbg}">			<!-- PRIVATE MESSAGE BG-->
+				<s:fill>
+					 <s:LinearGradient rotation="270" >
+						<s:GradientEntry color="0xa793ac" ratio="0"/>
+						<s:GradientEntry color="0xa793ac" ratio="0.2"/>
+						<s:GradientEntry color="0xf3ecff" ratio="0.4"/>
+						<s:GradientEntry color="0xfff7ff" ratio="0.9"/>
+					</s:LinearGradient>
+				</s:fill>
+			</s:Rect>
+			
+			<s:Rect x="0" y="0" radiusX="30" radiusY="30" width="580" height="700" filters="{shadowFilter}" visible="false" id="adminmessagebg">			<!-- ADMIN MESSAGE BG-->
+				<s:fill>
+					<s:SolidColor color="#de7314"/>
+				</s:fill>
+			</s:Rect>
+			
+			<s:Rect x="10" y="10" radiusX="30" radiusY="30" width="560" height="680">
+				<s:fill>
+					<s:SolidColor color="#ffffff" alpha="0.6"/>
+				</s:fill>
+			</s:Rect>
+			<s:BitmapImage horizontalCenter="0" y="-90" id="dialogpicture" filters="{shadowFilter}" scaleMode="stretch"
+						    width="140" height="140" smooth="true"/>
+			<s:BitmapImage width="{dialogpicture.width+12}" height="{dialogpicture.height+12}" id="dialogpictureframe" visible="false" horizontalCenter="0" y="-95" scaleMode="stretch" source="@Embed('/assets/images/card150x150.png')"/>
+			<s:Label id="popupMessageTitle" width="520" color="{messageTextColor}"  paddingLeft="10" paddingBottom="10" paddingRight="10" paddingTop="20"
+					 fontFamily="MyriadPro" fontWeight="bold" fontSize="44" horizontalCenter="0" includeIn="messageWindow"
+					 text="" textAlign="center" verticalAlign="middle" verticalCenter="-255"/>	
+			<s:Label id="popupMessageDescription" width="520" height="430" color="{messageTextColor}" fontFamily="MyriadPro"
+					 includeIn="messageWindow"
+					 paddingLeft="10" paddingBottom="10" paddingRight="10" paddingTop="25"
+					 fontSize="36" fontWeight="normal" horizontalCenter="0" text="---" 
+					 textAlign="left" verticalCenter="-10"/>
+			<s:Button id="pmContinueButton" label="{parentApplication.Language.general_continue}" horizontalCenter="0" width="540" visible="false" verticalCenter="-270" height="90" fontSize="44"/>
+			<s:TextArea id="privateMessageText" includeIn="replymessage" skinClass="spark.skins.mobile.StageTextAreaSkin"
+						paddingLeft="10" paddingBottom="10" paddingRight="10" paddingTop="60" contentBackgroundColor="#ffffff" contentBackgroundAlpha="1" height="260" width="480"
+						fontSize="32" fontWeight="normal" horizontalCenter="0" 
+						autoCapitalize="sentence" softKeyboardType="default"
+					 	focusIn="pmContinueButton.visible=true;" focusOut="pmContinueButton.visible=false;"	
+						textAlign="left" verticalCenter="-90"/>
+			<s:HGroup width="400" horizontalAlign="center" horizontalCenter="0" bottom="30">
+				<components:violetButton id="replyButton" width="250" label="{parentApplication.Language.general_reply}" click="giftpicture.visible=false;dialogpicture.source='';dialogpictureframe.visible=false;currentState='replymessage'" />
+				<components:violetButton id="deleteMessageButton" width="250" label="{parentApplication.Language.createfeed_status_delete}" click="currentState='normal';deleteMessage(messageList.selectedItem.messageID.toString());" />
+				<components:violetButton id="okButton" width="250" label="{parentApplication.Language.general_close}" click="giftpicture.visible=false;dialogpicture.source='';dialogpictureframe.visible=false;currentState='normal'"/>		
+			</s:HGroup>
+			<s:BitmapImage id="giftpicture" horizontalCenter="0" verticalCenter="100" visible="false" filters="{shadowFilter}"/>
+			<s:HGroup width="400" horizontalAlign="center" horizontalCenter="0" bottom="30" includeIn="replymessage">
+				<components:imageButton id="replyCancelButton" width="250" label="{parentApplication.Language.general_cancel}" click="currentState='messageWindow'"
+										down_pic="/assets/buttons/btn_white_empty_on.png"
+										textcolor="#a37fa3"
+										up_pic="/assets/buttons/btn_white_empty_off.png"/>
+				<components:violetButton id="sendReplyMessageButton" width="250" label="{parentApplication.Language.general_send.toUpperCase()}" click="sendReplyMessage();"/>		
+			</s:HGroup>
+		</s:Group>
+	</s:Group>
+	<fx:Declarations>
+		<s:DropShadowFilter color="#000000" distance="6" alpha="0.28" angle="92.3" blurX="6" blurY="6" id="shadowFilter"/>
+	</fx:Declarations>
+</s:View>

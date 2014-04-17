@@ -1,0 +1,351 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 xmlns:views="com.*"
+		 width="200" height="250"
+		 xmlns:ns="http://flex.apache.org/experimental/ns"
+		 >
+	
+	<s:states>
+		<s:State name="normal"/>
+		<s:State name="active"/>
+	</s:states>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import com.StageWebViewUIComponent;
+			import com.iOSStageVideo;
+			import com.freshplanet.ane.AirImagePicker.AirImagePicker;
+			
+			import flash.events.Event;
+			import flash.events.MediaEvent;
+			import flash.events.ProgressEvent;
+			import flash.media.CameraUI;
+			import flash.media.MediaType;
+			import flash.media.StageWebView;
+			
+			import mx.core.UIComponent;
+			
+			import spark.events.ViewNavigatorEvent;
+			
+			import by.blooddy.crypto.Base64;
+			
+			import classes.GlobalConstants;
+			
+			import events.DialogEvent;
+			import events.PetitVideoEvent;
+			import events.VideoEvent;
+			
+			import utils.ExifReader;
+			import utils.ExifUtils;
+			
+			 
+			
+			private var camera:CameraUI;
+			
+			protected var loader:Loader;
+			public var file:File;
+			private var dataSource:IDataInput;
+			
+			private var vid:iOSStageVideo;
+			private var container:UIComponent;
+			
+			[Embed (source="/assets/images/btn_record.png" )]
+			public static const ICON_BTNRECORD:Class;
+			
+			[Embed (source="/assets/buttons/Play.png" )]
+			public static const ICON_BTNPLAY:Class;
+			
+			[Embed (source="/assets/buttons/Paws-button.png" )]
+			public static const ICON_BTNPAUSE:Class;
+			
+			private var imageBytes:ByteArray;
+			
+			private var videoOrientationRotation:int=0;
+			
+			private var currentSize:Number=0;
+			 
+			protected function init():void
+			{
+				if (CameraUI.isSupported)
+				{
+					trace("Camera is installed."); 
+					
+					camera = new CameraUI();
+					camera.addEventListener(Event.CANCEL,cancelCamera);
+					camera.addEventListener(MediaEvent.COMPLETE, mediaEventComplete);
+					
+					imageBytes = new ByteArray();
+					
+					//camera.setMode( 800, 400, 15, true ); does not work with cameraUI 
+				
+					connectCamera();
+				
+					currentState="active";
+				}
+				else { 
+					trace("No camera is installed."); 
+				}
+			}
+			
+			private function cancelCamera(event:Event):void { 
+				trace("cancel");	
+			}
+			
+			protected function mediaEventComplete(event:MediaEvent):void {
+				trace("complete");	
+				
+				dataSource = event.data.open();
+				
+				parentApplication.currentVideoURL = event.data.file.url;
+				
+				currentSize = Math.round(event.data.file.size/1024);
+				parentDocument.storlek.text = currentSize + " kb" + " " + parentApplication.Language.getgallery_recorded;//	är inspelat"; m-data.file.url
+				
+				restUploadFile(event.data.file,"video");
+			 
+				
+				if( event.data.isAsync )
+				{
+					trace( "Asynchronous media promise." );
+					var eventSource:IEventDispatcher = dataSource as IEventDispatcher;            
+					eventSource.addEventListener( Event.COMPLETE, onMediaLoaded );         
+				}
+				else
+				{
+					trace( "Synchronous media promise." );
+					readMediaData();
+				}
+			}
+			
+			private function onMediaLoaded( event:Event ):void
+			{
+				trace("Media load complete");
+				
+			 
+				readMediaData();
+			}
+			
+			public function onXMPData(info:Object) :void{}
+			
+			private function readMediaData():void
+			{
+				var currentRotation:int=0;	
+				
+				dataSource.readBytes( imageBytes);
+			 
+				parentDocument.thumbImage.visible=true;
+				trace(imageBytes.length);
+				parentDocument.thumbImage.source = imageBytes.readBytes(imageBytes,0,65535);
+								
+				//find image Orientation
+				var reader:ExifReader = new ExifReader();
+				reader.processData(imageBytes);
+				var ortn : Number = Number( reader.getValue("Orientation"));
+				trace(ortn);
+				
+				switch(ortn) {
+					case 0x10000:
+						trace("Normal landscape: no rotation");
+						currentRotation=0;		
+						break;
+					case 0x30000:
+						trace("Reverse landscap: 180 deg rotation");
+						currentRotation=180;		
+						break;
+					case 0x60000:
+						trace("Normal portrait: 90 deg rotation");
+						currentRotation=90;		
+						break;
+					case 0x80000:
+						trace("Reverse portrait: 270 deg rotation");
+						currentRotation=270;
+						break;
+					default:
+						currentRotation=0;				
+				}
+			
+				parentDocument.storlek.visible=true;
+			}
+			 
+			private function connectCamera():void { 
+				
+				camera.launch(MediaType.VIDEO); 
+			}
+ 
+			private function startstopRecording(event:Event):void { 
+				
+			}
+			
+			private function deleteVideo():void {
+				
+			}
+			  
+			public function playVideo(e:Event):void
+			{
+				
+				parentApplication.videoButtons.visible=true;
+				parentApplication.smalllogo.visible=true;
+				parentApplication.tabnav.visible=false;
+				parentApplication.bg.visible=false;
+				parentApplication.feedNav.activeView.visible=false;
+				parentApplication.toast.visible=false;
+			
+				var path:String = new String(new File(parentApplication.currentVideoURL).url); 
+				
+				if(videoOrientationRotation==0) {
+					vid = new iOSStageVideo( path ,1024,640,90); 			
+					vid.rotation = 90;
+				}
+				else if(videoOrientationRotation==90) {
+					vid = new iOSStageVideo( path ,640, 1024,0); 
+				}
+				
+				
+				vid.addEventListener('videoDone' , stopVideo); 
+				//vid.addEventListener('videoPlays',videoIsPlaying);
+				
+				
+				container = new UIComponent(); 
+				container.x=0;
+				container.y=0;
+				container.width = 640;//parentApplication.myStage.stageWidth; 
+				container.height = 1024; //parentApplication.myStage.stageHeight; 
+				addElement( container ); 
+				
+				container.addChild( vid ); 
+				
+				
+				parentApplication.addEventListener(PetitVideoEvent.STOP_VIDEO,stopVideo);
+				parentApplication.addEventListener(PetitVideoEvent.RESUME_VIDEO,resumeVideo);
+				parentApplication.addEventListener(PetitVideoEvent.PAUSE_VIDEO,pauseVideo);
+				
+		 
+			}
+		
+			private function stopVideo(e:Event):void {
+				parentApplication.notBusy();
+				parentApplication.tabnav.visible=true;
+				parentApplication.smalllogo.visible=false;				 
+				parentApplication.videoButtons.visible=false;
+				parentApplication.bg.visible=true;
+				parentApplication.toast.visible=true;
+				
+				if(parentApplication.feedNav.activeView.visible==false) {	//Anropas stopp igen ska detta inte göras
+					parentApplication.feedNav.activeView.visible=true;
+					vid.stopVideo();
+					container.removeChild( vid ); 
+					removeElement( container ); 
+				}
+				
+				parentApplication.removeEventListener(PetitVideoEvent.STOP_VIDEO,stopVideo);
+				parentApplication.removeEventListener(PetitVideoEvent.RESUME_VIDEO,resumeVideo);
+				parentApplication.removeEventListener(PetitVideoEvent.PAUSE_VIDEO,pauseVideo);
+			}
+			
+			
+			private function videoIsPlaying(e:Event):void {
+				parentApplication.notBusy();
+			}
+			
+			private function resumeVideo(event:Event):void {
+				vid.continueVideo();	
+			}
+			
+			private function pauseVideo(event:Event):void {
+				vid.pauseVideo();
+			}
+			
+			/************************************************
+			 * SERVER UPLOAD								*
+			 * 												*
+			 ************************************************/
+			private function dialogOK(event:DialogEvent):void {
+				parentApplication.removeEventListener(DialogEvent.DIALOG_OK,dialogOK);
+				parentApplication.isBusy(parentApplication.Language.getgallery_busy_uploadvideo + " ("+Math.round(currentSize/1024) + " MB)");	//ÖVERFÖR VIDEO...
+			}
+			
+			private function restUploadFile(file:File, type:String):void {
+				//uploadIds = [];
+				
+				parentApplication.addEventListener(DialogEvent.DIALOG_OK,dialogOK);
+				parentApplication.showDialog("",parentApplication.Language.getgallery_busy_uploadvideo,
+					"This video file is about " + (Math.round(currentSize/1024)) + " MB and will take around "+ (Math.round(currentSize/1024)*4)+" seconds to upload. If you want faster upload change the camera setting to lower resolution (like 640x480 pixels).",
+					parentApplication.Language.general_ok,parentApplication.Language.general_ok,1);
+				
+				parentDocument.publishButton.enabled=false;
+				
+				var fileStream:FileStream = new FileStream();
+				fileStream.open(file, FileMode.READ);
+				var bytes:ByteArray = new ByteArray();
+				fileStream.readBytes(bytes);
+				fileStream.close();
+				
+				var jsonfile:Object = {};
+				jsonfile.filename = file.name;
+				jsonfile.status = 0;
+				jsonfile.filepath = 'public://petit/' + type + '/' + parentApplication.myUserDAO.user.uid.toString() + '/' + file.name;
+				jsonfile.file = by.blooddy.crypto.Base64.encode(bytes);
+				
+				var urlLoader:URLLoader = new URLLoader();
+				urlLoader.addEventListener(Event.COMPLETE, restUploadFileHandler);
+				urlLoader.addEventListener(IOErrorEvent.IO_ERROR, restUploadFileFaultHandler);
+				//urlLoader.addEventListener(ProgressEvent.PROGRESS,uploadProgress);
+				var uploadUrl:String = GlobalConstants.DRUPAL_PATH + "file";
+				var urlRequest:URLRequest = new URLRequest(uploadUrl);
+				urlRequest.requestHeaders.push(new URLRequestHeader("Accept", "application/json"));
+				urlRequest.contentType = "application/json";
+				urlRequest.method = URLRequestMethod.POST;
+			 	
+				urlRequest.data = JSON.stringify(jsonfile);
+				urlLoader.load(urlRequest);
+			
+				//progGroup.visible=true;
+				
+			}
+			
+			private function restUploadFileFaultHandler(event:IOErrorEvent):void {
+				 dispatchEvent(new events.VideoEvent(events.VideoEvent.UPLOAD_FAILURE,""));
+				 
+				 parentApplication.notBusy();
+			}
+			
+			private function restUploadFileHandler(event:Event):void {
+				var loader:URLLoader = URLLoader(event.target);
+				var obj:Object = JSON.parse(loader.data);
+				//uploadIds.push(obj.fid);
+				
+				//if (uploadIds.length == productFiles.length) {
+				//    isDirty = false;
+				//    dispatchEvent(new Event("imageUploadComplete", true));
+				//}
+				
+				dispatchEvent(new events.VideoEvent(events.VideoEvent.UPLOAD_READY,obj));
+				
+				parentApplication.notBusy();
+			
+				//progGroup.visible=false;
+			}
+			
+/*			private function uploadProgress(event:ProgressEvent):void {									PROGRESS FUNGERAR INTE VID UPLOAD (bara download)
+				
+				var progress:Number = Math.round(event.bytesLoaded/event.bytesTotal)*100;
+				downloadProgress.currentProgress = progress;
+				
+			}
+*/
+			
+			 
+			
+		]]>
+	</fx:Script>
+	<s:Image id="chooseTypeVideo" source="assets/images/chooseTypeVideo.png" mouseOut="chooseTypeVideo.alpha=1" mouseOver="chooseTypeVideo.alpha=0.75" click="init();" horizontalAlign="center"/>
+	
+	<!--s:Group id="progGroup" height="100%" width="100%" visible="false" mouseEnabled="false" depth="3">
+		 <ns:ProgressBar id="downloadProgress" x="20" y="40" width="580" height="100" chromeColor="#5e3f69" totalProgress="100" direction="right" />		
+	</s:Group-->
+</s:Group>

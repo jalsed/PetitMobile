@@ -1,0 +1,794 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009"
+		xmlns:s="library://ns.adobe.com/flex/spark"
+		xmlns:views="views.*"
+		xmlns:utils="utils.*"
+		actionBarVisible="false" currentState="start" tabBarVisible="false" viewActivate="viewActivateHandler(event)" backgroundAlpha="0"
+	    title="" xmlns:components="components.*">
+	<s:states>
+		<s:State name="start" />
+		<s:State name="edit2" />
+	</s:states>
+	<fx:Declarations>
+		<s:HTTPService id="accessoriesService" resultFormat="e4x" method="GET" useProxy="false" result="accessoriesResultHandler(event)" fault="accessoriesFaultHandler(event)"/>
+	
+		<s:Sine id="sineEaser"/>
+		
+		<s:Rotate id="rotateFXShow" duration="1200" startDelay="0" angleFrom="-1" angleTo="1" effectEnd="rotateFXHide.play();" target="{menuFetchButton}" easer="{sineEaser}"/>
+		<s:Rotate id="rotateFXHide" duration="1200" startDelay="0" angleFrom="1" angleTo="-1" effectEnd="rotateFXShow.play();" target="{menuFetchButton}" easer="{sineEaser}"/>
+		
+		<s:Move id="moveArrowFX" duration="1200" startDelay="0" yFrom="{arrowY-175}" yTo="{arrowY-155}" effectEnd="moveArrowBackFX.play();" target="{bigArrow}" easer="{sineEaser}"/>
+		<s:Move id="moveArrowBackFX" duration="1200" startDelay="0" yFrom="{arrowY-155}" yTo="{arrowY-175}" effectEnd="moveArrowFX.play();" target="{bigArrow}" easer="{sineEaser}"/>
+		
+	</fx:Declarations>
+
+	<fx:Script>
+		<![CDATA[ 
+			
+			import flash.events.TouchEvent;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.XMLListCollection;
+			import mx.events.FlexEvent;
+			import mx.graphics.ImageSnapshot;
+			import mx.graphics.codec.PNGEncoder;
+			import mx.managers.SystemManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			import spark.events.ViewNavigatorEvent;
+			
+			import by.blooddy.crypto.Base64;
+			
+			import classes.GlobalConstants;
+			
+			import events.DialogEvent;
+			import events.FeedEvent;
+			import events.ImageEvent;
+			import events.PetEvent;
+			import events.RelationEvent;
+			
+			//PET
+		 	private var petObj:Object;
+			 
+			private var profile_image_fid:String="";
+			private var profile_image_uri:String="";
+			 
+			private var pictureDirty:Boolean=false;	//Set if profile picture should be saved/updated
+ 
+			[Bindable]
+			private var sizeVal:Number=1;
+			[Bindable]
+			private var rotationVal:Number=360;
+			[Bindable]
+			private var alphaVal:Number=1;
+		
+			[Bindable]
+			private var accessoriesAC:ArrayCollection = new ArrayCollection();
+			[Bindable]
+			private var clothesAC:ArrayCollection = new ArrayCollection();
+		
+//			[Embed(source="/assets/wardrobe/petbody.swf")]
+//			public static const petbody:Class;
+		
+			[Bindable]
+			private var arrowY:int=800;
+			
+			[Bindable]
+			private var pointstring:String="";
+			
+			//------------------------------------------------------------------
+		 
+		
+			//GET PET
+			private function registerPetCheck():void
+			{
+			//	imageComp.removeEventListener(ImageEvent.UPLOAD_READY,imageUploadReady);
+			//	imageComp.removeEventListener(ImageEvent.UPLOAD_FAILURE,imageUploadFailure);
+			//	imageComp.addEventListener(ImageEvent.UPLOAD_READY,imageUploadReady);
+			//	imageComp.addEventListener(ImageEvent.UPLOAD_FAILURE,imageUploadFailure);
+				
+				if(parentApplication.smorgasbordLoggedin) {
+					parentApplication.myPetDAO.addEventListener(PetEvent.PET_GET_MY_LIST_READY,petReadyHandler);
+					parentApplication.myPetDAO.restGetMyPets(parentApplication.myUserDAO.user.uid);
+					
+					pictureDirty=false;
+					
+				}
+			}
+			
+			private function petReadyHandler(event:PetEvent):void {
+				
+				parentApplication.myUserDAO.removeEventListener(PetEvent.PET_READY,petReadyHandler);
+				
+				for each(var pet:Object in event.data) {
+					 
+					break;//Only support one pet at this time
+				}
+				
+				petObj = pet;
+			
+				//Load profile image
+				if(pet!=null) {
+					if(pet.field_pet_image!=null && pet.field_pet_image.hasOwnProperty("und")) {
+					 	//profileImage2.source = GlobalConstants.AMAZON_URL + pet.field_pet_image.und[0].uri.slice(5,pet.field_pet_image.und[0].uri.length);
+						var pos:int;
+						pos = pet.field_pet_image.und[0].uri.lastIndexOf("/",100);
+						pos = pet.field_pet_image.und[0].uri.lastIndexOf("/",pos-1);
+						profileImage2.source = GlobalConstants.AMAZON_URL + "styles/petit_large/s3/petit/images" + pet.field_pet_image.und[0].uri.substr(pos);	//slice off "s3://
+						thumbImage.source = GlobalConstants.AMAZON_URL + "styles/petit_small/s3/petit/images" + pet.field_pet_image.und[0].uri.substr(pos);
+					}
+				}
+			}
+					
+			 
+			
+			/************************************************************
+			 * PET UPDATE/SAVE											*		 
+			 * 															*
+			 ************************************************************/
+			private function upddatePetObject():void {
+				
+				if(petObj != null) {
+					//update this pet
+					parentApplication.isBusy("Update profile image");
+					
+					parentApplication.myPetDAO.addEventListener(PetEvent.PET_UPDATED,petUpdateHandler);
+					parentApplication.myPetDAO.addEventListener(PetEvent.PET_UPDATE_ERROR,petUpdateErrorHandler);
+						
+					var petID:String="";
+					var petname:String="";
+					var raceID:String="";
+					var breed:String="";
+					var gender:String="";
+					var description:String="";
+					var colors:String="";
+					var salesstatus:String="";
+					var saleprice:String="";
+					var matingstatus:String="";
+					var fullname:String="";
+					var birthday:String="";
+					var language:String="sv";
+					var imageName:String=profile_image_fid;
+					
+					petID = petObj.nid;
+					
+					if(petObj.title.length>0)
+						petname = petObj.title;
+						
+					if(petObj.field_pet_race.hasOwnProperty("und"))
+						raceID = petObj.field_pet_race.und[0].value;
+					
+					if(petObj.field_pet_breed.hasOwnProperty("und"))
+						breed = petObj.field_pet_breed.und[0].value;
+							
+					if(petObj.field_gender.hasOwnProperty("und"))
+						gender = petObj.field_gender.und[0].value;
+							
+					if(petObj.body.hasOwnProperty("und"))
+						description = petObj.body.und[0].value;
+							
+					if(petObj.field_colors.hasOwnProperty("und"))
+						colors = petObj.field_colors.und[0].value;
+							
+					if(petObj.field_sale_status.hasOwnProperty("und"))
+						salesstatus = petObj.field_sale_status.und[0].value;
+				  
+					if(petObj.field_sale_price.hasOwnProperty("und"))
+						saleprice = petObj.field_sale_price.und[0].value;
+
+					if(petObj.field_mating_status.hasOwnProperty("und"))
+						saleprice = petObj.field_mating_status.und[0].value;
+
+					if(petObj.field_pet_fullname.hasOwnProperty("und"))
+						fullname = petObj.field_pet_fullname.und[0].value;
+
+					if(petObj.field_birthday.hasOwnProperty("und"))
+						fullname = petObj.field_birthday.und[0].value;
+
+					if(petObj.language.length>0)
+						language = petObj.language;	
+					
+					parentApplication.myPetDAO.restUpdatePet(parentApplication.myUserDAO.user.uid.toString(),petID,petname,raceID,breed,gender,description,colors,salesstatus,saleprice,matingstatus,fullname,birthday,language,imageName);
+				}
+			}
+			 
+			private function petUpdateHandler(event:PetEvent):void {
+				parentApplication.myPetDAO.removeEventListener(PetEvent.PET_UPDATED,petUpdateHandler);
+				parentApplication.myPetDAO.removeEventListener(PetEvent.PET_UPDATE_ERROR,petUpdateErrorHandler);
+				
+				parentApplication.notBusy();
+				parentApplication.showToastFX("Update ready",true);	
+		 
+				askIfPublish();
+				
+			}
+
+			private function petUpdateErrorHandler(event:PetEvent):void {
+				parentApplication.myPetDAO.removeEventListener(PetEvent.PET_UPDATED,petUpdateHandler);
+				parentApplication.myPetDAO.removeEventListener(PetEvent.PET_UPDATE_ERROR,petUpdateErrorHandler);
+
+				parentApplication.notBusy();			
+				parentApplication.showToastFX("Update error",true);		
+			}
+			 
+			
+			/********************************************************
+			 * UPLOAD EVENT HANDLERS								*
+			 * 														*
+			 ********************************************************/
+			
+			private function imageUploadReady(event:ImageEvent):void {
+				profile_image_fid = event.data.fid;
+				profile_image_uri = event.data.uri;
+			 
+				
+				parentApplication.showToastFX("Image uploaded",true);
+			}
+			
+			private function imageUploadFailure(event:ImageEvent):void {
+				parentApplication.showToastFX("Problem uploading image",false);
+			}
+			 
+			
+			  
+			/****************************************************************
+			 * TAXONOMY	 													*
+			 * 																*
+			 ****************************************************************/
+			private function loadAccessories():void {
+				 
+				//Fetch accessories from server now so it could be changed
+//				accessoriesService.url = GlobalConstants.XML_URL+"accessories.xml";
+accessoriesService.url = "wardrobe/accessories.xml";					//local for now
+				accessoriesService.send();
+			}
+			
+			private function accessoriesResultHandler(event:ResultEvent):void {
+				buildLists(event.result as XML);
+			 }
+			
+			//Load accessories locally since server is unavailable
+			private function accessoriesFaultHandler(event:FaultEvent):void {
+				//Don't loop back here again if fault again
+				accessoriesService.removeEventListener(FaultEvent.FAULT,accessoriesFaultHandler);
+				
+				accessoriesService.url = "wardrobe/accessories.xml";	
+				accessoriesService.send();
+			}
+			
+			
+			private function buildLists(accessoriesXML:XML):void {
+				var accessoriesXLC:XMLListCollection = new XMLListCollection(accessoriesXML.children());
+				
+				//Clear lists
+				accessoriesAC.removeAll();
+				clothesAC.removeAll();
+				
+				//Build lists
+				for each(var child:XML in accessoriesXLC) {
+					 
+					var tmpObj:Object = new Object();					
+					tmpObj.type = child.@type;
+					tmpObj.name=child.@title;
+					tmpObj.label=parentApplication.Language[child.@title]; //Title is fetched from Language-xml-files
+					tmpObj.tid=child.@tid;
+					tmpObj.price = child.@price;
+					 					
+					if(tmpObj.type=="accessory" || tmpObj.type=="clothes") {
+						tmpObj.message = parentApplication.Language.general_price+": "+tmpObj.price;	//Price
+						if(tmpObj.price=="0")
+							tmpObj.message=parentApplication.Language.general_price + ": 0";	//"Price: free";
+						
+						tmpObj.icon = "/wardrobe/icons/"+child.@icon+".png";
+						tmpObj.image = "/wardrobe/images/"+child.@icon+".png";
+						accessoriesAC.addItem(tmpObj);
+					}					 
+					else if(tmpObj.type=="special") {
+						tmpObj.message = parentApplication.Language.general_nothing;	//"Nothing";
+						
+						tmpObj.icon = "";
+						tmpObj.image = "";
+						accessoriesAC.addItem(tmpObj);
+					}						 
+				}
+
+				currentState="edit2";
+				
+				//Garderoben,  Öppna garderoben så ser du olika bilder du kan använda på din profilbild. Klicka på profilbilden för att placera bild och finjustera sedan med pilarna. Använd sedan reglagen för att ändra storlek, rotering med mera tills du är nöjd.
+				//parentApplication.showHelp(parentApplication.Language.help_wardrobe_header,parentApplication.Language.help_wardrobe_body);
+			
+				
+			}
+			
+			 
+			private function saveAll():void {
+				var imageSnap:ImageSnapshot = new ImageSnapshot(); 
+				var imageByteArray:ByteArray = new ByteArray();
+
+				if(accessoriesList.selectedIndex!=0) {
+					imageSnap = ImageSnapshot.captureImage(imageResult as IBitmapDrawable);
+					imageByteArray = imageSnap.data as ByteArray;
+					profileImage2.source = imageByteArray;
+				}
+				
+				if(accessoryGroup.numElements>0) {
+					parentApplication.isBusy("Updating profile image");
+					 
+					var pngenc:mx.graphics.codec.PNGEncoder = new mx.graphics.codec.PNGEncoder();
+					var b:ByteArray  = imageSnap.data as ByteArray;
+					var fileName:String="Petiit_temp_profile_image";
+					var newfile:File = File.documentsDirectory.resolvePath(fileName + String( new Date().milliseconds ) + ".png");
+				
+					if(accessoriesList.selectedIndex!=0)
+						b=imageByteArray;
+					else
+						b=pngenc.encode(profileImage2.bitmapData);
+					
+					var fileStream:FileStream = new FileStream();
+					fileStream.addEventListener(Event.COMPLETE, streamComplete);
+					fileStream.open(newfile, FileMode.WRITE);                         
+					fileStream.writeBytes(b,0,b.bytesAvailable);
+					fileStream.close();
+	
+					parentApplication.notBusy();
+					
+					restUploadFile(newfile);
+				}
+			}
+			
+			private function streamComplete(event:Event):void {
+				trace("Saved");
+			}
+			
+			
+			private function back():void {
+					parentApplication.friendNav.popView();
+			}
+			
+			private var currentAccessoryBitmap:Image = new Image();
+	
+			private function addAccessory():void {
+				sliderGroup.visible=true;
+				arrowGroup.visible=true;
+				
+				currentAccessoryBitmap.source = accessoriesList.selectedItem.image;
+				currentAccessoryBitmap.smooth=true;
+				currentAccessoryBitmap.x = -150;
+				currentAccessoryBitmap.y = -150;
+				
+
+				currentAccessoryBitmap.addEventListener(MouseEvent.MOUSE_DOWN,onDragBegin,false,0,true);
+				currentAccessoryBitmap.addEventListener(MouseEvent.MOUSE_UP,onDragEnd,false,0,true);
+				Multitouch.inputMode = MultitouchInputMode.GESTURE;
+				//				currentAccessoryBitmap.addEventListener(TransformGestureEvent.GESTURE_ROTATE,onRotate,false,0,true);
+				//currentAccessoryBitmap.addEventListener(TransformGestureEvent.GESTURE_ZOOM,onResize,false,0,true);
+				currentAccessoryBitmap.addEventListener(TransformGestureEvent.GESTURE_ROTATE,onRotate,false,0,true);
+				currentAccessoryBitmap.addEventListener(TransformGestureEvent.GESTURE_ZOOM, onZoom);
+				
+			  	accessoryGroup.addElement(currentAccessoryBitmap);
+			 
+				accessoriesList.selectedItem.message="Currently in use!";
+				accessoriesList.invalidateProperties();
+				
+				accessoriesCallout.close(true);
+				
+				currentAccessoryBitmap.filters = [shadowFilter];	//Default is on now
+			}
+			
+			private function onZoom(e:TransformGestureEvent):void
+			{ 
+				if(!isInDrag) {
+					var drawobj:Sprite = e.target as Sprite;
+					drawobj.scaleX *= e.scaleX;
+					drawobj.scaleY *= e.scaleY;
+					
+					if(drawobj.scaleX > 4)
+						drawobj.scaleX = 4;
+					if(drawobj.scaleY > 4)
+						drawobj.scaleY = 4;
+				}
+			}
+			
+			private function onRotate(e:TransformGestureEvent):void
+			{
+				if(!isInDrag) {
+					var drawobj:Sprite = e.target as Sprite;
+					drawobj.rotation += e.rotation;
+				}
+			}
+			
+			//GESTURE EVENTS
+			private var isInDrag:Boolean=false;
+			
+			private var theDragItem:*;
+			
+/*			private function onRotate(evt:TransformGestureEvent):void {
+				rotationSlider.value = evt.rotation;
+				currentAccessoryBitmap.rotation = evt.rotation;
+				trace("rotate");
+			}
+*/	
+			private function onResize(evt:TransformGestureEvent):void {
+				
+				theDragItem.dispatchEvent(new MouseEvent(MouseEvent.MOUSE_UP));	//Turn of drag first
+				
+				evt.target.scaleX *= evt.scaleX;
+				evt.target.scaleY *= evt.scaleX;
+				 
+				if(evt.target.scaleX>3) {
+					evt.target.scaleX=3;
+					evt.target.scaleY=3;
+				}
+				if(evt.target.scaleX<0.1) {
+					evt.target.scaleX=0.1;
+					evt.target.scaleY=0.1;
+				}			
+				
+				scaleSlider.value *= evt.target.scaleX;
+				trace("scale");
+			}
+			
+			private function onDragBegin(evt:MouseEvent):void { 
+				evt.target.startDrag(); // DragManager.doDrag(e.currentTarget as IUIComponent, null, e);
+				trace("touchbegin");
+				stage.addEventListener(Event.ENTER_FRAME, testMouseLocation, false, 0, true);     
+				theDragItem = evt.currentTarget; 
+				isInDrag=true;
+			}
+			
+			
+			private function testMouseLocation(evt:Event):void{
+				//This is to limit the area that the item can be moved within.
+/*				if (stage.mouseX < 5 || stage.mouseX > (profileImage2.width+profileImage2.x) || stage.mouseY < 5 || stage.mouseY > 630) {
+					theDragItem.dispatchEvent(new MouseEvent(MouseEvent.MOUSE_UP));
+					stage.removeEventListener(Event.ENTER_FRAME, testMouseLocation);       
+				}
+*/				
+			/*	if(evt.target.x<profileImage2.x)
+					evt.target.x=profileImage2.x;
+				if(evt.target.y<profileImage2.y)
+					evt.target.y=profileImage2.y;
+				if(evt.target.x>profileImage2.width)
+					evt.target.x=profileImage2.width;
+				if(evt.target.y>profileImage2.height)
+					evt.target.y = profileImage2.height; */
+			}
+			 
+			private function onDragEnd(evt:MouseEvent):void { 
+				evt.target.stopDrag(); 
+				trace("touchend");
+				isInDrag=false;
+			
+			}
+			
+			
+			 
+			
+			private function changeAccessoryPosition(event:MouseEvent):void {
+//			 	currentAccessoryBitmap.x = event.stageX-260 - (currentAccessoryBitmap.width/2);
+//				currentAccessoryBitmap.y = event.stageY-290 - (currentAccessoryBitmap.height/2);		
+				 
+			}
+			
+			private function changeAccessoryScale():void {
+	 			currentAccessoryBitmap.scaleX=scaleSlider.value;
+				currentAccessoryBitmap.scaleY=scaleSlider.value;
+			}
+			
+			private function changeAccessoryRotation():void {
+			 	//currentAccessoryBitmap.rotation=rotationSlider.value;
+				var drawobj:Sprite = currentAccessoryBitmap as Sprite;
+				drawobj.rotation = rotationSlider.value;
+			}
+		
+			private function changeAccessoryAlpha():void {
+				currentAccessoryBitmap.alpha = alphaSlider.value;
+			}
+			
+			private function changeShadow():void {
+				if(shadowCheckbox.selected)
+					currentAccessoryBitmap.filters = [shadowFilter];
+				else
+					currentAccessoryBitmap.filters = null;
+			}
+			
+			private var myAccessories:Array = new Array();
+			
+			private function saveAccessory():void {
+				if(accessoryGroup.numElements>0)
+					pictureDirty=true;
+				
+				takeSnapshot();
+			
+		/*		var ready:BitmapImage = new BitmapImage();
+				
+				ready.x = currentAccessoryBitmap.x+150;
+				ready.y = currentAccessoryBitmap.y+150;
+				ready.rotation = currentAccessoryBitmap.rotation;
+				ready.scaleX = currentAccessoryBitmap.scaleX;
+				ready.scaleY = currentAccessoryBitmap.scaleY;
+				ready.alpha = currentAccessoryBitmap.alpha;
+				ready.source = currentAccessoryBitmap.bitmapData;
+				accessoryGroupReady.addElement(ready);
+				myAccessories.push(currentAccessoryBitmap);
+				accessoriesList.selectedIndex=-1;
+			*/	
+			 
+			}
+			
+			private function takeSnapshot():void {
+				var imageSnap:ImageSnapshot = ImageSnapshot.captureImage(imageResult as IBitmapDrawable);
+				var imageByteArray:ByteArray = imageSnap.data as ByteArray;
+				
+				profileImage2.source = imageByteArray;
+
+			}
+			
+/*			protected function petbodyLoader_completeHandler(event:Event):void
+			{
+				petbodyLoader.content.alpha=0.1;
+				petbodyLoader.content["Symbol1"].color=0x00ff00;
+				petbodyLoader.content["basesymbol"]["Symbol1"]["body"].color=0xff0000;
+				petbodyLoader.content["Symbol1"].alpha=0.5;
+			}
+*/			
+			/************************************************************
+			 * UPLOAD IMAGE	TO SERVER									*
+			 * 															*
+			 ************************************************************/
+			private function restUploadFile(file:File):void {
+				//uploadIds = [];
+				
+				parentApplication.isBusy("Uploading image...");
+				
+				var fileStream:FileStream = new FileStream();
+				fileStream.open(file, FileMode.READ);
+				var bytes:ByteArray = new ByteArray();
+				fileStream.readBytes(bytes);
+				fileStream.close();
+				
+				var jsonfile:Object = {};
+				jsonfile.filename = file.name;
+				jsonfile.status = 0;
+				jsonfile.filepath = 's3://petit/images/' + parentApplication.myUserDAO.user.uid.toString() + '/' + file.name;
+				jsonfile.file = by.blooddy.crypto.Base64.encode(bytes);
+				
+				var urlLoader:URLLoader = new URLLoader();
+				urlLoader.addEventListener(Event.COMPLETE, restUploadFileHandler);
+				urlLoader.addEventListener(IOErrorEvent.IO_ERROR, restUploadFileFaultHandler);
+				var uploadUrl:String = GlobalConstants.DRUPAL_PATH + "file";
+				var urlRequest:URLRequest = new URLRequest(uploadUrl);
+				urlRequest.requestHeaders.push(new URLRequestHeader("Accept", "application/json"));
+				urlRequest.contentType = "application/json";
+				urlRequest.method = URLRequestMethod.POST;
+				
+				urlRequest.data = JSON.stringify(jsonfile);
+				urlLoader.load(urlRequest);
+			}
+
+			private function restUploadFileFaultHandler(event:IOErrorEvent):void {
+				dispatchEvent(new ImageEvent(ImageEvent.UPLOAD_FAILURE,""));
+				parentApplication.notBusy();
+			}
+			
+			private function restUploadFileHandler(event:Event):void {
+				var loader:URLLoader = URLLoader(event.target);
+				var obj:Object = JSON.parse(loader.data);
+			  
+				profile_image_fid = obj.fid;
+				profile_image_uri = obj.uri;
+				
+				upddatePetObject();
+			 
+				
+			}
+			
+			private function restoreImage():void {
+				parentApplication.isBusy("Fetching original image");
+				var b:ByteArray = new ByteArray();
+				var newfile:File = File.documentsDirectory.resolvePath("petiit_OriginalProfileImage"+petObj.nid+".png");
+				
+				var fileStream:FileStream = new FileStream();
+				fileStream.open(newfile, FileMode.READ);                         
+				fileStream.readBytes(b,0,0);
+				fileStream.close();
+				
+				parentApplication.notBusy();
+				
+				profileImage2.source = b;	 
+				pictureDirty=false;
+				
+				accessoriesCallout.close(true);
+				
+				accessoryGroup.removeAllElements();
+				accessoryGroupReady.removeAllElements();
+			}
+			
+			/********************************************************
+			 * PUBLISH												*
+			 * 														*
+			 ********************************************************/
+			private function askIfPublish():void {
+				parentApplication.addEventListener(DialogEvent.DIALOG_OK,publishAccept);
+				parentApplication.addEventListener(DialogEvent.DIALOG_CANCEL,publishReject);
+				 
+				parentApplication.showDialog(null,parentApplication.Language.wardrobe_publish_header,parentApplication.Language.wardrobe_publish_message,parentApplication.Language.general_yes,parentApplication.Language.general_no,2);	//"Do you want to tell your friends about your new profil image?"
+			}
+			
+			private function publishAccept(event:Event):void {
+				publish();
+				
+				//Clean
+				parentApplication.removeEventListener(DialogEvent.DIALOG_OK,publishAccept);
+				parentApplication.removeEventListener(DialogEvent.DIALOG_CANCEL,publishReject);
+			}
+			
+			private function publishReject(event:Event):void {
+				
+				//Clean
+				parentApplication.removeEventListener(DialogEvent.DIALOG_OK,publishAccept);
+				parentApplication.removeEventListener(DialogEvent.DIALOG_CANCEL,publishReject);
+			}
+			
+			private function publish():void { 
+				
+				var feed_text:String = parentApplication.Language.publish_body;//"Check out my new great profile image!"; 
+				var feed_visibility:int = 1;	//friends only
+				 
+				parentApplication.myFeedDAO.addEventListener(FeedEvent.FEED_PUBLISHED,publishOK);
+				parentApplication.myFeedDAO.addEventListener(FeedEvent.FEED_UPDATED,publishFailed);
+				parentApplication.myFeedDAO.restCreateFeed(parentApplication.myPetDAO.currentPetID,feed_text,feed_visibility.toString(),profile_image_fid,profile_image_fid,"","");	//http://petit-prod0.s3.amazonaws.com/petit/images/7/Petiit_temp_profile_image419.png
+			 
+			}
+			
+			private function publishOK(event:FeedEvent):void {
+				trace("PUBLISH OK");
+				parentApplication.showToastFX(parentApplication.Language.wardrobe_publish_toast_ready,true);	//"Publish ready"
+				parentApplication.dispatchEvent(new FeedEvent(FeedEvent.FEED_REFRESH,null,true,true));
+				parentApplication.friendNav.popView();
+			}
+			
+			private function publishFailed(event:FeedEvent):void {
+				trace("PUBLISH FAILED");
+				parentApplication.showToastFX(parentApplication.Language.wardrobe_publish_toast_failed,true);	//"Publish failed"
+				parentApplication.friendNav.popView();
+			}
+			
+			/********************************************************
+			 * CHECK IF TO SAVE PREVIOUS ITEM						*
+			 * 														*
+			 ********************************************************/
+			private function checkSaveAccessoryItem():void {
+				if(accessoriesList.selectedIndex==0) {	//Nothing
+					if(accessoryGroup.numElements>0)
+						accessoryGroup.removeElementAt(accessoryGroup.numElements-1);
+					accessoriesCallout.close(true);
+				}
+				else {
+					if(accessoryGroup.numElements>0) {
+						accessoriesCallout.close(true);
+			 			parentApplication.addEventListener(DialogEvent.DIALOG_OK,saveFirstAccept);
+						parentApplication.addEventListener(DialogEvent.DIALOG_CANCEL,saveFirstReject);
+				
+						//"Do you want to remove your last wadrobe item before choosing a new one?"
+						parentApplication.showDialog(null,parentApplication.Language.wardrobe_dialog_remove_head,parentApplication.Language.wardrobe_dialog_remove_body,parentApplication.Language.general_yes,parentApplication.Language.general_no,2);
+					}
+					else {
+						addAccessory();
+					}
+				}
+			}
+			
+			private function saveFirstAccept(event:Event):void {
+				
+				addAccessory();
+			
+				//Clean
+				parentApplication.removeEventListener(DialogEvent.DIALOG_OK,saveFirstAccept);
+				parentApplication.removeEventListener(DialogEvent.DIALOG_CANCEL,saveFirstReject);
+			}
+			
+			private function saveFirstReject(event:Event):void {
+				saveAccessory();	
+				addAccessory();
+				//Clean
+				parentApplication.removeEventListener(DialogEvent.DIALOG_OK,saveFirstAccept);
+				parentApplication.removeEventListener(DialogEvent.DIALOG_CANCEL,saveFirstReject);
+			}
+			
+	 
+			protected function viewActivateHandler(event:ViewNavigatorEvent):void
+			{
+				loadAccessories();
+				getPoints();
+			}
+			
+			 private function getPoints():void {
+				 pointstring =  parentApplication.Language.profile_page1_points + ': ' + parentApplication.myUserDAO.user.points;
+			}
+			
+		]]>
+	</fx:Script>
+	<s:BitmapImage id="bg" visible="true" x="0" y="0" width="100%" height="100%" scaleMode="stretch" source="@Embed('/assets/images/Petiit-SunBurst-iP5-violet.png')"   />
+	 
+	<s:Rect id="blacktop" height="80" width="100%" right="0" top="0" excludeFrom="edit2"
+			visible="true" alpha="0.15">
+		<s:fill>
+			<s:SolidColor color="#000000"/>
+		</s:fill>
+	</s:Rect>
+	<s:BitmapImage id="listbg" source="/assets/images/friendlist_glassbg.png" scaleMode="stretch" right="0" left="0" alpha="0.15" bottom="0" top="0"/>
+	
+	<s:Label text="{parentApplication.Language.wardrobe_welcomtext}" fontSize="36" fontFamily="MyriadPro" fontWeight="bold" includeIn="start" color="#ffffff" width="600" x="20" y="20" textAlign="center"/>
+	 
+	<!-- BIG ARROW -->
+	<s:BitmapImage id="bigArrow" visible="true" source="/assets/buttons/downarrow.png" horizontalCenter="0" complete="moveArrowFX.play();"/>
+	
+	<!--EDIT 2-->
+	<s:Group width="100%" id="sliderGroup" visible="false" height="100%" horizontalCenter="0" top="0" bottom="0" includeIn="edit2">
+		<s:VGroup horizontalCenter="-140" bottom="172" gap="37" horizontalAlign="left">
+			<s:Label text="{parentApplication.Language.wardrobe_slider_size}" fontSize="26" color="#ffffff" width="150"/>
+			<s:Label text="{parentApplication.Language.wardrobe_slider_rotation}" fontSize="26" color="#ffffff" width="150"/>
+			<s:Label text="{parentApplication.Language.wardrobe_slider_alpha}" fontSize="26" color="#ffffff" width="150"/>	
+		</s:VGroup>
+		<s:VGroup horizontalCenter="0" horizontalAlign="left" bottom="184" gap="4">
+			<s:HSlider minimum="0.1" maximum="3"  value="{sizeVal}" change="changeAccessoryScale();" stepSize="0.1" id="scaleSlider" skinClass="spark.skins.mobile.HSliderSkin" width="600"/>
+			<s:HSlider minimum="1" maximum="360" value="{rotationVal}" change="changeAccessoryRotation();" stepSize="0.5" id="rotationSlider"  skinClass="spark.skins.mobile.HSliderSkin" width="600"/>
+			<s:HSlider minimum="0.0" maximum="1" value="{alphaVal}" change="changeAccessoryAlpha();" stepSize="0.1" id="alphaSlider" skinClass="spark.skins.mobile.HSliderSkin" width="600"/>	
+		</s:VGroup>
+	</s:Group>
+	
+	<s:Group x="0" width="100%" height="100%" includeIn="edit2">
+		<s:VGroup left="0" right="0" top="0" bottom="0" gap="10" color="#444444" fontSize="30" 
+				  horizontalAlign="left" paddingTop="0">
+			<!--s:Label text="PET WARDROBE - ACCESSORIES" fontSize="36" fontFamily="MyriadPro" fontWeight="bold" color="#eeeeee"/-->
+			<s:Group width="100%">
+				
+				<s:Group id="imageResult" width="580" height="580" click="changeAccessoryPosition(event);" y="3" horizontalCenter="0" creationComplete="registerPetCheck();">
+					<s:BitmapImage id="thumbImage" width="580" height="580" scaleMode="stretch" filters="{shadowFilter}"/> 
+					<s:Image id="profileImage2" width="580" height="580" complete="loadingText.visible=false;" /> 
+					<s:Group id="accessoryGroupReady" width="580" height="580">
+						<!-- accessories are added in AS to here-->
+					</s:Group>
+					<s:Group id="accessoryGroup" height="1" width="1" horizontalCenter="0" verticalCenter="0">
+						<!-- accessories are added in AS to here-->
+					</s:Group>
+				</s:Group>
+				
+			</s:Group>
+	   	</s:VGroup>
+		<s:Label text="{parentApplication.Language.wardrobe_loading_image}" fontSize="36" fontFamily="MyriadPro" fontWeight="bold" color="#ffffff" width="400" x="100" y="20" textAlign="center" id="loadingText"/>
+	</s:Group>
+ 
+	<s:VGroup id="arrowGroup" visible="false" height="580" right="2" gap="70" top="20">
+		<s:Image source="@Embed('/wardrobe/images/arrowcircle.png')" click="currentAccessoryBitmap.x++;" smooth="true" alpha="0.8" 						visible="false"/>
+		<s:Image source="@Embed('/wardrobe/images/arrowcircle.png')" click="currentAccessoryBitmap.x--;" smooth="true" rotation="180" alpha="0.8"		visible="false"/>
+		<s:Image source="@Embed('/wardrobe/images/arrowcircle.png')" click="currentAccessoryBitmap.y--;" smooth="true" rotation="270" alpha="0.8"		visible="false"/>
+		<s:Image source="@Embed('/wardrobe/images/arrowcircle.png')" click="currentAccessoryBitmap.y++;" smooth="true" rotation="90" alpha="0.8"		visible="false"/>
+		<s:CheckBox id="shadowCheckbox" selected="true" change="changeShadow();" width="50" 															visible="false"/>
+	</s:VGroup>
+	
+	<s:Group id="console" bottom="0" width="100%">
+		<s:BitmapImage source="@Embed('/assets/skin/menu/Petiit_Console.png')" scaleMode="stretch" width="100%" bottom="0"/>
+		<s:HGroup width="100%" horizontalAlign="center" gap="0" left="-8" id="consoleButtons" bottom="0">
+			<components:menuButton id="menuBackButton" label="{parentApplication.Language.general_back.toUpperCase()}" click="back();"/>
+			<components:menuButton id="menuFetchButton" label="{parentApplication.Language.wardrobe_button_wardrobe.toUpperCase()}" click="rotateFXShow.stop();rotateFXHide.stop();accessoriesCallout.open(this);bigArrow.visible=false;" creationComplete="arrowY=(console.y);rotateFXShow.play();" includeIn="edit2"/>
+			<components:menuButton id="menuReadyButton" label="{parentApplication.Language.general_save.toUpperCase()}" click="saveAll();" includeIn="edit2"/>
+		</s:HGroup>
+	</s:Group> 
+	
+	<fx:Declarations>
+		<s:Callout id="accessoriesCallout" width="600" horizontalCenter="0" verticalCenter="0" skinClass="skins.PetiitCalloutSkin">
+			<s:VGroup horizontalAlign="center" horizontalCenter="0" gap="0">
+				<s:Label paddingTop="10" textAlign="center" width="580" backgroundColor="#000000" text="{pointstring}" fontSize="36" fontFamily="MyriadPro" fontWeight="bold" color="#ffffff"/>
+				<s:List width="580" id="accessoriesList" dataProvider="{accessoriesAC}" height="600" interactionMode="touch" itemRenderer="wardrobe.myIconItemRenderer" contentBackgroundAlpha="0.2" filters="{shadowFilter}" click="checkSaveAccessoryItem();"/>
+				<s:HGroup horizontalAlign="center" paddingBottom="30" paddingTop="20">
+					<components:pinkButton label="{parentApplication.Language.wardrobe_button_restoreimage}" click="restoreImage();"/>
+					<components:pinkButton label="{parentApplication.Language.general_close.toUpperCase()}" click="accessoriesCallout.close(true);"/>
+				</s:HGroup>
+			</s:VGroup>
+		</s:Callout>
+		<s:DropShadowFilter color="#000000" distance="6" alpha="0.28" angle="92.3" blurX="6" blurY="6" id="shadowFilter"/>
+	</fx:Declarations>
+</s:View>

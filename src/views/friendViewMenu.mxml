@@ -1,0 +1,747 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark" 
+		xmlns:components="components.*" 
+		xmlns:controls="com.qs.controls.*"
+		xmlns:views="views.*"
+		title="Friends"
+	   creationComplete="start(null);liststart(null)" actionBarVisible="false" tabBarVisible="false" height="100%" backgroundAlpha="0" xmlns:easing="com.greensock.easing.*"
+	   >
+	
+	<s:states>
+		<s:State name="notloggedin"/>
+		<s:State name="loggedin"/>
+	</s:states>
+	
+	<fx:Declarations>
+		<s:HTTPService id="racesService" resultFormat="e4x" method="GET" useProxy="false" result="racesResultHandler(event)" fault="racesFaultHandler(event)"/>
+		
+		<s:Move id="moveUpHeadFX" yFrom="0" yTo="-150" duration="250" target="{tophead}" effectEnd="duringswipe=false;"/>
+		<s:Move id="moveDownHeadFX" yFrom="-150" yTo="0" duration="250" target="{tophead}" effectEnd="duringswipe=false;"/>
+
+		<s:Sine id="sineEasing" easeInFraction="0.3"/>
+		<s:Scale id="bookScaleFX" scaleXFrom="1.2" scaleXTo="1" scaleYFrom="1.2" scaleYTo="1" target="{book}" duration="600" effectEnd="scaleReady();"  easer="{sineEasing}"/>
+		<s:Move id="bookMoveFX" target="{book}" xFrom="-150" xTo="5" startDelay="300" duration="300" effectEnd="moveReady();" easer="{sineEasing}"/>
+	</fx:Declarations>
+	
+		
+	<fx:Script>
+		<![CDATA[
+			import com.qs.controls.flexBookClasses.FlexBookEvent;
+			
+			import flash.filters.BitmapFilterQuality;
+			import flash.filters.BitmapFilterType;
+			import flash.utils.clearInterval;
+			import flash.utils.setInterval;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.XMLListCollection;
+			import mx.events.FlexEvent;
+			import mx.events.TouchInteractionEvent;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			import spark.collections.Sort;
+			import spark.events.ViewNavigatorEvent;
+			import spark.skins.mobile.ListSkin;
+			import spark.collections.SortField;
+				
+			import Renderers.relationsListRenderer;
+			
+			import classes.GlobalConstants;
+			
+			import events.PetEvent;
+			import events.RelationEvent;
+			import events.UserEvent;
+			
+			import models.RelationVO;
+			
+			//-----------------------------------------------------
+			
+			private var interval:uint;
+			private var interval2:uint;			
+			 
+			[Bindable]
+			private var relations:ArrayCollection = new ArrayCollection();
+			
+			private var racesXLC:XMLListCollection;
+			
+			private static var rememberPage:int=-1;
+			
+			private var reltypes:Array = new Array();
+			
+			private var currentDate:Date= new Date();
+			
+			//-----------------------------------------------------
+			
+			private function gotoProfile(event:Event):void {
+				parentApplication.gotoProfile();
+			}
+			
+		//	private function gotoFriends(event:Event):void {
+		//		parentApplication.gotoFriends();
+		//	}
+			
+			private function gotoKnownPet(event:Event):void {
+/*				if(relationsList.selectedItem != undefined) {
+					
+					if(relationsList.selectedItem.relationID==0) { //search
+						parentApplication.gotoFriendSearch();
+					}
+					else {
+						parentApplication.gotoPet(parseInt(relationsList.selectedItem.petid_b),relationsList.selectedItem.relationID);
+						relationsList.selectedIndex=-1;
+					}
+				}
+*/			}
+
+			protected function init(event:FlexEvent):void
+			{
+//				parentApplication.myUserDAO.addEventListener(UserEvent.LOGOUT_READY,start,false,0,false);
+				setMenuLabels();
+				interval=setInterval(removeMenuLabels,4000);
+				
+				loadRaces();
+			}
+			
+			private function setMenuLabels():void {
+				if(parentApplication.Language!=null) {
+					competitionButton.label= parentApplication.Language.navigation_competitions.toUpperCase();//"COMPETITIONS";
+					newsfeedButton.label=parentApplication.Language.navigation_news.toUpperCase(); //"NEWS FEED";
+					friendsButton.label=parentApplication.Language.navigation_friends.toUpperCase(); //"FRIENDS";
+				}
+			}
+			
+			
+			private function removeMenuLabels():void {
+				clearInterval(interval);
+				competitionButton.label="";
+				newsfeedButton.label="";
+				friendsButton.label="";
+				
+				
+			}
+			
+			protected function liststart(event:Event):void
+			{
+				if(!parentApplication.smorgasbordLoggedin) {
+					
+				}
+				else {
+					getRelations();
+				} 
+			}
+			
+			private function setSearchItem():void {
+				var tmp:RelationVO = new RelationVO();
+				tmp.relationID=1;
+				tmp.imageURL="/assets/characters/Petiitimals-Rabbit.png";
+				tmp.imageURLthumb="/assets/characters/icons/Petiitimals-Rabbit.png";
+				tmp.title="Saga";
+				tmp.ownername="Petiit";
+				tmp.relationType="4";
+				tmp.petid_a="0";
+				tmp.petid_b="0";
+				tmp.changed="0";
+				relations.addItem(tmp);
+				 
+				var tmp:RelationVO = new RelationVO();
+				tmp.relationID=2;
+				tmp.imageURL="/assets/characters/Petiitimals-Guinea-pig.png";
+				tmp.imageURLthumb="/assets/characters/icons/Petiitimals-Guinea-pig.png";
+				tmp.title="Pascal som är ett jättelångt namn";
+				tmp.ownername="Petiit";
+				tmp.relationType="1";
+				tmp.petid_a="0";
+				tmp.petid_b="0";
+				tmp.changed="0";
+				relations.addItem(tmp);
+								
+				var tmp:RelationVO = new RelationVO();
+				tmp.relationID=3;
+				tmp.imageURL="/assets/characters/Petiitimals-BullDog2.png";
+				tmp.imageURLthumb="/assets/characters/icons/bulldog.png";
+				tmp.title="Xerxes";
+				tmp.ownername="Petiit";
+				tmp.relationType="3";
+				tmp.petid_a="0";
+				tmp.petid_b="0";
+				tmp.changed="0";
+				relations.addItem(tmp);
+				
+				var tmp:RelationVO = new RelationVO();
+				tmp.relationID=4;
+				tmp.imageURL="/assets/characters/GingerCat.png";
+				tmp.imageURLthumb="/assets/characters/icons/GingerCat.png";
+				tmp.title="Oprah";
+				tmp.ownername="Petiit";
+				tmp.relationType="2";
+				tmp.petid_a="0";
+				tmp.petid_b="0";
+				tmp.changed="0";
+				relations.addItem(tmp);
+				
+				
+/*				tmp = new RelationVO();
+				
+				tmp.relationID=0;
+				tmp.imageURL="/assets/images/post_friend_request.png";
+				tmp.title=parentApplication.Language.friends_searchinlist;
+				tmp.relationType="0";
+				tmp.petid_a="0";
+				tmp.petid_b="0";
+				tmp.changed="0";
+				
+				relations.addItem(tmp); 
+*/			}
+			
+			protected function start(event:Event):void
+			{
+				//Set a couple of listeners
+				tophead.removeEventListener(TransformGestureEvent.GESTURE_SWIPE,swipeHandler);
+				parentApplication.myPetDAO.removeEventListener(PetEvent.PET_GET_LIST_READY,liststart);
+				parentApplication.myUserDAO.removeEventListener(UserEvent.LOGOUT_READY,liststart);
+				parentApplication.myPetDAO.removeEventListener(PetEvent.PET_UPDATED,updateProfileImage);
+				parentApplication.myUserDAO.removeEventListener(UserEvent.LOGIN_READY,loginOK);
+				
+				tophead.addEventListener(TransformGestureEvent.GESTURE_SWIPE,swipeHandler);
+				parentApplication.myPetDAO.addEventListener(PetEvent.PET_GET_LIST_READY,liststart,false,0,false);
+				parentApplication.myUserDAO.addEventListener(UserEvent.LOGOUT_READY,liststart,false,0,false);
+				parentApplication.myPetDAO.addEventListener(PetEvent.PET_UPDATED,updateProfileImage);
+				parentApplication.myUserDAO.addEventListener(UserEvent.LOGIN_READY,loginOK);
+				
+				//Fix reltypes
+				if(reltypes.length==0) {
+					reltypes.push(parentApplication.Language.frienddetail_relationtype_parent);
+					reltypes.push(parentApplication.Language.frienddetail_relationtype_sibling);
+					reltypes.push(parentApplication.Language.frienddetail_relationtype_child);
+					reltypes.push(parentApplication.Language.frienddetail_relationtype_relative);
+					reltypes.push(parentApplication.Language.frienddetail_relationtype_friend);
+				}
+				
+				if(!parentApplication.smorgasbordLoggedin) {
+					currentState="notloggedin";
+	 				 
+				}
+				else {
+					currentState="loggedin";
+			 		 
+					if(parentApplication.myPetDAO.currentPetImageURL.length>0) {
+						updateProfileImage(null);
+					}
+				} 
+			}
+			
+			private function showLogout():void {
+				parentApplication.myUserDAO.restLogoutUser();
+				currentState="notloggedin";
+			}
+			private function showLogin():void {
+				parentApplication.myUserDAO.addEventListener(UserEvent.LOGIN_READY,loginOK);
+				parentApplication.loginWindow.visible=true;
+			}
+			private function loginOK(event:UserEvent):void {
+				parentApplication.myUserDAO.removeEventListener(UserEvent.LOGIN_READY,loginOK);
+				parentApplication.showToastFX(parentApplication.Language.toast_welcomeback,true);	//Welcome back
+				currentState="loggedin";
+				interval2 = setInterval(checkProfileImage,2000);
+			}
+			
+			private function updateProfileImage(event:PetEvent):void {
+				var pos:int;
+				pos = parentApplication.myPetDAO.currentPetImageURL.lastIndexOf("/",100);
+				pos = parentApplication.myPetDAO.currentPetImageURL.lastIndexOf("/",pos-1);
+				profileImage.source = GlobalConstants.AMAZON_URL + "styles/petit_thumb/s3/petit/images" + parentApplication.myPetDAO.currentPetImageURL.substr(pos);	//slice off "s3://
+			}
+			
+			private function checkProfileImage():void {
+				clearInterval(interval2);
+				if(parentApplication.myPetDAO.currentPetImageURL.length>0) {
+					updateProfileImage(null);
+				}
+			}
+			 
+			protected function viewActivateHandler(event:ViewNavigatorEvent):void
+			{
+				if(!parentApplication.smorgasbordLoggedin) 
+					currentState="notloggedin";
+				else
+					currentState="loggedin";
+					
+				if(parentApplication.myPetDAO.currentPetImageURL.length>0) {
+					updateProfileImage(null);
+				}
+				parentApplication.audioUtil.stopSoundFX();
+				
+				setMenuLabels();
+				interval=setInterval(removeMenuLabels,4000);
+			
+				parentApplication.showNotificationCirle();
+				 
+			}
+			
+			private function gotoWardrobe():void {
+				parentApplication.gotoWardrobe();
+			}
+		 
+			
+			protected function viewDeactivateHandler(event:ViewNavigatorEvent):void
+			{
+				parentApplication.hideNotificationCirle();
+			}
+			
+			
+			
+			/****************************************************
+			 * 		RACES/BREEDS								*
+			 *													*
+			 ****************************************************/
+			
+			private function getPetRaceText(in_val:String):String {
+				var retval:String="";
+				
+				//Build lists
+				for each(var child:XML in racesXLC) {
+					if(in_val == child.@tid) {
+						retval = parentApplication.Language[child.@title];
+						break;
+					}
+				}	
+				return retval;	
+				
+			}
+			
+			private function getPetBreedText(in_val:String):String {
+				var retval:String="";
+				
+				//Build lists
+				for each(var child:XML in racesXLC) {
+					if(in_val == child.@tid) {
+						var tmpstr:String = "mainraces_"+child.@type;
+						retval = parentApplication.Language[child.@title] + " ("+parentApplication.Language[tmpstr]+")";
+						break;
+					}
+				}	
+				return retval;	
+			}
+			
+			/****************************************************************
+			 * XML - RACES												*
+			 * 																*
+			 ****************************************************************/
+			private function loadRaces():void {
+				
+				//Fetch accessories from server now so it could be changed
+				//				accessoriesService.url = GlobalConstants.XML_URL+"accessories.xml";
+				racesService.url = "/assets/xml/races.xml";					//local for now
+				racesService.send();
+			}
+			
+			private function racesResultHandler(event:ResultEvent):void {
+				buildRaceLists(event.result as XML);
+			}
+			
+			//Load accessories locally since server is unavailable
+			private function racesFaultHandler(event:FaultEvent):void {
+				//Don't loop back here again if fault again
+				racesService.removeEventListener(FaultEvent.FAULT,racesFaultHandler);
+				racesService.url = "/assets/xml/races.xml";	
+				racesService.send();
+			}
+			
+			private function buildRaceLists(racesXML:XML):void {
+				racesXLC = new XMLListCollection(racesXML.children()); 
+			}
+			
+			/****************************************
+			 *	GET CURRENT RELATIONS FOR PET		*
+			 * 										*
+			 ****************************************/
+			
+			private function getRelations():void {
+				parentApplication.isBusy(parentApplication.Language.friends_toast_getfriends);//"Hämtar vänner");
+				
+				parentApplication.myRelationDAO.addEventListener(RelationEvent.RELATION_GETRELATIONLIST_READY,getRelationListReady);
+				parentApplication.myRelationDAO.addEventListener(RelationEvent.RELATION_GETRELATIONLIST_FAILED,getRelationListFailed);
+				parentApplication.myRelationDAO.restGetRelations(parentApplication.myPetDAO.currentPetID);
+			}
+			
+			private function getRelationListReady(event:RelationEvent):void {
+
+				
+				var tmp:RelationVO;
+				for each(var relationobj:Object in event.data) {	
+					//getPet and combine the info to a post in the list
+					
+					tmp = new RelationVO();
+					tmp.relationID=relationobj.id;
+					if(relationobj.petid_b_imguri!=null) {
+						//tmp.imageURL = GlobalConstants.AMAZON_URL + relationobj.petid_b_imguri.slice(5,relationobj.petid_b_imguri.length);
+						
+						var pos:int;
+						pos = relationobj.petid_b_imguri.lastIndexOf("/",100);
+						pos = relationobj.petid_b_imguri.lastIndexOf("/",pos-1);
+						tmp.imageURL = GlobalConstants.AMAZON_URL + "styles/petit_small/s3/petit/images" + relationobj.petid_b_imguri.substr(pos);	//slice off "s3://
+						tmp.imageURLthumb = GlobalConstants.AMAZON_URL + "styles/petit_thumb/s3/petit/images" + relationobj.petid_b_imguri.substr(pos);	//slice off "s3://
+						
+					}
+					tmp.title=relationobj.petid_b_petname;
+					tmp.ownername=relationobj.petid_b_ownername;
+					tmp.relationType=relationobj.type;
+					tmp.petid_a = relationobj.petid_a;
+					tmp.petid_b = relationobj.petid_b;
+					tmp.status = relationobj.status;
+					tmp.changed = relationobj.changed;
+					relations.addItem(tmp);
+				}	
+				
+				setSearchItem();
+				parentApplication.notBusy();
+			
+				createBookPages();
+				
+				parentApplication.myRelationDAO.removeEventListener(RelationEvent.RELATION_GETRELATIONLIST_READY,getRelationListReady);
+				parentApplication.myRelationDAO.removeEventListener(RelationEvent.RELATION_GETRELATIONLIST_FAILED,getRelationListFailed);
+			}
+			
+			private function getRelationListFailed(event:RelationEvent):void {
+				parentApplication.notBusy();
+				
+				parentApplication.myRelationDAO.removeEventListener(RelationEvent.RELATION_GETRELATIONLIST_READY,getRelationListReady);
+				parentApplication.myRelationDAO.removeEventListener(RelationEvent.RELATION_GETRELATIONLIST_FAILED,getRelationListFailed);
+			}
+			
+			/***** TOP ****/
+			private var duringswipe:Boolean=false;
+			
+			protected function swipeHandler(event:TransformGestureEvent):void {
+				 if (event.currentTarget.id == "tophead") {
+					 
+					duringswipe=true;
+					
+					if(event.offsetY == 1 && tophead.y==-150) {
+						tophead.y=0;
+						dragArrowImage.rotation=180;
+					}
+					else if(event.offsetY == -1 && tophead.y==0) {
+						tophead.y = -150;
+						dragArrowImage.rotation=0;
+					}
+				}
+				
+			}
+			
+			private function changeHeadSize():void {
+				if(!duringswipe) {
+					if(tophead.y==0) {
+						moveUpHeadFX.play();
+						if(dragArrowImage !=null)
+							dragArrowImage.rotation=0;
+					}
+					else {
+						moveDownHeadFX.play();
+						if(dragArrowImage !=null)
+							dragArrowImage.rotation=180;
+					}
+				}
+			}
+			
+			private function viewMyProfile():void {
+				parentApplication.gotoPet(parseInt(parentApplication.myPetDAO.currentPetID),"");
+			}
+			
+			/****************************************************
+			 * BOOK FUNCTIONS									*
+			 * 													*
+			 ****************************************************/
+			private function nextPage():void
+			{
+				if(book.currentPageIndex+1 < book.maximumPageIndex)
+					book.turnToPage(book.currentPageIndex + 1);
+			}
+			private function previousPage():void
+			{
+				if(book.currentPageIndex > 0)
+					book.turnToPage(book.currentPageIndex - 1); 
+			}
+			
+			private function createBookPages():void {
+				
+				var colorArray:Array = new Array(0xaaaaaa,0xbb444444,0xbb2233,0xfff6dd,0x3399aa,0xd6ccc0,0xbb2244,0x55bb99,0xeeeebb,0x999999,0x44cccc);
+				var colorcounter:int=0;
+				var pagecounter:int=1; 
+				
+				
+				//First sort relations
+				var srt:Sort = new Sort();
+				srt.fields = [new SortField("title"), new SortField("ownername")];
+				relations.sort = srt;
+				relations.refresh();
+			 
+				
+				for each(var relobj:Object in relations) {
+					var tmpobj:friendBookPage = new friendBookPage();
+					tmpobj.petName=relobj.title;
+					tmpobj.ownername=relobj.ownername;
+					tmpobj.imageURL=relobj.imageURL;
+					tmpobj.imageURLthumb=relobj.imageURLthumb;
+					tmpobj.relationType=reltypes[parseInt(relobj.relationType)];
+					tmpobj.relationType = tmpobj.relationType.toUpperCase().substr(0,1)+tmpobj.relationType.substr(1,tmpobj.relationType.length-1);
+					
+					tmpobj.memberDate=dateFormatter.format(parseFloat(relobj.changed)*1000);
+					tmpobj.bgColor=colorArray[colorcounter];
+					tmpobj.petID = relobj.petid_b;
+					tmpobj.pagenumber = pagecounter++;
+					if(relobj.status=="0")
+						tmpobj.status=parentApplication.Language.book_notapproved;//"NOT APPROVED YET";
+					else
+						tmpobj.status = "";
+	
+					book.content.push(tmpobj);
+				
+					if(colorcounter==9)
+						colorcounter=0;
+					else
+						colorcounter++;
+				}
+				
+				if(relations.length>9)
+					abcGroup.visible=true;
+				else
+					abcGroup.visible=false;
+				
+				book.content.pop();	//We don't want the Find-more-friends object
+				
+				//Check if we have an even number of objects
+				if(relations.length%2 == 0) {
+					//even - Create a dummy to get even number of objects
+					var tmpobj2:friendBookPage = new friendBookPage();
+					tmpobj2.petName="";
+					tmpobj2.ownername="";
+					tmpobj2.imageURL="";
+					tmpobj2.imageURLthumb="";
+					tmpobj2.relationType="0";
+					tmpobj2.memberDate= "0";
+					tmpobj2.bgColor=0x777777;
+					book.content.push(tmpobj2);
+					
+				}
+		
+				if(rememberPage==-1)
+					bookScaleFX.play();
+				else
+					setBookFast();
+
+			}
+			
+			public function gotoFromBookPage(in_petID:String):void {
+				parentApplication.gotoPet(parseInt(in_petID),parentApplication.myPetDAO.currentPetID);
+			}
+			
+			private function setBookFast():void {
+				book.scaleX=1;
+				book.scaleY=1;
+				book.x=5;
+				moveReady();
+			}
+			 
+			
+			private function scaleReady():void {
+				bookMoveFX.play();
+			} 
+			
+			private function moveReady():void {
+				if(relations.length>9)
+					abcGroup.visible=true;
+				else
+					abcGroup.visible=false;
+				
+				if(book.content.length>0 && rememberPage!=-1)
+					book.turnToPage(rememberPage);
+				else
+					book.turnToPage(book.currentPageIndex + 1);
+				moreButton.visible=true;
+			}
+			
+			protected function abc_clickHandler(event:MouseEvent):void
+			{
+				var where:int = Math.round(this.mouseX);
+				trace("where="+where);
+				 
+				where = where-abcLabel.x;	//Use start pos of "A"
+				
+				var destpage:int =   Math.round((book.pageCount) / (abcLabel.width / where));
+ 	
+				book.turnToPage(destpage);
+				
+				moreButton.depth=2;
+				if(book.pageCount==book.currentPageIndex)
+					moreButton.depth=3;
+				
+				rememberPage=book.currentPageIndex;
+			}
+			
+			 
+			protected function book_turnEndHandler(event:FlexBookEvent):void
+			{
+				if(book.pageCount==book.currentPageIndex)
+					moreButton.depth=3;
+			
+				if(book.currentPageIndex!=-1)
+					rememberPage=book.currentPageIndex;
+			}
+			
+			protected function book_turnStartHandler(event:FlexBookEvent):void
+			{
+				if(book.pageCount==book.currentPageIndex)
+					moreButton.depth=2;
+			}
+			
+		]]>
+	</fx:Script>
+  
+	<s:BitmapImage height="100%" width="100%" scaleMode="stretch" includeIn="notloggedin">
+		<s:source>
+			<s:MultiDPIBitmapSource
+				source160dpi="@Embed('/assets/splash/480.png')"
+				source240dpi="@Embed('/assets/splash/960.png')"
+				source320dpi="@Embed('/assets/splash/1136.png')"/>
+		</s:source>
+	</s:BitmapImage>
+	
+	<s:Rect	width="100%" height="100%" includeIn="loggedin">
+		<s:fill>
+			<s:SolidColor color="#000000" alpha="0.2"/>
+		</s:fill>
+	</s:Rect>
+	
+	<!-- TOP-->
+	<s:Group id="tophead" y.loggedin="-150" y.notloggedin="20" horizontalCenter="0" width="100%" height="350" click="changeHeadSize();" depth="3">
+		<s:Rect id="textbackground" height="350" width="100%" right="0" left="0" filters="{shadowFilter}" includeIn="loggedin"
+				visible="true" alpha="0.93"
+				bottomLeftRadiusX="15" bottomLeftRadiusY="15"
+				bottomRightRadiusX="15" bottomRightRadiusY="15"
+				>
+			<s:fill>
+				<s:SolidColor color="#fff7ea" alpha="1"/>
+			</s:fill>
+		</s:Rect>
+	
+		<s:BitmapImage source="@Embed('/assets/images/backplate-friend-profile2.png')" horizontalCenter="0" top="30" scaleMode="letterbox" includeIn="notloggedin"/>
+		
+		<s:Label horizontalCenter="-20" top="170" width="250" fontSize="44" fontFamily="Badaboom" text="{parentApplication.myPetDAO.currentPetName}" verticalAlign="middle"
+				 textAlign="center"/>
+		<!--s:Label left="260" top="95" width="150" height="80" fontSize="30" fontWeight="normal" text="About: {parentApplication.myPetDAO.currentPetDescription}"
+		textAlign="left"/-->
+		
+		<s:BitmapImage source="@Embed('/assets/images/pictureborder.png')" horizontalCenter="-230" y="172" width="140" height="140" scaleMode="stretch" smooth="true" id="pictureborder" visible="true" includeIn="loggedin"/>
+		<s:Image id="profileImage" horizontalCenter="-231" y="181" clearOnLoad="true" source="/assets/characters/Coolcat_black.png" smooth="true" includeIn="loggedin"
+					   scaleMode="stretch" click="viewMyProfile();"
+					   width="106" height="106" >
+			<!--s:mask>
+			<s:Group>
+			<s:Rect id="picmask" 
+			left="0" right="0" top="0" bottom="0"
+			width="180" height="133"
+			topLeftRadiusX="36" topLeftRadiusY="36">
+			<s:fill>
+			<s:SolidColor color="0x000000"/>
+			</s:fill>
+			</s:Rect>
+			</s:Group>
+			</s:mask-->
+		</s:Image>	
+		
+		<components:pinkButton id="loginButton" horizontalCenter="-130" y="360" click="showLogin();" label="{parentApplication.Language.friends_button_login}" includeIn="notloggedin"/>
+		<components:pinkButton id="logoutButton" horizontalCenter="-130" y="20" click="showLogout();" label="{parentApplication.Language.friends_button_logout}" includeIn="loggedin"/>
+		<components:pinkButton horizontalCenter="130" y.loggedin="20" y.notloggedin="360" click="gotoProfile(event);" id="editButton" label.loggedin="{parentApplication.Language.friends_button_profile}" label.notloggedin="{parentApplication.Language.friends_button_register}"/>
+		<components:wardrobeButton id="wardrobeGroup" horizontalCenter="215" top="170" click="gotoWardrobe();" label="{parentApplication.Language.friends_button_wardrobe}" includeIn="loggedin"/>
+		
+		<s:Label id="firsttimetext" horizontalCenter="0" y="60" lineBreak="toFit" width="460" text="Ny? Börja då gärna med att registrera dig. Har du redan registerat dig kan du istället välja att logga in." textAlign="center" 
+				 color="#444444" fontFamily="MyriadPro" fontSize="36" fontWeight="bold" includeIn="notloggedin"/>
+		<!--components:friendsButton horizontalCenter="0" verticalCenter="140" label="{parentApplication.Language.friends_button_friends}" click="gotoFriends(event);" id="myFriendsButton" includeIn="loggedin"/-->
+		
+		
+		<s:BitmapImage id="dragArrowImage" alpha="0.3" source="assets/images/downarrow.png" horizontalCenter="0" bottom="2" scaleMode="stretch" scaleX="0.6" scaleY="0.6" smooth="true" includeIn="loggedin" />
+	</s:Group>
+	 
+	<!--BOOK-->
+	<s:Button id="moreButton" label="Hitta fler vänner" fontWeight="bold" depth="2" fontSize="28" top="450" horizontalCenter="145" color="#000000" visible="false" includeIn="loggedin" click="parentApplication.gotoFriendSearch();"/> 
+	<s:Group left="0" right="0" verticalCenter="0" includeIn="loggedin" depth="2">
+		
+		<controls:FlexBook id="book" y="45" width="620" height="450" x="-150" rotation="-1.0" filters="{shadowFilter}"  
+						   animateCurrentPageIndex="true" scaleX="1.2" scaleY="1.2"
+						   animatePagesOnTurn="true"
+						   turnEnd="book_turnEndHandler(event)"
+						   turnStart="book_turnStartHandler(event)"
+						   activeGrabArea="edge"
+						   edgeAndCornerSize="110" 
+						   itemSize="halfPage"						   
+						   > 
+			<controls:cover>
+				<s:Group>
+					<controls:Zoomer>
+						<s:Image source="@Embed('/assets/images/bookfront1.png')" width="310" height="450" scaleMode="stretch"/>
+					</controls:Zoomer>
+					<s:Label text="{parentApplication.Language.book_header1}" fontSize="60" fontFamily="Badaboom" color="#519b9a" width="100%" textAlign="center" y="20" filters="{bevelFilter}" alpha="0.8"/>
+					<s:Label text="{currentDate.getFullYear().toString()}" fontSize="60" fontFamily="Badaboom" color="#519b9a" width="100%" textAlign="center" y="85" filters="{bevelFilter}" alpha="0.8"/>
+				</s:Group>
+			</controls:cover>
+			
+			<controls:backCover>
+				<s:Group>
+					<controls:Zoomer>		
+						<s:Image source="@Embed('/assets/images/bookback1.png')" width="310" height="450" scaleMode="stretch"/>
+						<!--controls:SuperImage source="/assets/back1.png" width="310" height="500" /-->	
+					</controls:Zoomer>
+				</s:Group> 
+			</controls:backCover>
+			
+			<!--Page 1 & 2 hardcoded for testing purpose (pages are added dynamically in createBookPages
+			<views:friendBookPage petName="VILSE" bgColor="0xfff6dd"/>
+			<views:friendBookPage petName="KOKOS" bgColor="0xcc6666"/-->	
+	 		
+		</controls:FlexBook>
+		<s:HGroup id="abcGroup" visible="false" depth="3" width="640" y="520" gap="0" height="60" horizontalCenter="0">
+			<s:Label id="abcLabelFront" textAlign="center" width="30" horizontalCenter="0" text="*" fontFamily="MyriadPro" fontSize="32" color="#ffffff" click="book.turnToPage(-1);moreButton.depth=2;"  height="60"/>
+			<s:Label id="abcLabel" depth="2" width="580" textAlign="center" horizontalCenter="0" text="A  B  C  D  E  F  G  H  I  J  K  L  M  N  O  P  Q  R  S  T  U  V  X  Y  Z" click="abc_clickHandler(event)" fontFamily="MyriadPro" fontSize="31" color="#ffffff"  height="60" />
+			<s:Label id="abcLabelBack" depth="2" textAlign="center" width="30" horizontalCenter="0" text="*" fontFamily="MyriadPro" fontSize="32" color="#ffffff" click="book.turnToPage(book.pageCount);"  height="60" />
+		</s:HGroup>
+	</s:Group> 
+	 
+	<!--LIST-->
+<!--		<s:VGroup id="headerGroup" depth="1" y="364" includeIn="loggedin" gap="2" width="100%" x="20">
+			<s:Label text="{parentApplication.Language.friends_headlabel}" fontFamily="MyriadPro" fontWeight="bold" fontSize="36" textAlign="left"  color="#eeeeee"/>
+		</s:VGroup>
+		<s:BitmapImage id="listbg" source="/assets/images/friendlist_glassbg.png" scaleMode="stretch" width="100%" alpha="0.15" bottom="0" horizontalCenter="0" top="{resultGroup.y}" includeIn="loggedin" />
+		<s:BitmapImage id="listdivider" source="/assets/images/white_bg_bottom.png" scaleMode="stretch" width="100%" top="{resultGroup.y}" includeIn="loggedin" height="4" alpha="0.5"/>
+		<s:VGroup id="resultGroup" visible="true" width="100%" height="400" gap="10" includeIn="loggedin" horizontalCenter="0" y="395">
+			<s:List id="relationsList" width="100%" height="100%" horizontalScrollPolicy="on" click="gotoKnownPet(event)" 
+					verticalScrollPolicy="off" contentBackgroundAlpha="0" dataProvider="{relations}"
+					itemRenderer="Renderers.relationsListRenderer" 
+					skinClass="spark.skins.mobile.ListSkin" cacheAsBitmap="false" >
+				<s:layout>
+					<s:TileLayout id="relationsTile" requestedRowCount="1" paddingLeft="5" paddingTop="13" horizontalGap="10" verticalGap="10" orientation="columns"  
+								  verticalAlign="top"
+								  />
+				</s:layout>
+			</s:List>
+		</s:VGroup>
+-->
+	
+	
+	<!--CONSOLE-->
+	<s:Group id="console" bottom="0" width="100%">
+		<s:BitmapImage source="@Embed('/assets/skin/menu/Petiit_Console.png')" scaleMode="stretch" bottom="0" width="100%"/>
+		<s:HGroup bottom="0" width="100%" horizontalAlign="center" gap="0" left="-8" id="consoleButtons">
+			<components:menuIconButton id="competitionButton" down_pic="assets/skin/menu/btn_competition_on.png" up_pic="/assets/skin/menu/btn_competition_off.png" label="{parentApplication.Language.navigation_competitions}" click="parentApplication.tabnav.selectedIndex=0;"/>
+			<components:menuIconButton id="newsfeedButton" down_pic="assets/skin/menu/btn_whatsup_on.png" up_pic="/assets/skin/menu/btn_whatsup_off.png" click="parentApplication.tabnav.selectedIndex=1;" label="{parentApplication.Language.navigation_news}"/>
+			<components:menuIconButton id="friendsButton" down_pic="assets/skin/menu/btn_friends_on.png" up_pic="/assets/skin/menu/btn_friends_on.png" label="{parentApplication.Language.navigation_friends}" active="true"/>
+		</s:HGroup>
+	</s:Group>
+	<fx:Declarations>
+		<s:DateTimeFormatter id="dateFormatter" dateTimePattern="yyyy-MM-dd " errorText="-" />
+		<s:DropShadowFilter color="#000000" distance="6" alpha="0.28" angle="92.3" blurX="6" blurY="6" id="shadowFilter"/>
+		<s:BevelFilter id="bevelFilter" type="{BitmapFilterType.OUTER}"  angle="45" quality="{BitmapFilterQuality.HIGH}" shadowAlpha="0.5" strength="0.5"/>
+	</fx:Declarations>
+</s:View>

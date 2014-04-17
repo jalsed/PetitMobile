@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" currentState="up" added="readyToLoadImages();" 
+		 >
+	<fx:Declarations>
+		<s:Bounce id="sineEaser"/>
+		
+		<s:Scale id="scaleFXShow" duration="2000" scaleXFrom="1" scaleXTo="1.1" scaleYFrom="1" scaleYTo="1.1" effectEnd="scaleFXHide.play();" target="{buttonImage}" easer="{sineEaser}"/>
+		<s:Scale id="scaleFXHide" duration="2000" scaleXFrom="1.1" scaleXTo="1" scaleYFrom="1.1" scaleYTo="1"  effectEnd="scaleFXShow.play();" target="{buttonImage}" easer="{sineEaser}"/>
+	</fx:Declarations>
+	<s:states>
+		<s:State name="up" />
+		<s:State name="over" stateGroups="overStates" />
+		<s:State name="down" stateGroups="downStates" />
+		<s:State name="disabled" stateGroups="disabledStates" />
+	</s:states>
+	
+	<fx:Script>
+		<![CDATA[
+			[Bindable]
+			public var up_pic:String="/wardrobe/images/wardrobe.png";
+			 
+			[Bindable]
+			public var label:String="";
+			[Bindable]
+			public var textcolor:int=0xffffff;
+			
+			[Bindable]
+			public var showArrow:Boolean=false;
+			
+			private var interval:uint;
+			
+			public function readyToLoadImages():void {
+				if(buttonImage==null) {	//do later
+					interval=setInterval(updateImages,200);
+				}
+			}
+			
+			private function updateImages():void {	
+				if(buttonImage!=null) {
+					clearInterval(interval);
+					buttonImage.source=up_pic;	
+				}
+			}
+			
+			
+		]]>
+	</fx:Script>
+	<!--s:Group id="wardrobeGroup" horizontalCenter="175" top="18" visible="false" mouseOver="wardrobeButton.alpha=0.9;" mouseOut="wardrobeButton.alpha=1;" click="gotoWardrobe();">
+		<s:BitmapImage id="wardrobeButton"  source="/wardrobe/images/wardrobe.png" height="150" width="120" smooth="true" scaleMode="stretch"/>
+		<s:Label text="{parentApplication.Language.friends_button_wardrobe}" fontSize="28" fontFamily="Badaboom" paddingTop="47" color="#ffffff" width="120" textAlign="center"/>	
+	</s:Group-->
+	 
+	<s:Image  height="150" width="120" smooth="true" scaleMode="stretch" filters="{shadowFilter}" mouseEnabled="false" id="buttonImage" addedToStage="scaleFXShow.play();" removedFromStage="scaleFXShow.stop();"
+			 includeIn="up,down,over"  
+			  />
+
+	<s:Group  width="100%" horizontalCenter="0" verticalCenter="-10">
+		<s:Label id="labelDisplay" color="{textcolor}" depth="2" lineBreak="toFit" width="200" x="-35"
+				 fontFamily="Badaboom" fontSize="44"  maxDisplayedLines="2"
+				 mouseEnabled="false" text="{label}" textAlign="center" verticalAlign="middle"
+				 filters="{shadowFilter}" /> 
+	</s:Group>
+	
+
+	<s:Button x="0" y="0" width="{buttonImage.width-2}" height="{buttonImage.height-2}" alpha="0" click="currentState='down'" mouseOver="currentState='over'" mouseOut="currentState='up'"/>
+	<fx:Declarations>
+		<s:DropShadowFilter color="#000000" distance="3" alpha="0.77" angle="90" blurX="4" blurY="4" id="shadowFilter"/>
+	</fx:Declarations>
+</s:Group>

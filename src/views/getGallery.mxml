@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 xmlns:views="com.*"
+		 width="200" height="250"
+		 xmlns:ns="http://flex.apache.org/experimental/ns"
+		 >
+	
+	<s:states>
+		<s:State name="normal"/>
+		<s:State name="active"/>
+	</s:states>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import com.StageWebViewUIComponent;
+			import com.iOSStageVideo;
+			import com.freshplanet.ane.AirImagePicker.AirImagePicker;
+			
+			import flash.events.Event;
+			import flash.events.MediaEvent;
+			import flash.events.ProgressEvent;
+			import flash.media.CameraUI;
+			import flash.media.MediaType;
+			import flash.media.StageWebView;
+			
+			import mx.core.UIComponent;
+			
+			import spark.events.ViewNavigatorEvent;
+			
+			import by.blooddy.crypto.Base64;
+			
+			import classes.GlobalConstants;
+			
+			import events.GalleryEvent;
+			import events.ImageEvent;
+			import events.PetitVideoEvent;
+			
+			import org.osmf.events.MediaErrorEvent;
+			
+			import utils.ExifReader;
+			
+			 
+			
+			private var camera:CameraUI;
+			
+			protected var loader:Loader;
+			public var file:File;
+			private var dataSource:IDataInput;
+			
+			private var vid:iOSStageVideo;
+			private var container:UIComponent;
+			
+			[Embed (source="/assets/images/btn_record.png" )]
+			public static const ICON_BTNRECORD:Class;
+			
+			[Embed (source="/assets/buttons/Play.png" )]
+			public static const ICON_BTNPLAY:Class;
+			
+			[Embed (source="/assets/buttons/Paws-button.png" )]
+			public static const ICON_BTNPAUSE:Class;
+			
+			private var imageBytes:ByteArray;
+			
+			private var videoOrientationRotation:int=0;
+			  
+			protected static var roll:CameraRoll;
+			
+			
+			
+			
+			public function playVideo(e:Event):void
+			{ 
+				parentApplication.videoButtons.visible=true;
+				parentApplication.smalllogo.visible=true;
+				parentApplication.tabnav.visible=false;
+				parentApplication.bg.visible=false;
+				parentApplication.feedNav.activeView.visible=false;
+				parentApplication.toast.visible=false;
+	
+				var path:String = new String(new File(parentApplication.currentVideoURL).url); 
+				
+				if(videoOrientationRotation==0) {
+					vid = new iOSStageVideo( path ,1024,640,90); 			
+					vid.rotation = 90;
+				}
+				else if(videoOrientationRotation==90) {
+					vid = new iOSStageVideo( path ,640, 1024,0); 
+				}
+				
+				
+				vid.addEventListener('videoDone' , stopVideo); 
+				//vid.addEventListener('videoPlays',videoIsPlaying);
+				
+				
+				container = new UIComponent(); 
+				container.x=0;
+				container.y=0;
+				container.width = 640;//parentApplication.myStage.stageWidth; 
+				container.height = 1024; //parentApplication.myStage.stageHeight; 
+				addElement( container ); 
+				
+				container.addChild( vid ); 
+				
+				
+				parentApplication.addEventListener(PetitVideoEvent.STOP_VIDEO,stopVideo);
+				parentApplication.addEventListener(PetitVideoEvent.RESUME_VIDEO,resumeVideo);
+				parentApplication.addEventListener(PetitVideoEvent.PAUSE_VIDEO,pauseVideo);
+				
+		 
+			}
+		
+			private function stopVideo(e:Event):void {
+				parentApplication.notBusy();
+				parentApplication.tabnav.visible=true;
+				parentApplication.smalllogo.visible=false;				 
+				parentApplication.videoButtons.visible=false;
+				parentApplication.bg.visible=true;
+				parentApplication.toast.visible=true;
+				
+				if(parentApplication.feedNav.activeView.visible==false) {	//Anropas stopp igen ska detta inte göras
+					parentApplication.feedNav.activeView.visible=true;
+					vid.stopVideo();
+					container.removeChild( vid ); 
+					removeElement( container ); 
+				}
+				
+				parentApplication.removeEventListener(PetitVideoEvent.STOP_VIDEO,stopVideo);
+				parentApplication.removeEventListener(PetitVideoEvent.RESUME_VIDEO,resumeVideo);
+				parentApplication.removeEventListener(PetitVideoEvent.PAUSE_VIDEO,pauseVideo);
+			}
+			
+			
+			private function videoIsPlaying(e:Event):void {
+				parentApplication.notBusy();
+			}
+			
+			private function resumeVideo(event:Event):void {
+				vid.continueVideo();	
+			}
+			
+			private function pauseVideo(event:Event):void {
+				vid.pauseVideo();
+			}
+			
+			/************************************************
+			 * SERVER UPLOAD								*
+			 * 												*
+			 ************************************************/
+			 
+			
+			private function restUploadFileFaultHandlerANE(event:IOErrorEvent):void {
+				 dispatchEvent(new events.GalleryEvent(events.GalleryEvent.VIDEO_UPLOAD_FAILURE,""));
+				 
+				 parentApplication.notBusy();
+			}
+			
+			private function restUploadFileHandlerANE(event:Event):void {
+				var loader:URLLoader = URLLoader(event.target);
+				var obj:Object = JSON.parse(loader.data);
+		 
+				dispatchEvent(new events.GalleryEvent(events.GalleryEvent.VIDEO_UPLOAD_READY,obj));
+				
+				parentApplication.notBusy();
+			 
+			}
+			
+			
+			/************************************************
+			 * GALLERY										*
+			 * 												*
+			 ************************************************/
+			//FROM GALLERY. Loader might only be necessary in iOS
+			protected function onMediaSelect(event:MediaEvent):void		
+			{
+				roll.removeEventListener(MediaEvent.SELECT,onMediaSelect);
+				roll.removeEventListener(org.osmf.events.MediaErrorEvent.MEDIA_ERROR, onMediaError );
+				 
+				
+				var promise:MediaPromise = event.data as MediaPromise;
+				
+				 
+			}
+			
+			protected function onMediaError(event:org.osmf.events.MediaErrorEvent):void {
+				trace("Media error");
+			}
+			
+			private function galleryStart():void {
+				
+//				if(Capabilities.version.substr(0,3) == "IOS") {
+						if (AirImagePicker.getInstance().isImagePickerAvailable())
+							trace("ImagePickerANE available");
+						AirImagePicker.getInstance().displayImagePicker(galleryCallback,true,true,getBounds(stage));	//true=allowvideo, true=crop	,getBounds(stage)
+//				}
+//				else {	//Android
+//					roll = new CameraRoll();
+//					roll.addEventListener(MediaEvent.SELECT,onMediaSelect);
+//					roll.addEventListener(org.osmf.events.MediaErrorEvent.MEDIA_ERROR, onMediaError );
+//					roll.browseForImage();
+//				}
+					
+						
+			}	
+			
+			
+			
+			private function galleryCallback(status:String, ...mediaArgs):void {
+				
+				//This is a workaround to get rid of top statusbar (ios7 bug)
+				stage.displayState = StageDisplayState.FULL_SCREEN_INTERACTIVE;
+				
+				if(status=="OK") {
+					if(mediaArgs.length>2) {	//this is a video from the gallery
+					
+						parentApplication.currentVideoURL = mediaArgs[0];
+						
+						//videothumb.source = mediaArgs[1];
+						parentDocument.thumbImage.source = mediaArgs[1];
+						parentDocument.thumbframe.visible=true;
+						parentDocument.deleteGroup.visible=true;
+					 
+						restUploadVideoViaANE(mediaArgs[0]);
+						
+						//Check orientation using the thumbnail (not in use for now)
+						/*if(mediaArgs[1].width>mediaArgs[1].height) {
+							trace("Reverse landscap: 180 deg rotation");
+							//currentRotation=180;		
+						}
+						else {	//Portrait
+							trace("Normal landscape: no rotation");
+							//currentRotation=0;		
+						}
+						*/
+						
+						if(parentDocument.storlek!=null) {
+							parentDocument.storlek.text = Math.round(mediaArgs[2].length/1024) + " kb " + parentApplication.Language.getgallery_recorded;	//" är inspelat";
+							parentDocument.storlek.visible=true;
+						}
+					}
+					else {	//this is an image from the gallery
+						//videothumb.source = mediaArgs[0];
+						parentDocument.thumbImage.source = (mediaArgs[0] as BitmapData).clone();
+						parentDocument.thumbframe.visible=true;
+						parentDocument.deleteGroup.visible=true;
+						
+						restUploadFileANE(mediaArgs[1],"images");
+					}
+				}
+			}
+			
+			private function restUploadVideoViaANE(in_name:String):void {
+				//uploadIds = [];
+				
+				parentApplication.isBusy(parentApplication.Language.getgallery_busy_uploadvideo);	//"ÖVERFÖR VIDEO..."
+				
+				var vidfile:File;
+				vidfile = File.applicationStorageDirectory.resolvePath(in_name); 
+  
+				
+				if(vidfile.exists) {
+					var newfilename:String = "video_" + new Date().time.toString() + ".mov"; //New uniqe filename from "myMovie.mov"
+					
+					//var newfilename:String =  + "video_" + new Date().time.toString()+".mov"; //New uniqe filename	"myMovie.mov"
+					//var destination:File = File.applicationStorageDirectory;
+					//destination = destination.resolvePath(in_name.substr(0,in_name.length-10) + newfilename);
+					//vidfile.moveTo(destination,false);	//Rename to unique name first
+					
+					// Read from local to bytes
+					var fileStream:FileStream = new FileStream();
+					fileStream.open(vidfile, FileMode.READ);
+					var bytes:ByteArray = new ByteArray();
+					fileStream.readBytes(bytes);
+					fileStream.close();
+					
+					// Transfer/save via JSON to S3 (externally)
+					var jsonfile:Object = {};
+					jsonfile.filename = newfilename;	//vidfile.name;
+					jsonfile.status = 0;
+					jsonfile.filepath = 'public://petit/' + "video" + '/' + parentApplication.myUserDAO.user.uid.toString() + '/' + newfilename;
+					jsonfile.file = by.blooddy.crypto.Base64.encode(bytes);
+					
+					var urlLoader:URLLoader = new URLLoader();
+					urlLoader.addEventListener(Event.COMPLETE, restUploadFileHandlerANE);
+					urlLoader.addEventListener(IOErrorEvent.IO_ERROR, restUploadFileFaultHandlerANE);
+				 
+					var uploadUrl:String = GlobalConstants.DRUPAL_PATH + "file";
+					var urlRequest:URLRequest = new URLRequest(uploadUrl);
+					urlRequest.requestHeaders.push(new URLRequestHeader("Accept", "application/json"));
+					urlRequest.contentType = "application/json";
+					urlRequest.method = URLRequestMethod.POST;
+					
+					urlRequest.data = JSON.stringify(jsonfile);
+					urlLoader.load(urlRequest);
+					
+				}
+			}
+			
+			private function restUploadFileANE(in_bytes:ByteArray, type:String):void {
+				//uploadIds = [];
+				
+				parentApplication.isBusy(parentApplication.Language.getgallery_busy_uploadimage);	//ÖVERFÖR BILD...
+				
+				if(parentDocument.publishButton!=null)
+					parentDocument.publishButton.enabled=false;
+				
+				var newfilename:String = "image_" + new Date().time.toString() + ".jpg"; 
+				
+				var bytes:ByteArray = new ByteArray();
+				bytes = in_bytes;
+				
+				var jsonfile:Object = {};
+				jsonfile.filename = newfilename;
+				jsonfile.status = 0;
+				jsonfile.filepath = 's3://petit/' + type + '/' + parentApplication.myUserDAO.user.uid.toString() + '/' + newfilename;
+				jsonfile.file = by.blooddy.crypto.Base64.encode(bytes);
+				
+				var urlLoader:URLLoader = new URLLoader();
+				urlLoader.addEventListener(Event.COMPLETE, restUploadFileHandler);
+				urlLoader.addEventListener(IOErrorEvent.IO_ERROR, restUploadFileFaultHandler);
+				var uploadUrl:String = GlobalConstants.DRUPAL_PATH + "file";
+				var urlRequest:URLRequest = new URLRequest(uploadUrl);
+				urlRequest.requestHeaders.push(new URLRequestHeader("Accept", "application/json"));
+				urlRequest.contentType = "application/json";
+				urlRequest.method = URLRequestMethod.POST;
+				
+				urlRequest.data = JSON.stringify(jsonfile);
+				urlLoader.load(urlRequest);
+			}
+			
+			private function restUploadFileFaultHandler(event:IOErrorEvent):void {
+				//Alert.show("Image upload failed.");	//"Sorry! Either your User Name or your password are incorrect. Please try again.");
+				
+				dispatchEvent(new ImageEvent(ImageEvent.UPLOAD_FAILURE,""));
+				
+				parentApplication.notBusy();
+			}
+			
+			private function restUploadFileHandler(event:Event):void {
+				var loader:URLLoader = URLLoader(event.target);
+				var obj:Object = JSON.parse(loader.data);
+				//uploadIds.push(obj.fid);
+				
+				//if (uploadIds.length == productFiles.length) {
+				//    isDirty = false;
+				//    dispatchEvent(new Event("imageUploadComplete", true));
+				//}
+				
+				dispatchEvent(new ImageEvent(ImageEvent.UPLOAD_READY,obj));
+				
+				parentApplication.notBusy();
+			}
+			
+		]]>
+	</fx:Script>
+	<s:Image x="0" y="0" horizontalAlign="center" id="chooseTypeLibrary" source="@Embed('/assets/images/chooseTypeLibrary.png')" mouseOut="chooseTypeLibrary.alpha=1" mouseOver="chooseTypeLibrary.alpha=0.75" click="galleryStart();"/>	 
+		
+	<!--s:Image id="videothumb" scaleMode="stretch" width="200" height="150" top="50"/-->
+	
+	<!--s:HGroup id="playGroup" includeIn="active" left="0" bottom="45" width="100%" top="10"
+	height="100" depth="2"
+	paddingLeft="20">
+	<s:Image id="playButton" visible="true" height="90" cacheAsBitmap="true" left="0" top="10"
+	click="playVideo(event)"  
+	source="@Embed('/assets/images/btn_play.png')"/>
+	<s:Image id="deleteVideoButton" height="90" click="deleteVideo();" source="@Embed('/assets/images/icn_delete.png')" visible="false"/>
+	</s:HGroup-->	
+				
+</s:Group>

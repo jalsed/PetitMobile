@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" currentState="up" added="readyToLoadImages();" 
+		 >
+	<fx:Declarations>
+		<s:Sine id="sineEaser"/>
+		
+		<s:Parallel id="rotateFXShow" duration="1500" startDelay="1000" effectEnd="rotateFXHide.play();" target="{buttonImage}">
+			<s:Scale  scaleXFrom="1" scaleXTo="1.10" scaleYFrom="1" scaleYTo="1.10"  easer="{sineEaser}"/>
+			<s:Move xFrom="{pic_x}" xTo="{pic_x-8}" yFrom="{pic_y}" yTo="{pic_y-8}"/>
+		</s:Parallel >
+		<s:Parallel id="rotateFXHide" duration="1500" startDelay="1000" effectEnd="doitagain();" target="{buttonImage}">
+			<s:Scale scaleXFrom="1.10" scaleXTo="1" scaleYFrom="1.10" scaleYTo="1"  easer="{sineEaser}"/>	
+			<s:Move xFrom="{pic_x-8}" xTo="{pic_x}" yFrom="{pic_y-8}" yTo="{pic_y}"/>
+		</s:Parallel>
+		
+	</fx:Declarations>
+	<s:states>
+		<s:State name="up" />
+		<s:State name="over" stateGroups="overStates" />
+		<s:State name="down" stateGroups="downStates" />
+		<s:State name="disabled" stateGroups="disabledStates" />
+	</s:states>
+	
+	<fx:Script>
+		<![CDATA[
+			 
+			public var up_pic:String="assets/buttons/Status-button.png";
+			
+			[Bindable]
+			private var pic_x:int=0;
+			[Bindable]
+			private var pic_y:int=0;
+			
+			[Bindable]
+			public var label:String="";
+			[Bindable]
+			public var textcolor:int=0xffffff;
+			
+			 
+			private var interval:uint;
+			
+			private var looptimes:int=0;
+			
+			public function readyToLoadImages():void {
+				if(buttonImage==null) {	//do later
+					interval=setInterval(updateImages,200);
+				}
+			}
+			
+			private function updateImages():void {	
+				if(buttonImage!=null) {
+					clearInterval(interval);
+				//	buttonImage.source=up_pic;	
+				}
+			}
+			
+			private function doitagain():void {
+				if(looptimes<10)
+					rotateFXShow.play();
+				else {
+					buttonImage.scaleX=1;
+					buttonImage.scaleY=1;
+				}
+				looptimes++;
+			}
+			
+			
+		]]>
+	</fx:Script>
+ 
+	
+	<s:BitmapImage id="buttonImageBG" source="@Embed('/assets/buttons/Status-button.png')"
+			  includeIn="up,down,over"
+			  />
+	<s:Image  scaleMode="zoom" mouseEnabled="false" id="buttonImage" addedToStage="pic_x=buttonImage.x;pic_y=buttonImage.y;rotateFXShow.play();" removedFromStage="rotateFXShow.stop();" source="@Embed('/assets/buttons/cross.png')"
+			 includeIn="up,down,over" right="8" top="7"
+			  /> 
+	<s:Button x="0" y="0" width="{buttonImage.width-2}" height="{buttonImage.height-2}" alpha="0" click="currentState='down'" mouseOver="currentState='over'" mouseOut="currentState='up'"/>
+</s:Group>

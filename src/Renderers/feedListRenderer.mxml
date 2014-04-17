@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:ItemRenderer xmlns:fx="http://ns.adobe.com/mxml/2009"
+				xmlns:s="library://ns.adobe.com/flex/spark"
+				xmlns:views="views.*"
+				width="560" height="240" 
+				autoDrawBackground="false" currentState="normal"
+				dataChange="updateData();"
+				initialize="initializeHandler(event)"
+				mouseOver="if(currentState=='normal') currentState='hovering';" 
+				name="feedRenderer"
+				alpha.hovering="0.85" 
+				mouseOut.hovering="currentState='normal'"
+				alpha.normal="1"
+				alpha.selected="1" mouseEnabled.selected="false" cacheAsBitmap="true">
+
+	<s:layout>
+		<s:BasicLayout/>
+	</s:layout>
+	
+	<s:states>
+		<s:State name="normal" />
+		<s:State name="hovering" />
+		<s:State name="selected" />
+	</s:states>
+	
+	  
+	<fx:Script>
+		<![CDATA[
+			import spark.core.ContentCache;
+			import mx.events.FlexEvent;
+			
+			import spark.components.List;
+			
+			static private const iconCache:ContentCache = new ContentCache();
+			
+			private var adImage:String = "";
+			
+			private function initializeHandler(event:FlexEvent):void {
+				pic.contentLoader = iconCache;
+			}
+			
+			override public function set data(value:Object):void {	//Since no autoDrawBackground?
+
+				if(value.description.length>0)
+					descriptionBox.text = value.description;
+				else //MUST have else in data renderers set data
+					descriptionBox.text="";
+				
+				
+				if(value.imageURL != null) {
+					adImage = value.imageURL;
+					pic.source=adImage;
+				}
+				else //MUST have else in data renderers set data
+					pic.source="";
+			}
+			
+			private function updateData():void {
+				if(data!=null) {
+					if(data.imageURL != null)
+						adImage = data.imageURL;
+									
+				}	
+				
+				pic.source=adImage;
+			}
+			
+		  
+			
+		]]>
+	</fx:Script>
+	 <s:Group>
+		 <s:Rect id="background" left="0" right="0" bottomLeftRadiusX="35" bottomLeftRadiusY="35" width="560"
+				 bottomRightRadiusX="35" bottomRightRadiusY="35" radiusX="35" radiusY="35"
+				 topLeftRadiusX="35" topLeftRadiusY="35" topRightRadiusX="35" topRightRadiusY="35"
+				 top.hovering="0" bottom.hovering="0"
+				 top.normal="0" bottom.normal="0"
+				 height="240"
+				 filters="{shadowFilter}" 
+				 >
+			 <s:fill>
+				 <s:LinearGradient>
+					 <s:GradientEntry color="0xbeb8ae" ratio="0"/>
+					 <s:GradientEntry color="0xd0c9be" ratio="0.2"/>
+					 <s:GradientEntry color="0xf3ecdf" ratio="0.4"/>
+					 <s:GradientEntry color="0xfff7ea" ratio="0.8"/>
+				 </s:LinearGradient>
+				<!-- <s:BitmapFill fillMode="repeat" source="@Embed('/assets/images/stripebackground.png')"/>-->
+			 </s:fill>
+		 </s:Rect>
+		 
+		 <s:Label id="descriptionBox" width="290" height="150" color="#040037"
+				  fontFamily="MyriadPro" fontSize="33" fontStyle="normal" lineBreak="toFit"
+				  text="{data.description}" textAlign="left" verticalAlign="top"
+				  x="195" y="15"/>
+		 
+		
+		 <s:BitmapImage id="pic" x="0" clearOnLoad="true"
+						scaleMode="zoom" verticalCenter="0"
+						width="180" height="240">
+			 <s:mask>
+				 <s:Group>
+					 <s:Rect id="picmask" left="0" right="0" bottomLeftRadiusX="35" bottomLeftRadiusY="35" width="180"
+							 bottomRightRadiusX="0" bottomRightRadiusY="0" 
+							 topLeftRadiusX="35" topLeftRadiusY="35" topRightRadiusX="0" topRightRadiusY="0"
+							 top="0" bottom="0"	height="240">
+						 <s:fill>
+							 <s:SolidColor color="0x000000"/>
+						 </s:fill>
+					 </s:Rect>
+				 </s:Group>
+			 </s:mask>
+		 </s:BitmapImage>	
+		   
+	 </s:Group>
+	<fx:Declarations>
+		<s:DropShadowFilter color="#000000" distance="6" alpha="0.28" angle="92.3" blurX="6" blurY="6" id="shadowFilter"/>	
+	</fx:Declarations>
+	
+</s:ItemRenderer>

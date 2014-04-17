@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" currentState="up" added="readyToLoadImages();" 
+		 >
+ 
+	<s:states>
+		<s:State name="up" />
+		<s:State name="over" stateGroups="overStates" />
+		<s:State name="down" stateGroups="downStates" />
+		<s:State name="disabled" stateGroups="disabledStates" />
+	</s:states>
+	
+	<fx:Script>
+		<![CDATA[
+ 			[Bindable]
+			public var label:String="";
+			[Bindable]
+			public var textcolor:int=0x4a3352;
+			
+			[Embed(source="/assets/buttons/btn_empty_off.png")]
+			public static const up_pic:Class;
+			
+			[Embed(source="/assets/buttons/btn_empty_on.png")]
+			public static const down_pic:Class;
+			
+			[Bindable]
+			public var showArrow:Boolean=false;
+			
+			private var interval:uint;
+			
+			public function readyToLoadImages():void {
+				updateImages();
+				if(buttonImageDown==null || buttonImage==null) {	//do later
+					interval=setInterval(updateImages,500);
+				}
+
+				if(label.length>0 && label.length<9)
+					labelDisplay.setStyle("fontSize",48) ;
+				if(label.length==9)
+					labelDisplay.setStyle("fontSize",44) ;
+				if(label.length==10)
+					labelDisplay.setStyle("fontSize",34) ;
+				if(label.length>10)
+					labelDisplay.setStyle("fontSize",32) ;
+
+			}
+			
+			private function updateImages():void {	
+				if(buttonImageDown!=null && buttonImage!=null) {
+					 
+					buttonImageDown.source=down_pic;
+					buttonImage.source=up_pic;	
+				}
+			}
+			 
+		]]>
+	</fx:Script>
+	<s:Image scaleMode="letterbox" id="buttonImageDown" mouseEnabled="false" 
+			 left="0" right="0" top="0" bottom="0" smooth="true" />
+	<s:Image scaleMode="letterbox" id="buttonImage" mouseEnabled="false" 
+			 includeIn="up" smooth="true"
+			 left="0" right="0" top="0" bottom="0" />
+
+	<s:Label id="labelDisplay" width="170" color="{textcolor}" depth="2" mouseEnabled="false" 
+			 fontFamily="Badaboom" fontSize="50" horizontalCenter="0" maxDisplayedLines="2" lineBreak="toFit"
+			 text="{label}" textAlign="center"
+			  verticalCenter="-2"> 
+	</s:Label>
+
+	<s:Button x="0" y="0" width="219" height="162" alpha="0" click="currentState='down'" mouseOver="currentState='over'" mouseOut="currentState='up'"/>
+</s:Group>

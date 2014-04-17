@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009"
+		xmlns:mx="library://ns.adobe.com/flex/mx"
+		xmlns:s="library://ns.adobe.com/flex/spark"
+	 	xmlns:views="com.*"
+		title="playView" actionBarVisible="true"  
+		tabBarVisible="true" backgroundAlpha="0"
+		>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			
+			import flash.geom.Rectangle;
+			import flash.media.StageWebView;
+			
+			import mx.core.UIComponent;
+			import mx.events.FlexEvent;
+			
+		 	import com.*;
+		
+			private var vid:iOSStageVideo;
+			private var container:UIComponent;
+				 
+			
+			protected function playVideo(e:Event):void
+			{
+				var path:String = new String(new File(parentApplication.currentVideoURL).url); 
+				vid = new iOSStageVideo( path ,640, 1024); 											//Right now it's displayed in portrait. Check orientation first and swap width/height if necessary
+				vid.addEventListener('videoDone' , stopVideo); 
+				
+				
+				container = new UIComponent(); 
+				container.x=0;
+				container.y=0;
+				container.width = 640;//parentApplication.myStage.stageWidth; 
+				container.height = 1024; //parentApplication.myStage.stageHeight; 
+				addElement( container ); 
+				
+				container.addChild( vid ); 
+			}
+			
+			private function stopVideo(e:Event):void {
+//				vid.stopVideo(); 
+//				container.removeChild( vid ); 
+//				removeElement( container ); 
+			}
+			 
+			protected function back():void {
+				this.popView();
+			}
+		]]>
+	</fx:Script>
+	<s:navigationContent>
+		<s:Button label="Back" click="back();"/>
+	</s:navigationContent>
+	
+	<s:BorderContainer backgroundAlpha="0" id="videobg" height="300" width="100%" borderVisible="false">
+		<s:Button id="playButton" label="{parentApplication.Language.playview_button_play}" click="playVideo(event);" enabled="true"
+				  horizontalCenter="-70" verticalCenter="-20"/>
+		<s:Button id="stopButton" label="{parentApplication.Language.playview_button_stop}" click="stopVideo(event);" enabled="true"
+				  horizontalCenter="50" verticalCenter="-20"/>
+	</s:BorderContainer>
+	  	
+ </s:View>

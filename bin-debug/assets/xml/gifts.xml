@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root version="1">
+	<term type="special" title="NOTHING" tid="700" price="0" icon=""/>
+	<term type="gift" title="gift_rose1" tid="701" price="25" icon="rose1"/>
+	<term type="gift" title="gift_collar1" tid="702" price="50" icon="collar1"/>
+	<term type="gift" title="gift_cake1" tid="703" price="25" icon="cake1"/>
+	<term type="gift" title="gift_card1" tid="704" price="100" icon="card1"/>
+ 	<term type="gift" title="gift_present1" tid="705" price="50" icon="present1"/>
+ 	 
+</root>
+	

@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--Denna renderer används både för befintliga vänner (via relations) och okända husdjur (sök husdjur/husdjur i närheten).
+	Det gör att några fält bara kommer visas i ena varianten.
+
+	Husdjursnamn		bägge			title
+	Bild				bägge			imageURL
+	Ras					bägge			pet_race, pet_breed
+	Kön					inte i pets
+	Ägare				?				ownerFullname
+	Postnummer			?
+	Relationstyp		vän
+	Status				vän (status visar om relationen är godkänd eller fortfarande i förfrågan)
+-->
+<s:ItemRenderer xmlns:fx="http://ns.adobe.com/mxml/2009"
+				xmlns:s="library://ns.adobe.com/flex/spark"
+				xmlns:views="views.*"
+				currentState="normal" dataChange="updateData();"
+				initialize="initializeHandler(event)" mouseOut="currentState='normal'"
+				mouseOver="currentState='hovering';" name="petListComboRenderer"
+				alpha.hovering="0.9"
+				width="280" height="320" alpha.normal="1"
+				alpha.selected="0.9" cacheAsBitmap="true">
+
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	
+	<s:states>
+		<s:State name="normal" />
+		<s:State name="hovering" />
+		<s:State name="selected" />
+	</s:states>
+	
+	<fx:Declarations>
+		<s:DateTimeFormatter id="dateFormatter" dateTimePattern="yyyy-MM-dd " errorText="-" />
+	</fx:Declarations>
+	
+	
+	 		
+	<fx:Script>
+		<![CDATA[
+			import mx.events.FlexEvent;
+			
+			import spark.core.ContentCache;
+							 
+			private var timestamp:Number=0;
+			
+		 	private var adImage:String = "";			 
+			private var petrace:String="";
+			private var petgender:String="";
+			 	 
+			static private const iconCache:ContentCache = new ContentCache();
+			
+			private function initializeHandler(event:FlexEvent):void {
+				pic.contentLoader = iconCache;
+			}
+			
+			private function updateData():void {
+				if(data!=null) {
+					if(data.imageURL != null)
+						adImage = data.imageURL;
+					else
+						adImage="";
+					
+					//Label
+					titleBox.text=data.title;
+					 
+					if(data.ownerFullname!=undefined && data.ownerFullname.length>0) {
+						ownerBox.text = data.ownerFullname ;
+					}
+					else 
+						ownerBox.text="";
+					
+					if(data.ownerZipcode !=null)
+						zipcodeBox.text = data.ownerZipcode;
+					else
+						zipcodeBox.text="";
+					
+					if(data.pet_breed != undefined && data.pet_breed!=null) {
+						raceBox.text = data.pet_breed;
+					}
+					
+					if(data.ownerZipcode != undefined && data.ownerZipcode!=null && data.ownerZipcode.length>0) {
+						zipcodeBox.text = data.ownerZipcode;
+					}
+					else
+						zipcodeBox.text="";
+						
+					
+				}	
+				  
+			 	pic.source=adImage;
+				thumb.source=data.imageURLthumb;
+			}
+		]]>
+	</fx:Script>
+	<s:Group width="100%" height="100%">
+		<s:Rect id="background0" left="0" right="0" width="280"
+				radiusX="0" radiusY="0"
+				top="0" bottom="0"
+				height="320" alpha="1"
+				filters="{shadowFilter}" 
+				>
+			<s:fill>
+				<s:SolidColor color="#f7f1ba"/>
+			</s:fill>
+		</s:Rect>
+		<s:Rect id="background" left="1" right="1" 
+				top="1" bottom="1"
+				height="318"  
+				>
+			<s:fill>
+				<s:LinearGradient>
+					<s:GradientEntry color="0xbeb8ae" ratio="0"/>
+					<s:GradientEntry color="0xd0c9be" ratio="0.2"/>
+					<s:GradientEntry color="0xf3ecdf" ratio="0.4"/>
+					<s:GradientEntry color="0xfff7ea" ratio="0.8"/>
+				</s:LinearGradient>
+			</s:fill>
+		</s:Rect>
+ 		
+		<s:BitmapImage bottom="0" id="silhouette" horizontalCenter="0" source="@Embed('/assets/images/watermark_friend_request.png')" alpha="0.4"/>
+		<s:BitmapImage left="5" top="5" id="picborder" source="@Embed('/assets/images/pictureborder.png')" smooth="true"/>
+		<s:BitmapImage id="thumb" x="15" y="10" scaleMode="stretch" width="112" height="162"/>
+		<s:BitmapImage id="pic" x="15" y="10" scaleMode="zoom" width="112" height="162"/>
+		<s:BitmapImage left="88" top="-12" id="paperclip" source="@Embed('/assets/images/paperclip.png')" smooth="true"/>
+		
+		<s:VGroup contentBackgroundAlpha="0" gap="10"
+				  paddingBottom="0" paddingLeft="0" paddingRight="0" paddingTop="0"
+				  left="145" right="5" top="10">
+			<s:Label id="titleBox"  color="#000000" fontFamily="MyriadPro" fontWeight="bold"
+					 lineBreak="toFit" text="{data.title}"
+					 textAlign="left" verticalAlign="top"
+					 width="100%" fontSize="28"/>
+			<s:Label id="relationBox" color="#000000" fontFamily="MyriadPro"
+					 lineBreak="explicit" textAlign="left"
+					 verticalAlign="top"
+					 width="100%" height="35" fontSize="22"/>
+ 
+		</s:VGroup>	
+		
+		<s:HGroup left="15" right="15" top="200">
+			<s:VGroup contentBackgroundAlpha="0" gap="10"
+					  paddingBottom="0" paddingLeft="0" paddingRight="0" paddingTop="0"
+					  left="15">
+				<s:Label  color="#000000" height="22" fontFamily="MyriadPro" fontWeight="bold"
+						 lineBreak="explicit" text="{parentApplication.Language.frienddetail_label_race}"
+						 textAlign="left" verticalAlign="top"
+						 width="100%" fontSize="22"/>
+				<s:Label color="#000000" fontFamily="MyriadPro" fontWeight="bold"
+						 lineBreak="explicit" text="{parentApplication.Language.frienddetail_label_owner}"
+						 textAlign="left" verticalAlign="top" height="22"
+						 width="100%" fontSize="22"/>
+				<s:Label color="#000000" fontFamily="MyriadPro" fontWeight="bold"
+						 lineBreak="explicit" textAlign="left" text="{parentApplication.Language.profile_page1_prompt_area}"
+						 verticalAlign="top"  height="22"
+						 width="100%"  fontSize="22"/>
+			</s:VGroup>		
+			<s:VGroup contentBackgroundAlpha="0" gap="10"
+					  paddingBottom="0" paddingLeft="0" paddingRight="0" paddingTop="0"
+					  right="15">
+				<s:Label id="raceBox" height="22" color="#000000" fontFamily="MyriadPro"
+						 lineBreak="explicit" text="Mainecoon Cat"
+						 textAlign="left" verticalAlign="top"
+						 width="100%" fontSize="22"/>
+				<s:Label id="ownerBox" height="22" color="#000000" fontFamily="MyriadPro"
+						 lineBreak="explicit" text=""
+						 textAlign="left" verticalAlign="top"
+						 width="100%" fontSize="22"/>
+				<s:Label id="zipcodeBox" color="#000000" fontFamily="MyriadPro"
+						 lineBreak="explicit" textAlign="left" text=""
+						 verticalAlign="top" minWidth="200"
+						 width="100%" fontSize="22" height="22"/>
+			</s:VGroup>		
+		</s:HGroup>
+		
+	</s:Group>
+	<fx:Declarations>
+		<s:DropShadowFilter color="#000000" distance="6" alpha="0.28" angle="92.3" blurX="6" blurY="6" id="shadowFilter"/>
+	</fx:Declarations>
+</s:ItemRenderer>

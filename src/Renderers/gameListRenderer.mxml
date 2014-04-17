@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:ItemRenderer xmlns:fx="http://ns.adobe.com/mxml/2009"
+				xmlns:s="library://ns.adobe.com/flex/spark"
+				xmlns:views="views.*"
+				width="640" height="100" 
+				autoDrawBackground="false" currentState="normal"
+				dataChange="updateData();"
+				mouseOver="if(currentState=='normal') currentState='hovering';" 
+				name="Highscore"
+				alpha.hovering="1" 
+				mouseOut.hovering="currentState='normal'"
+				alpha.normal="0.92"
+				initialize="initializeHandler(event)"
+				>
+
+	<s:layout>
+		<s:BasicLayout/>
+	</s:layout>
+	
+	<s:states>
+		<s:State name="normal" />
+		<s:State name="hovering" />
+		<s:State name="selected"/>
+	</s:states>
+	
+		 		
+	<fx:Script>
+		<![CDATA[
+			
+			import mx.events.FlexEvent;
+			
+			import spark.components.List;
+			import spark.core.ContentCache;
+			
+			import classes.GlobalConstants;
+			
+		 	[Bindable]
+			private var currpos:int=0; 
+			
+			static private const iconCache:ContentCache = new ContentCache();
+			
+			private function initializeHandler(event:FlexEvent):void {
+				pic.contentLoader = iconCache;
+			}
+			
+			
+			override public function set data(value:Object):void {	//Since no autoDrawBackground?
+			//	if(value.description != null) 
+			//		descriptionBox.text = value.description;
+				if(value.currentPosition != null) 
+					currpos = value.currentPosition;
+				
+				
+				score.text = value.score;
+				
+///date=value.timestamp;				
+				if(value.uri != null) {
+				 	//pic.source= GlobalConstants.AMAZON_URL + value.uri.slice(5,value.uri.length);
+					var pos:int;
+					pos = value.uri.lastIndexOf("/",100);
+					pos = value.uri.lastIndexOf("/",pos-1);
+					pic.source = GlobalConstants.AMAZON_URL + "styles/petit_thumb/s3/petit/images" + value.uri.substr(pos);	//slice off "s3://
+				 
+				}
+				
+			 	if(value.pid==parentApplication.myPetDAO.currentPetID) {
+					mycircle.visible=true;
+				}
+				else
+					mycircle.visible=false;
+				
+			}
+			
+			private function updateData():void {
+				if(data!=null) {
+					score.text = data.score;					
+				}	
+				 
+			}
+			
+		  
+		]]>
+	</fx:Script>
+	
+	<s:Rect id="background" left="0" right="0" bottomLeftRadiusX="0" bottomLeftRadiusY="0" width="640"
+			bottomRightRadiusX="0" bottomRightRadiusY="0" radiusX="0" radiusY="0"
+			topLeftRadiusX="0" topLeftRadiusY="0" topRightRadiusX="0" topRightRadiusY="0"
+			top.hovering="0" bottom.hovering="0"
+			top.normal="0" bottom.normal="0"
+			height="100" alpha="1"
+			>
+		<s:fill>
+			<s:LinearGradient>
+				<s:GradientEntry color="0xfff7ea" ratio="0.4"/>
+				<s:GradientEntry color="0xf3ecdf" ratio="0.6"/>
+				<s:GradientEntry color="0xd0c9be" ratio="0.8"/>
+				<s:GradientEntry color="0xbeb8ae" ratio="0.9"/>
+			</s:LinearGradient>
+			<!-- <s:BitmapFill fillMode="repeat" source="@Embed('/assets/images/stripebackground.png')"/>-->
+		</s:fill>
+	</s:Rect>
+	
+	<s:Label id="descriptionBox" width="290" height="100" color="#040037"
+			 fontFamily="MyriadPro" fontSize="32" fontStyle="normal" lineBreak="toFit"
+			 text="{data.description}" textAlign="left" verticalAlign="top"
+			 x="100" y="15"/>
+	
+	
+	<s:BitmapImage id="pic" x="0" right="50"
+				   scaleMode="stretch" verticalCenter="0"
+				   width="100" height="100">
+		<s:mask>
+			<s:Group>
+				<s:Rect id="picmask" left="0" right="0" bottomLeftRadiusX="0" bottomLeftRadiusY="0" width="180"
+						bottomRightRadiusX="0" bottomRightRadiusY="0" 
+						topLeftRadiusX="0" topLeftRadiusY="0" topRightRadiusX="0" topRightRadiusY="0"
+						top="0" bottom="0"	height="240">
+					<s:fill>
+						<s:SolidColor color="0x000000"/>
+					</s:fill>
+				</s:Rect>
+			</s:Group>
+		</s:mask>
+	</s:BitmapImage>	
+	
+	<s:Label x="20" y="34" text="#{currpos}" id="position" fontFamily="MyriadPro" fontSize="55" fontWeight="bold"/>
+	<s:BitmapImage id="mycircle" x="8" y="18" smooth="true" source="@Embed('/assets/images/vote-circled.png')" width="{position.width+40}" scaleMode="stretch" height="{position.height+25}" visible="false"/>
+	<s:Label horizontalCenter="50" textAlign="right" y="34" text="#{currpos}" id="score" fontFamily="MyriadPro" fontSize="55" fontWeight="bold"/>
+		
+
+</s:ItemRenderer>

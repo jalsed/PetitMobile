@@ -1,0 +1,375 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark" title="main" xmlns:components="components.*"
+		actionBarVisible="false" height="100%" tabBarVisible="false" currentState="start"
+		 viewActivate="viewActivateHandler(event)" viewDeactivate="viewDeactivateHandler(event)" backgroundAlpha="0"
+		>
+	
+	
+	<s:states>
+		<s:State name="playing"/>
+		<s:State name="start"/>
+		<s:State name="finish"/>
+	</s:states>
+	
+	<fx:Script>
+		<![CDATA[
+			import flash.display.Bitmap;
+			import flash.display.Loader;
+			import flash.display.Sprite;
+			import flash.events.Event;
+			import flash.filters.BlurFilter;
+			import flash.net.URLRequest;
+			import flash.utils.clearInterval;
+			import flash.utils.setInterval;
+			
+			import mx.core.UIComponent;
+			
+			import spark.events.ViewNavigatorEvent;
+			
+			import events.GameEvent;
+			
+			import flashx.textLayout.elements.BreakElement;
+			
+			import games.puzzleGame.com.Piece;
+			import games.puzzleGame.com.PuzzleEvent;
+			 
+			private var musicscores:Array = new Array("music1.mp3","music3.mp3","music4.mp3");
+			private var puzzleImages:Array = new Array("puzzleart1.png","puzzleart2.png","puzzleart3.png");
+				
+			[Bindable]
+			private var level:int=1;
+			[Bindable]
+			private var points:int=0;
+			[Bindable]
+			private var correct:int=0;
+			 
+			private var starttime:Number=0;
+			[Bindable]
+			private var playedtime:Number=0;
+			
+			private var ongoing:Boolean=false;
+			
+			private var timeinterval:int;
+			private var interval1:int;
+		 	 
+			private var totalpieces:int;
+			
+			
+			private function startGame():void {
+				currentState="playing";
+				 
+				parentApplication.audioUtil.stopSoundFX();
+				parentApplication.audioUtil.decreaseBackgroundMusicVolume();
+				
+				level=1;
+				points=0;
+			 	correct=0;
+				totalpieces=20;
+				horizontalPieces=5;
+				verticalPieces=4;
+				
+				starttime= new Date().time;
+					
+				loadPuzzleImage();
+				
+			}
+			
+			private function giveUp():void  {
+			 	playedtime=1000;
+				endGame();
+			}
+			
+			private function endGame():void {
+				currentState="finish"; 
+				clearInterval(interval1);
+				clearInterval(timeinterval);
+				
+				var endtime:Number = new Date().time;
+				
+				playedtime = (endtime - starttime)/1000;
+			//	startButton.visible=true;
+			
+				puzzleGroup.removeAllElements(); 
+			 
+				parentApplication.audioUtil.increaseBackgroundMusicVolume();
+				
+				var bonus:int = 500 - Math.round(playedtime);
+				if(bonus<0)
+					bonus=0;
+				points = points + bonus;
+			
+				resultMessage.text="";	//FINISHED
+				parentApplication.audioUtil.playSoundFX("/assets/soundfx/comedy_accent_bonks_razz_twang.mp3");
+				
+				finishButton.visible=true;
+				pointsFinishText.visible=true;
+				
+				var obj:Object=new Object();
+				obj.score = points;
+				parentApplication.myCompetitionDAO.dispatchEvent(new GameEvent(GameEvent.GET_HIGHSCORE,obj));
+			}
+			
+			
+			protected function viewActivateHandler(event:ViewNavigatorEvent):void
+			{
+				parentApplication.startBGvideo();
+				parentApplication.bg.visible=false;
+				currentState="start";
+				parentApplication.audioUtil.loadBackgroundMusic("music1.mp3",0);
+
+			}
+			
+			protected function musicon_checkbox_changeHandler(event:Event):void
+			{
+				if(!musiccheckbox.selected)
+					parentApplication.audioUtil.stopBackgroundMusic();
+				else {
+					parentApplication.audioUtil.loadBackgroundMusic("music1.mp3",0);
+				}
+			}
+			
+	 
+			
+			private function back():void {
+				parentApplication.audioUtil.stopBackgroundMusic();
+				parentApplication.audioUtil.stopSoundFX();
+				parentApplication.competeNav.popView();
+			}
+			
+			protected function viewDeactivateHandler(event:ViewNavigatorEvent):void
+			{
+				parentApplication.stopBGvideo();
+				parentApplication.bg.visible=true;
+			}
+			
+			private function playScore(in_which:int):void {
+				if(! (in_which==0 && totalpieces==20) ) { 	
+					parentApplication.audioUtil.stopBackgroundMusic();
+					parentApplication.audioUtil.loadBackgroundMusic(musicscores[in_which],0);
+				}
+ 				parentApplication.audioUtil.decreaseBackgroundMusicVolume();
+				parentApplication.audioUtil.decreaseBackgroundMusicVolumeTo(0.5);
+			}
+			
+			//PUZZLE
+			
+			private var nowbitmap:Bitmap;
+			private var piecesArray:Array = new Array();
+			private var horizontalPieces:Number = 5;
+			private var verticalPieces:Number = 4;
+			private var imageWidth:Number;
+			private var imageHeight:Number;
+			private var pieceWidth:Number;
+			private var pieceHeight:Number;
+			private var showGuid:Boolean = true;
+			private var showGuidCon:Sprite;
+			private var regularCon:Sprite;
+			
+		 
+			private function loadPuzzleImage():void
+			{
+				var which:int = level-1;
+				if(level>3)
+					which = which-3;
+				if(level>6)
+					which = which-3;
+				
+				playScore(which);
+				var puzzlepic:String = "/games/puzzleGame/pics/" + puzzleImages[which];
+				
+			 	var imageLoader:Loader = new Loader();
+				var image:URLRequest = new URLRequest(puzzlepic);
+				imageLoader.contentLoaderInfo.addEventListener(Event.COMPLETE, imageLoad);
+				imageLoader.load(image);
+			 }
+			
+			
+			private function imageLoad(e:Event = null):void
+			{
+				nowbitmap = e.target.content as Bitmap;
+				imageWidth = nowbitmap.width;
+				imageHeight = nowbitmap.height;
+				pieceWidth = Math.round(imageWidth / horizontalPieces);
+				pieceHeight = Math.round(imageHeight / verticalPieces);
+				if (showGuid)
+				{
+					// container ( IVisualElement ) for DisplayObjects
+					var container:UIComponent = new UIComponent();
+					puzzleGroup.addElement( container );
+						
+					// displayObject goes to container
+					showGuidCon = new Sprite();
+					container.addChild( showGuidCon );
+				}
+				
+				var container2:UIComponent = new UIComponent();
+				puzzleGroup.addElement( container2);
+				regularCon = new Sprite();
+				container2.addChild(regularCon);
+				
+				for (var i:uint = 0; i < horizontalPieces; i++)
+				{
+					piecesArray[i] = new Array();
+					for (var j:uint = 0; j < verticalPieces; j++)
+					{
+						piecesArray[i][j] = new Object();
+						piecesArray[i][j].right = Math.floor(Math.random() * 2);
+						piecesArray[i][j].down = Math.floor(Math.random() * 2);
+						if (j > 0)
+						{
+							piecesArray[i][j].up = 1 - piecesArray[i][j - 1].down;
+						}
+						if (i > 0)
+						{
+							piecesArray[i][j].left = 1 - piecesArray[i - 1][j].right;
+						}
+						var n:Number = j + i * verticalPieces;
+						if (showGuid)
+						{
+							var pieceGuid:Piece = new Piece
+							showGuidCon.addChild(pieceGuid);
+							pieceGuid.init({image: nowbitmap.bitmapData, i: i, j: j, tileObj: piecesArray[i][j], horizontalPieces: horizontalPieces, verticalPieces: verticalPieces, crop: {x: i * pieceWidth, y: j * pieceHeight, width: pieceWidth, height: pieceHeight}, x: i * pieceWidth + i, y: j * pieceHeight + j, width: pieceWidth, height: pieceHeight, draggable: false});
+						}
+						
+						var piece:Piece = new Piece();
+						piece.removeEventListener(PuzzleEvent.PUZZLECORRECT,addscore);
+						piece.addEventListener(PuzzleEvent.PUZZLECORRECT,addscore);
+						regularCon.addChild(piece);
+						piece.init({image: nowbitmap.bitmapData, i: i, j: j, tileObj: piecesArray[i][j], horizontalPieces: horizontalPieces, verticalPieces: verticalPieces, crop: {x: i * pieceWidth, y: j * pieceHeight, width: pieceWidth, height: pieceHeight}, x: i * pieceWidth + i, y: j * pieceHeight + j, width: pieceWidth, height: pieceHeight, draggable: true});
+						
+					}
+				}
+				
+				//init time
+				timeinterval = setInterval(updatetime,200);
+			}
+			
+	  		private function addscore(e:PuzzleEvent):void {
+				correct++;
+				points+=100 + (level*50);
+								 
+				if(correct==totalpieces) {
+					if(level<9)
+						nextLevel();
+					else
+						endGame();
+					clearInterval(timeinterval);
+				}
+				else
+					parentApplication.audioUtil.playSoundFX("/assets/soundfx/comedy_spring_twang_or_pluck_004.mp3");
+			}
+			
+			private function updatetime():void {
+				var currenttime:Number = new Date().time;
+				playedtime = (currenttime - starttime)/1000;	
+			}
+			 
+			
+			private function nextLevel():void {
+				var endtime:Number = new Date().time;
+				playedtime = (endtime - starttime)/1000;
+				
+				var bonus:int = 0;
+				
+				bonus = 5000 - Math.round(playedtime*10);
+					
+				if(bonus<0)
+					bonus=0;
+			
+				points = points + bonus;
+				
+				starttime= new Date().time;
+				parentApplication.audioUtil.stopSoundFX();
+				
+				level++;
+				
+				nextlevelText.visible=true;
+				 
+				if(playedtime<(100+(level*15))) {	//within 3 min?
+					nextlevelText.text=points + " " + parentApplication.Language.game_pairgame_nextlevel+" " + level+".";//points so far! Prepare for level "+level+".";
+					//clearInterval(interval1);	
+					//interval1 = setInterval(nextLevelStep2,3500);
+					continueLevel.visible=true;
+					parentApplication.audioUtil.stopBackgroundMusic();
+					parentApplication.audioUtil.playSoundFX("/assets/soundfx/success.mp3");
+				}
+				else {
+					nextlevelText.text="Well done! But try to do it faster to get to the next level";
+					clearInterval(interval1);
+					interval1 = setInterval(endGame,3500);					
+				}
+
+			}
+			
+			private function nextLevelStep2():void {
+				
+				//clearInterval(interval1);
+				continueLevel.visible=false;
+				nextlevelText.visible=false;
+				
+				correct=0;
+				
+				starttime= new Date().time;
+				
+				if(level>3) {
+					horizontalPieces = 5;
+					verticalPieces = 5;
+					totalpieces=25;
+				}
+				if(level>6) {
+					totalpieces=30;
+					horizontalPieces = 6;
+					verticalPieces = 5;
+				}
+				
+				puzzleGroup.removeAllElements();
+				loadPuzzleImage();
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations>
+		<s:DropShadowFilter color="#000000" distance="6" alpha="0.28" angle="92.3" blurX="6" blurY="6" id="shadowFilter"/>
+	 	
+	 
+	</fx:Declarations>
+	
+	 
+	<s:BitmapImage source="assets/posters/puzzlegameposter.png" includeIn="start" horizontalCenter="0" top="50"/>
+	<s:BitmapImage source="assets/games/NameGameEnd.png" includeIn="finish" horizontalCenter="0" top="50"/>
+
+	<s:Rect id="blackback" top="0" bottom="0" width="100%" height="100%" visible="true" alpha="0.75" includeIn="playing">
+		<s:fill>
+			<s:SolidColor color="#000000"/>
+		</s:fill>
+	</s:Rect>
+	
+	
+	<s:Group id="puzzleGroup" height="800" width="640" scaleX="1" scaleY="1" y="120" horizontalCenter="0"/>
+	
+	<components:pinkButton id="continueLevel" label="{parentApplication.Language.general_continue}" horizontalCenter="0" verticalCenter="200" click="nextLevelStep2()" visible="false"/>
+	<s:Label id="nextlevelText" fontFamily="Badaboom" fontSize="64" alpha="1" textAlign="center" color="#ffffff" includeIn="playing" visible="false" horizontalCenter="0" verticalCenter="0" width="600" lineBreak="toFit"/>
+	<s:Label text="{parentApplication.Language.game_score}: {points}" top="10" right="20" fontSize="30" includeIn="playing" color="#ffffff"/>
+	<s:Label text="Puzzle" fontFamily="Badaboom" fontSize="64" horizontalCenter="0" top="140" includeIn="finish" color="#eeeeeeee" color.finish="#444444" filters="{shadowFilter}"/>
+	<s:Label text="Foga ihop pusselbitarna till en bild" fontFamily="Badaboom" fontSize="64" color.start="#eeeeeeee" top="470" width="550" lineBreak="toFit" horizontalCenter="0" includeIn="start" textAlign="center" filters="{shadowFilter}"/>
+	<s:Label id="pointsFinishText" text="{parentApplication.Language.game_finishtext1} {points} {parentApplication.Language.game_finishtext2}" fontFamily="Badaboom" fontSize="36" color="#ffffff" top="360" horizontalCenter="0" includeIn="finish"/>
+	<s:Label text="{parentApplication.Language.game_level} {level}" top="20" left="20" fontSize="30" color="#ffffff" includeIn="playing"/>
+	<s:Label id="resultMessage" bottom="60" horizontalCenter="0" fontSize="30" fontWeight="bold" color="#ffffff"/>
+	
+	<s:Label text="{parentApplication.Language.game_time}: {playedtime}" bottom="10" left="20" fontSize="30" color="#ffffff" includeIn="finish,playing"/>
+	<s:Label text="{parentApplication.Language.game_correct}: {correct}" horizontalCenter="0" bottom="10" fontSize="30" color="#ffffff" includeIn="playing"/>
+	
+	<components:pinkButton id="giveupButton" label="{parentApplication.Language.game_button_giveup.toUpperCase()}" click="giveUp();" height="100" width="500" horizontalCenter="0" includeIn="playing" top="10"/>
+	<components:pinkButton id="backButton" label="{parentApplication.Language.general_back.toUpperCase()}" click="back();" includeIn="start" horizontalCenter="0" top="10"/>
+	<s:CheckBox id="musiccheckbox" label="{parentApplication.Language.game_checkbox_music}" selected="true" color="#ffffff" fontSize="24" bottom="200" horizontalCenter="0" change="musicon_checkbox_changeHandler(event)" includeIn="start"/>
+	
+	<s:Group horizontalCenter="0" bottom="40" bottom.start="10">
+		<components:friendsButton id="startButton" label="{parentApplication.Language.game_button_start.toUpperCase()}" click="startGame();" includeIn="start"/>
+		<s:HGroup horizontalCenter="0" verticalAlign="middle">
+			<components:pinkButton id="restartButton" label="{parentApplication.Language.game_button_restart.toUpperCase()}" click="startGame();" includeIn="finish"/>
+			<components:pinkButton id="finishButton" label="{parentApplication.Language.game_button_end.toUpperCase()}" click="back();" includeIn="finish"/>	
+		</s:HGroup>
+	</s:Group>
+</s:View>

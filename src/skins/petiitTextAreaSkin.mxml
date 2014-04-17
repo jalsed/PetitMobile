@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- http://blog.flexexamples.com/2009/06/02/creating-a-transparent-spark-textarea-control-in-flex-gumbo/ -->
+<s:SparkSkin name="CustomTextAreaSkin"
+			 xmlns:fx="http://ns.adobe.com/mxml/2009"
+			 xmlns:s="library://ns.adobe.com/flex/spark"
+			 minWidth="36" minHeight="36" contentBackgroundAlpha="1" contentBackgroundColor="#dbe4da"
+			 alpha.disabled="0.5">
+	<s:states>
+		<s:State name="normal"/>
+		<s:State name="disabled"/>
+		<s:State name="normalWithPrompt"/>
+		<s:State name="disabledWithPrompt" stateGroups="disabledStates"/>
+	</s:states>
+	
+	<fx:Metadata>
+		<![CDATA[
+		[HostComponent("spark.components.TextArea")]
+		]]>
+	</fx:Metadata>
+	
+		<fx:Script>
+		/* Define the skin elements that should not be colorized.
+		For text area, the skin itself is colorized but the individual parts are not. */
+		static private const exclusions:Array = ["background", "scroller"];
+		
+		override public function get colorizeExclusions():Array {return exclusions;}
+		
+		/* Define the content fill items that should be colored by the "contentBackgroundColor" style. */
+		static private const contentFill:Array = ["bgFill"];
+		
+		override public function get contentItems():Array {return contentFill};
+			
+		override protected function updateDisplayList(unscaledWidth:Number, unscaledHeight:Number):void {
+		 
+		 	if (promptDisplay)
+			{
+				promptDisplay.setLayoutBoundsSize(unscaledWidth, unscaledHeight);
+				promptDisplay.setLayoutBoundsPosition(0, 0);
+			}
+	 
+			super.updateDisplayList(unscaledWidth, unscaledHeight);
+		}
+			 
+			 
+			
+	</fx:Script>
+	
+	<!-- border -->
+	<s:Rect left="0" right="0" top="0" bottom="0" visible="false">
+		<s:stroke>
+			<s:SolidColorStroke color="0x686868" weight="0"/>
+		</s:stroke>
+	</s:Rect>
+	
+	<!-- fill -->
+	<!--- Defines the appearance of the TextArea component's background. -->
+	<s:BitmapImage left="-10" top="-10" bottom="-10" scaleMode="stretch" source="@Embed('/assets/images/textfield/Text-Field-left-edge.png')"/>
+	<s:BitmapImage right="-10" top="-10" bottom="-10" scaleMode="stretch" source="@Embed('/assets/images/textfield/Text-Field-right-edge.png')"/>
+	<s:BitmapImage left="10" right="16" top="-10" bottom="-10" scaleMode="stretch" source="@Embed('/assets/images/textfield/Text-Field-center-horizontal-tile-big.png')"/>
+	<s:Rect id="background" left="3" right="7" top="-1" bottom="25"  			>
+		<s:fill>
+			<!--- Defines the background fill color. -->
+			<s:SolidColor id="bgFill" color="0xFFFFFF" alpha="1" />
+		</s:fill>
+	</s:Rect>
+	
+	 
+	<!-- shadow -->
+	<s:Rect left="1" top="1" right="1" height="1"    visible="false">
+		<s:fill>
+			<s:SolidColor color="0x000000" alpha="0.12" />
+		</s:fill>
+	</s:Rect>
+	
+	<!--- Defines the scroller used to scroll the RichEditableText. -->
+	<!--s:Scroller id="scroller" left="4" top="0" right="7" bottom="25">
+		<s:RichEditableText id="textView" focusIn="promptDisplay.text='';" needsSoftKeyboard="true"
+							heightInLines="10" focusedTextSelectionColor="0xffffff" unfocusedTextSelectionColor="0xffffff"
+							paddingLeft="4" paddingTop="4"
+							paddingRight="4" paddingBottom="4"/>		
+	</s:Scroller-->
+	<s:TextArea id="textView" heightInLines="10" skinClass="spark.skins.mobile.TextAreaSkin"/>
+	<s:Label id="promptDisplay" maxDisplayedLines="1" fontFamily="MyriadPro" fontSize="44" paddingLeft="5"
+			 verticalAlign="top"
+			 mouseEnabled="false" mouseChildren="false"
+			 includeIn="normalWithPrompt,disabledWithPrompt" 
+			 includeInLayout="false"/>	
+</s:SparkSkin>

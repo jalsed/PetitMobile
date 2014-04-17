@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root version="1">
+	<term type="character" title="character_bulldog" tid="1" price="0" icon="Petiitimals-BullDog"/>
+	<term type="character" title="character_hamster" tid="2" price="0" icon="CoolHamster"/>
+	<term type="character" title="character_dog1" tid="3" price="0" icon="CoolCat"/>
+	<term type="character" title="character_cat1" tid="4" price="0" icon="Dog"/>
+	<term type="character" title="character_pig1" tid="5" price="0" icon="Piglet"/>
+	<term type="character" title="character_turtle1" tid="6" price="0" icon="Turtle"/>
+	<term type="character" title="character_gingercat" tid="7" price="0" icon="GingerCat"/>
+	<term type="character" title="character_mouse" tid="8" price="0" icon="Mouse"/>
+	<term type="character" title="character_guineapig" tid="9" price="0" icon="Petiitimals-Guinea-pig"/>
+	<term type="character" title="character_rabbit" tid="10" price="0" icon="Petiitimals-Rabbit"/>
+</root>
+	

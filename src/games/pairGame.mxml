@@ -1,0 +1,566 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark" title="main" xmlns:components="components.*"
+		actionBarVisible="false" height="100%" tabBarVisible="false" currentState="start"
+		viewActivate="viewActivateHandler(event)" viewDeactivate="viewDeactivateHandler(event)" backgroundAlpha="0"
+		>
+	
+	
+	<s:states>
+		<s:State name="playing" enterState="nextTurn();"/>
+		<s:State name="start"/>
+		<s:State name="finish"/>
+	</s:states>
+	
+	<fx:Script>
+		<![CDATA[
+			import flash.utils.clearInterval;
+			import flash.utils.setInterval;
+			
+			import mx.collections.ArrayCollection;
+			
+			import spark.components.supportClasses.ItemRenderer;
+			import spark.events.ViewNavigatorEvent;
+			
+			import events.GameEvent;
+			
+			[Embed(source="/assets/characters/CoolCat.png")]
+			public static const pet1:Class;
+			[Embed(source="/assets/characters/CoolHamster.png")]
+			public static const pet2:Class;
+			[Embed(source="/assets/characters/Dog.png")]
+			public static const pet3:Class;
+			[Embed(source="/assets/characters/GingerCat.png")]
+			public static const pet4:Class;
+			[Embed(source="/assets/characters/Mouse.png")]
+			public static const pet5:Class;
+			[Embed(source="/assets/characters/Petiitimals-BullDog.png")]
+			public static const pet6:Class;
+			[Embed(source="/assets/characters/Piglet.png")]
+			public static const pet7:Class;
+			[Embed(source="/assets/characters/Turtle.png")]
+			public static const pet8:Class;
+			[Embed(source="/assets/characters/Petiitimals-Rabbit.png")]
+			public static const pet9:Class;
+			[Embed(source="/assets/characters/Petiitimals-Guinea-pig.png")]
+			public static const pet10:Class;
+			
+			[Bindable]
+			private var gridcards:ArrayCollection = new ArrayCollection();
+			
+			[Bindable]
+			private var points:int=0;
+			[Bindable]
+			private var turn:int=0;
+			[Bindable]
+			private var streak:int=0;
+			private var starttime:Number=0;
+			[Bindable]
+			private var playedtime:Number=0;
+			[Bindable]
+			private var level:int=1;
+			
+			private var currentpet:int=-1;
+			private var currentpetIndex:int=-1;
+			
+			private var lastOpened:Object;
+			private var currentpetImage:Object;
+			
+			[Bindable]
+			private var totalpairs:int=0;
+			
+			private var totalpossiblepair:int=8;
+			
+			private var interval1:int;
+			
+			private var inbonus:Boolean=false;
+			private var inprocess:Boolean=false;
+			private var lastWasCorrect:Boolean=false;
+			
+			private function setGrid():void {
+				
+				var tmpArr:ArrayCollection =  new ArrayCollection();
+				
+				gridcards.removeAll();
+				
+				if(level==2)
+					totalpossiblepair=9;
+				if(level>2)
+					totalpossiblepair=10;
+				
+				for(var i:int=0;i<(totalpossiblepair*2);i++) {
+					
+					var gridObj:Object = new Object();
+					 
+					gridObj.bonus=inbonus;
+					
+					switch(i) {
+						case 0:
+						case 8:
+							gridObj.val = 0;
+							gridObj.image = pet1;
+							break;
+						case 1:
+						case 9:
+							gridObj.val = 1;
+							gridObj.image = pet2;
+							break;
+						case 2:
+						case 10:
+							gridObj.val = 2;
+							gridObj.image = pet3;
+							break;
+						case 3:
+						case 11:
+							gridObj.val = 3;
+							gridObj.image = pet4;
+							break;
+						case 4:
+						case 12:
+							gridObj.val = 4;
+							gridObj.image = pet5;
+							break;
+						case 5:
+						case 13:
+							gridObj.val = 5;
+							gridObj.image = pet6;
+							break;
+						case 6:
+						case 14:
+							gridObj.val = 6;
+							gridObj.image = pet7;
+							break;
+						case 7:
+						case 15:
+							gridObj.val = 7;
+							gridObj.image = pet8;
+							break;
+						case 16:
+						case 17:
+							gridObj.val = 8;
+							gridObj.image = pet9;
+							break;
+						case 18:
+						case 19:
+							gridObj.val = 9;
+							gridObj.image = pet10;
+							break;
+						default:;
+					}
+					tmpArr.addItem(gridObj);
+				}
+				
+				//Randomize positions
+				var rnd:int;
+				var items:int = (totalpossiblepair*2)-1;
+				while(tmpArr.length>0) {
+					rnd = Math.round(Math.random()*items);
+					gridcards.addItem(tmpArr.getItemAt(rnd));
+					tmpArr.removeItemAt(rnd);			
+					items--;
+				}
+				
+				grid.y=100; //init
+				
+			}
+			 
+			
+			private function startGame():void {
+				currentState="playing";
+				
+				parentApplication.audioUtil.decreaseBackgroundMusicVolume();
+				
+				points=0;
+				turn=0;
+				streak=0;
+				level=1;
+				inbonus=false;
+				
+				starttime= new Date().time;
+				
+				parentApplication.audioUtil.stopSoundFX();
+				
+				setGrid();
+				blackback.alpha=0.2;
+				lastOpened=null;
+				
+				interval1 = setInterval(intervalActions,350);		//200 is the speed of the moving cards
+			}
+			
+			
+			private function intervalActions():void {
+				var endtime:Number = new Date().time;
+				playedtime = (endtime - starttime)/1000;
+				grid.y+=1;
+				
+				if(inbonus)	//extra fast
+					grid.y+=2;
+				
+				if(inbonus && grid.y>(grid.height+400)) { //bonuslevel
+					level++;
+					nextLevel();
+				} 
+				else if(!inbonus&& grid.y>(grid.height+400)) {
+					endGame();
+				}
+			}
+			
+			
+			private function nextLevel():void {
+				var endtime:Number = new Date().time;
+				playedtime = (endtime - starttime)/1000;
+				var tmppoints:int = Math.round(1/turn * 20000);
+			
+				var bonus:int = 0;
+				
+				if(!inbonus && turn!=100) {
+					bonus = 1000 - Math.round(playedtime*10);
+					
+					if(bonus<0)
+						bonus=0;
+				}
+				
+				if(turn!=100)
+					points = points + tmppoints + bonus;
+				
+				inprocess=false;
+				lastWasCorrect=false;
+				currentpet=-1;
+				currentpetIndex=-1;
+				currentpetImage=null;
+				
+				streak=0;
+				totalpairs=0;
+				starttime= new Date().time;
+				parentApplication.audioUtil.stopSoundFX();
+
+				grid.dataProvider=null;
+				gridcards.removeAll();
+ 
+				if(turn!=100) { //No bonus level for give-uppers
+					if(playedtime<35 && !inbonus && level==2)//bonus critera is 30 seconds on level 1
+						inbonus=true;
+					else if(playedtime<50 && !inbonus && level==3)//bonus critera is 45 seconds on level 2
+						inbonus=true;
+					else if(playedtime<61 && !inbonus && level>4)//bonus critera is 60 seconds on all higher levels
+						inbonus=true;
+					else
+						inbonus=false;
+				}
+				
+				turn=0;
+				
+				if(inbonus)
+					nextlevelText.text=points + " " + parentApplication.Language.game_pairgame_bonuslevel;//points so far! Prepare for the BONUS level!";
+				else
+					nextlevelText.text=points + " " + parentApplication.Language.game_pairgame_nextlevel+" " + level+".";//points so far! Prepare for level "+level+".";
+			
+				nextlevelText.visible=true;
+				continueLevel.visible=true;
+				
+				clearInterval(interval1);
+			//	interval1 = setInterval(nextLevelStep2,3500);
+			}
+			
+			
+			private function nextLevelStep2():void {
+					
+			//	clearInterval(interval1);
+				starttime= new Date().time;
+				continueLevel.visible=false;
+				nextlevelText.visible=false;
+				setGrid();
+				grid.dataProvider=gridcards;
+				lastOpened=null;
+
+				var speed:int;
+				if(inbonus) {
+					blackback.alpha=0.7;
+					speed = Math.round(18-(level*2));
+					if(speed<2)
+						speed=2;
+					interval1 = setInterval(intervalActions,speed);		//20 is the speed of the moving cards
+				}
+				else {
+					blackback.alpha=0.2;
+					speed = Math.round(500/level);
+					interval1 = setInterval(intervalActions,speed);		//120 is the speed of the moving cards
+				}
+			}
+			
+			
+			private function giveUp():void {
+				turn=100;
+				level++;
+				nextLevel();
+				//endGame();	
+			}
+			
+			
+			private function endGame():void {
+				currentState="finish"; 
+				
+				clearInterval(interval1);
+				
+				var endtime:Number = new Date().time;
+				
+				playedtime = (endtime - starttime)/1000;
+				
+				petImage.source=null;
+				
+				var tmppoints:int = Math.round(1/turn * 20000);
+				
+				var bonus:int = 1000 - Math.round(playedtime*10);
+				if(bonus<0)
+					bonus=0;
+				points = points + tmppoints + bonus;
+				
+				resultMessage.text="";
+				parentApplication.audioUtil.playSoundFX("/assets/soundfx/comedy_accent_bonks_razz_twang.mp3");
+				
+				parentApplication.audioUtil.increaseBackgroundMusicVolume();
+				
+				finishButton.visible=true;
+				pointsFinishText.visible=true;
+				
+				var obj:Object=new Object();
+				obj.score = points;
+				parentApplication.myCompetitionDAO.dispatchEvent(new GameEvent(GameEvent.GET_HIGHSCORE,obj));
+				
+			}
+			
+			private function nextTurn():void {
+				turn++; 				
+			}
+			 
+			
+			public function checkAnswer(event:Event):void {
+				
+				if(event.target.currentState!="removed" && !inprocess && grid.selectedIndex!=currentpetIndex && event.currentTarget.y<960) {	//960 = limit for all resolutions
+					inprocess=true;
+					
+					if(currentpet==-1) { //first
+						if(lastOpened!=null) {
+							if(lastWasCorrect) {
+								currentpetImage.makeInvisible();
+								lastOpened.makeInvisible();
+								lastWasCorrect=false;
+								lastOpened=null;
+							}
+							else {
+								if(!inbonus) {
+									currentpetImage.reset();
+									lastOpened.reset();
+									lastOpened=null;
+								}
+								else
+									event.target.makeTransparent();
+							}
+						}
+						currentpet = grid.selectedItem.val;
+						currentpetIndex = grid.selectedIndex;
+						
+						if(inbonus)
+							event.target.makeTransparent();
+						else
+							event.target.stayVisible();
+						
+						lastOpened = event.target;
+						inprocess=false;
+					}
+					else {
+						if(inbonus)
+							event.target.makeTransparent();
+						else
+							event.target.showCard();
+						
+						currentpetImage = event.target;
+						
+						if(grid.selectedItem.val==currentpet) {	//CORRECT
+							//parentApplication.showToastFX(parentApplication.Language.game_correct,true);	//"CORRECT!"
+							parentApplication.audioUtil.playSoundFX("/assets/soundfx/comedy_spring_twang_or_pluck_004.mp3");
+							
+							totalpairs++;
+							currentpet=-1;
+							
+							lastWasCorrect=true;
+							
+							inprocess=false; 
+							/*				
+							//Delay some time 
+							var intervalId:uint;
+							intervalId = setInterval(clearFunction,900);
+							
+							function clearFunction():void {
+							clearInterval(intervalId);
+							event.target.makeInvisible();
+							lastOpened.makeInvisible();
+							currentpetIndex=-1;
+							inprocess=false; 
+							}
+							*/			
+							if(inbonus) {
+								event.target.makeInvisible();
+								lastOpened.makeInvisible();
+							}
+						}
+						else {	//NOT CORRECT
+							parentApplication.audioUtil.playSoundFX("/assets/soundfx/comedy_twang_003.mp3");
+							//parentApplication.showToastFX("NOT CORRECT",false);
+							
+							currentpet=-1;
+							
+							inprocess=false; 
+							
+							/*				var intervalId2:uint;
+							intervalId2 = setInterval(clearFunction2,900);
+							
+							function clearFunction2():void {
+							clearInterval(intervalId2);
+							event.target.reset();
+							lastOpened.reset();
+							inprocess=false;
+							}
+							*/			
+						}	
+					}
+					
+					if(totalpairs==totalpossiblepair) {	
+						if(!inbonus)
+							level++;
+						nextLevel();
+					}
+					else {
+						nextTurn();
+					}
+				}
+			}
+			
+			
+			protected function viewActivateHandler(event:ViewNavigatorEvent):void
+			{
+				parentApplication.startBGvideo();
+				parentApplication.bg.visible=false;
+				currentState="start";
+				parentApplication.audioUtil.loadBackgroundMusic("music4.mp3",0);
+				
+			}
+			
+			protected function musicon_checkbox_changeHandler(event:Event):void
+			{
+				if(!musiccheckbox.selected)
+					parentApplication.audioUtil.stopBackgroundMusic();
+				else {
+					parentApplication.audioUtil.loadBackgroundMusic("music4.mp3",0);
+				}
+			}
+			
+			private function back():void {
+				parentApplication.audioUtil.stopBackgroundMusic();
+				parentApplication.audioUtil.stopSoundFX();
+				parentApplication.competeNav.popView();
+			}
+			
+			protected function viewDeactivateHandler(event:ViewNavigatorEvent):void
+			{
+				parentApplication.stopBGvideo();
+				parentApplication.bg.visible=true;
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations>
+		<s:DropShadowFilter color="#000000" distance="6" alpha="0.28" angle="92.3" blurX="6" blurY="6" id="shadowFilter"/>
+	</fx:Declarations>
+	<s:BitmapImage id="bigbgposter" visible="true" horizontalCenter="0" y="0" alpha="0.85" scaleMode="stretch" scaleX="1.8" scaleY="1.8" smooth="true" includeIn="playing,finish"
+				   fillMode="scale" source="/assets/posters/pairgameposter.png" 
+				   />
+	
+	<s:Rect id="blackback" top="0" bottom="0" width="100%" height="100%" visible="true" alpha="0.35">
+		<s:fill>
+			<s:SolidColor color="#000000"/>
+		</s:fill>
+	</s:Rect>
+
+	
+	<s:Group width="640" y="5" horizontalCenter="0" height="100%">
+		<s:List id="grid" includeIn="playing" width="532" horizontalCenter="0"
+				verticalScrollPolicy="off" horizontalScrollPolicy="off" 
+				contentBackgroundAlpha="0"
+				dataProvider="{gridcards}" 
+				itemRenderer="games.cardRenderer"
+				skinClass="spark.skins.mobile.ListSkin" cacheAsBitmap="false">
+			<s:layout>
+				<s:TileLayout id="listTile" requestedColumnCount="4" orientation="rows" horizontalGap="15" verticalGap="15" paddingTop="10" paddingBottom="10"
+							  horizontalAlign="center"
+							  />
+			</s:layout>
+		</s:List>
+	</s:Group>
+	
+	<s:Group id="bottomfade" top="960" bottom="0" width="100%" visible="true" alpha="1" includeIn="playing">
+		<s:Rect  width="100%" height="100%">
+			<s:fill>
+				<s:LinearGradient rotation="90">
+					 <s:GradientEntry color="#000000" alpha="0.5"/>
+					<s:GradientEntry color="#000000" alpha="1.0"/>
+					<s:GradientEntry color="#000000" alpha="1.0"/>
+					<s:GradientEntry color="#000000" alpha="1.0"/>
+					<s:GradientEntry color="#000000" alpha="1.0"/>
+					<s:GradientEntry color="#000000" alpha="1.0"/>
+					<s:GradientEntry color="#000000" alpha="1.0"/>
+					<s:GradientEntry color="#000000" alpha="1.0"/>
+					<s:GradientEntry color="#000000" alpha="1.0"/>
+					<s:GradientEntry color="#000000" alpha="1.0"/>
+				</s:LinearGradient>
+			</s:fill>
+		</s:Rect>	
+	</s:Group>
+
+	<s:BitmapImage source="assets/skin/menu/Petiit_Console.png" horizontalCenter="0" bottom="0" includeIn="playing" width="100%"/>
+	
+	<s:Group width="580" height="720" includeIn="start" horizontalCenter="0" top="70">
+		<s:BitmapImage source="assets/posters/pairgameposter.png" />
+		<s:Rect id="darkness" height="100%" width="100%">
+			<s:fill>
+				<s:LinearGradient rotation="90">
+					<s:GradientEntry color="#000000" alpha="0.0"/>
+					<s:GradientEntry color="#000000" alpha="0.0"/>
+					<s:GradientEntry color="#000000" alpha="0.3"/>
+					<s:GradientEntry color="#000000" alpha="0.5"/>
+				</s:LinearGradient>
+			</s:fill>
+		</s:Rect>
+	</s:Group>
+ 
+	<s:BitmapImage source="assets/games/NameGameEnd.png" includeIn="finish" horizontalCenter="0" top="50"/>
+	
+	<s:Label id="nextlevelText" fontFamily="Badaboom" fontSize="64" alpha="1" textAlign="center" color="#ffffff" includeIn="playing" visible="false" horizontalCenter="0" verticalCenter="0" width="600" lineBreak="toFit"/>
+	<components:pinkButton id="continueLevel" label="{parentApplication.Language.general_continue}" horizontalCenter="0" verticalCenter="200" click="nextLevelStep2()" visible="false"/>
+	<s:Label text="{parentApplication.Language.game_pairgame_title}" fontFamily="Badaboom" fontSize="64" top="108" horizontalCenter="0" includeIn="finish"  color="#000000"/>
+	<s:Label text="{parentApplication.Language.game_pairgame_helptext}" fontFamily="Badaboom" fontSize="64" color="#eeeeee" top="480" width="550" lineBreak="toFit" horizontalCenter="0" includeIn="start" textAlign="center" filters="{shadowFilter}"/>
+	<s:Label id="pointsFinishText" text="{parentApplication.Language.game_finishtext1} {points} {parentApplication.Language.game_finishtext2}" fontFamily="Badaboom" fontSize="36" color="#ffffff" top="360" horizontalCenter="0" includeIn="finish"/>
+	<s:Image id="petImage" horizontalCenter="0" top="80" width="460" height="440" scaleMode="stretch" smooth="true" filters="{shadowFilter}"/>
+	
+	<s:Label id="resultMessage" bottom="60" horizontalCenter="0" fontSize="30" fontWeight="bold" color="#ffffff"/>
+	
+	<s:Label text="{parentApplication.Language.game_level} {level}" top="20" left="20" fontSize="30" color="#ffffff" includeIn="playing" filters="{shadowFilter}"/>
+	<s:Label text="{parentApplication.Language.game_time}: {playedtime}" bottom="10" left="20" fontSize="30" color="#ffffff" includeIn="finish,playing"/>
+	<s:Label text="{parentApplication.Language.game_pairgame_pairs} {totalpairs}" horizontalCenter="0" bottom="10" fontSize="30" color="#ffffff" includeIn="playing"/>
+	<s:Label text="{parentApplication.Language.game_turn.toUpperCase()} {turn}" bottom="10" right="20" fontSize="30" color="#ffffff" includeIn="finish,playing"/>
+	<s:HGroup horizontalCenter="0"  top="10" includeIn="playing" horizontalAlign="center">
+		<components:pinkButton id="endgameButton" label="{parentApplication.Language.game_button_end.toUpperCase()}" click="turn=100;endGame();" height="100" width="250" />
+		<components:pinkButton id="giveupButton" label="{parentApplication.Language.game_button_giveupthislevel.toUpperCase()}" click="giveUp();" height="100" width="250"/>	
+	</s:HGroup>
+	
+	<components:pinkButton id="backButton" label="{parentApplication.Language.general_back.toUpperCase()}" click="back();" includeIn="start" horizontalCenter="0" top="5"/>
+	<s:CheckBox id="musiccheckbox" label="{parentApplication.Language.game_checkbox_music}" selected="true" color="#ffffff" fontSize="24" bottom="190" horizontalCenter="0" change="musicon_checkbox_changeHandler(event)" includeIn="start"/>
+	<s:Group horizontalCenter="0" bottom.start="5" bottom.finish="30">
+		<components:friendsButton id="startButton" label="{parentApplication.Language.game_button_start.toUpperCase()}" click="startGame();" includeIn="start" horizontalCenter="0"/>
+		<s:HGroup horizontalCenter="0" verticalAlign="middle">
+			<components:pinkButton id="restartButton" label="{parentApplication.Language.game_button_restart.toUpperCase()}" click="startGame();" includeIn="finish"/>
+			<components:pinkButton id="finishButton" label="{parentApplication.Language.game_button_end.toUpperCase()}" click="back();" includeIn="finish"/>	
+		</s:HGroup>
+	</s:Group>
+</s:View>

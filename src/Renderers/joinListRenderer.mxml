@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:ItemRenderer xmlns:fx="http://ns.adobe.com/mxml/2009"
+				xmlns:s="library://ns.adobe.com/flex/spark"
+				xmlns:views="views.*"
+				width="560" height="170" 
+				autoDrawBackground="false" currentState="normal"
+				dataChange="updateData();"
+				name="compItems"
+				alpha.normal="1" xmlns:components="components.*" cacheAsBitmap="true"
+				>
+
+	<s:layout>
+		<s:BasicLayout/>
+	</s:layout>
+	
+	<s:states>
+		<s:State name="normal" />
+	</s:states>
+	
+	 
+	 		
+	<fx:Script>
+		<![CDATA[
+			import mx.events.FlexEvent;
+			
+			import spark.components.List;
+			
+			private var adImage:String = "";
+			 
+			override public function set data(value:Object):void {	//Since no autoDrawBackground?
+				 
+			 
+				if(value.description != null && value.description.length>0)
+					descriptionBox.text = value.description;
+				else //MUST have else in data renderers set data
+					descriptionBox.text="";
+				
+				
+				if(value.imageURL != null) {
+					adImage = value.imageURL;
+					pic.source=adImage;
+				}
+				else //MUST have else in data renderers set data
+					pic.source="";
+				
+			}
+			
+			private function updateData():void {
+				if(data!=null) {
+				 
+					if(data.description != null && data.description.length>0)
+						descriptionBox.text = data.description;
+					else //MUST have else in data renderers set data
+						descriptionBox.text="";
+					 
+					
+					if(data.imageURL != null)
+						adImage = data.imageURL;
+									
+				}	
+				
+				pic.source=adImage;
+			}
+			
+			private function joinCompetition():void {
+				//-Validate chosen post against rules
+				//-Register
+			}
+			 
+			private function backToNormal():void {
+			 	currentState='normal';
+			}
+
+			
+			
+		]]>
+	</fx:Script>
+	 
+	<s:Rect id="background" left="0" right="0" bottomLeftRadiusX="10" bottomLeftRadiusY="10"
+			bottomRightRadiusX="10" bottomRightRadiusY="10" radiusX="10" radiusY="10"
+			topLeftRadiusX="10" topLeftRadiusY="10" topRightRadiusX="10" topRightRadiusY="10"
+			top.normal="0" bottom.normal="0"
+			>
+		<s:fill>
+			<s:LinearGradient>
+				<s:GradientEntry color="0xbeb8ae" ratio="0"/>
+				<s:GradientEntry color="0xd0c9be" ratio="0.2"/>
+				<s:GradientEntry color="0xf3ecdf" ratio="0.4"/>
+				<s:GradientEntry color="0xfff7ea" ratio="0.8"/>
+			</s:LinearGradient>
+		</s:fill>
+	</s:Rect>
+	 
+	<s:Label id="descriptionBox" width="290" color="#777777" fontFamily="Verdana"
+			 fontSize="16" fontStyle="normal" lineBreak="explicit" text="{data.description}"
+			 textAlign="left" verticalAlign="top"
+			 x="181" y="10" height="150"/>
+	<s:BitmapImage id="pic" width="150" height="150" clearOnLoad="true"
+					   scaleMode="zoom"
+					   x="10" y="10"/>
+	<components:pinkButton label="{parentApplication.Language.renderer_join_choose}" bottom="10" right="10" click="joinCompetition();"/>
+</s:ItemRenderer>

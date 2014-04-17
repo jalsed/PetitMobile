@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:ItemRenderer xmlns:fx="http://ns.adobe.com/mxml/2009"
+				xmlns:s="library://ns.adobe.com/flex/spark"
+				xmlns:views="views.*"
+				name="cardRenderer"
+				currentState="play"
+				width="120" height="120"
+			 	autoDrawBackground="false"
+				xmlns:classes="classes.*"
+				initialize="init();"
+				click.play="hit(event);"
+				>
+
+	<s:layout>
+		<s:BasicLayout/>
+	</s:layout>
+	
+	<s:states>
+		<s:State name="play" />
+		<s:State name="removed"/>
+	</s:states>
+	 		
+	<fx:Script>
+		<![CDATA[
+			import mx.events.FlexEvent;
+			 
+		
+	 		public var cardValue:int=-1;
+		 	
+			[Embed("/assets/games/playcard.png")] private var playcardClass:Class;	
+			[Embed("/assets/games/whitecard.png")] private var whitecardClass:Class;	
+			
+			private function init():void {
+				currentState='play';
+				reset();
+			}
+		  
+			override public function set data(value:Object):void {
+				super.data = value;
+				
+			
+				if (data && currentState!="removed") {
+					playcard.source= playcardClass;
+					pic.source = data.image;
+					whitecard.source = whitecardClass;
+					cardValue = data.val;
+					
+					if(value.bonus) {
+						pic.alpha=1;
+						whitecard.alpha=1; 
+					}
+					else {
+						pic.alpha=0;
+						whitecard.alpha=0;
+					}			 
+				}
+				else {
+					pic.source=null;
+					whitecard.source=null;
+				}
+				
+				
+			}
+			
+			public function stayVisible():void {
+				if(currentState!="removed") {
+					pic.alpha=1;
+					whitecard.alpha=1;
+					displaceCard();
+				}
+			}
+			
+			public function showCard():void {
+				if(currentState!="removed") {
+					pic.alpha=1;
+					whitecard.alpha=1;
+				}
+			}
+			
+			public function makeInvisible():void {
+				currentState="removed";
+				pic.alpha=0.15;
+				whitecard.alpha=0.15;
+				playcard.alpha=0.0;
+			}
+			
+			public function makeTransparent():void {
+				pic.alpha=0.7;
+				whitecard.alpha=0.7;
+				playcard.alpha=0;
+			}
+			 			
+			public function reset():void {
+				if(currentState!="removed") {
+					currentState="play";
+					playcard.alpha=1;
+					pic.alpha=0;
+					whitecard.alpha=0;
+				}
+			}
+			
+			
+			private function displaceCard():void {
+				this.rotation=Math.round(Math.random()*1+1) - Math.round(Math.random()*1+1);
+			}
+			
+			private function hit(event:Event):void {
+				if(currentState!="removed")
+					parentDocument.parentDocument.checkAnswer(event);
+			}
+	 
+			
+		]]>
+	</fx:Script>
+	
+	<s:BitmapImage id="playcard" x="0" y="0" width="120" height="120" alpha="1"  smooth="true" filters="{shadowFilter}"/>
+	<s:BitmapImage id="whitecard" x="0" y="0" width="120" height="120" smooth="true"/>
+	<s:BitmapImage id="pic" x="5" y="5" scaleMode="stretch" width="110" height="110" clearOnLoad="true" smooth="true" />
+	
+	<fx:Declarations>
+		<s:DropShadowFilter color="#000000" distance="6" alpha="0.28" angle="92.3" blurX="6" blurY="6" id="shadowFilter"/>
+	</fx:Declarations>
+</s:ItemRenderer>

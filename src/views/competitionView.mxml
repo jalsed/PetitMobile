@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark" 
+		xmlns:components="components.*"
+	 	title="Competitions" actionBarVisible="false" tabBarVisible="false"
+	    creationComplete="start();" backgroundAlpha="0" viewDeactivate="viewDeactivateHandler(event)"
+	    viewActivate="viewActivateHandler(event)"
+	   
+	   destructionPolicy="never" xmlns:ns="http://flex.apache.org/experimental/ns"
+	   >
+	
+	<s:states>
+		<s:State name="normal"/>
+	</s:states>
+	
+	<fx:Declarations>
+		<s:Move id="showConsoleFX" yFrom="{currentConsolePos}" yTo="{currentConsolePos-80}" duration="300" target="{console}" effectEnd="currentConsolePos=console.y;" />
+		<s:Move id="hideConsoleFX" yFrom="{currentConsolePos}" yTo="{currentConsolePos+80}" duration="300" target="{console}" effectEnd="currentConsolePos=console.y;" />
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import flash.utils.setInterval;
+			
+			import mx.collections.ArrayCollection;
+			import mx.events.TouchInteractionEvent;
+			
+			import spark.events.ViewNavigatorEvent;
+			
+			import classes.GlobalConstants;
+			
+			import events.CompetitionEvent;
+			import events.UserEvent;
+			
+			import models.CompetitionVO;
+			
+			[Bindable]
+			private var currentConsolePos:uint=1000;
+			
+			private var interval:uint;
+			
+			[Bindable]
+			private var competitions:ArrayCollection = new ArrayCollection();
+			
+		 	
+			
+			public function gotoCompetition(event:Event):void {
+				if(competitionList.selectedItem != undefined)
+					parentApplication.gotoCompetitionDetail(competitionList.selectedItem.competitionID,competitionList.selectedItem.entered);
+			}
+			
+			
+			public function gotoGame(in_gameURL:String):void {
+				if(competitionList.selectedItem != undefined)
+					parentApplication.gotoGameDetail(competitionList.selectedItem.competitionID,competitionList.selectedItem.entered,in_gameURL);
+			}
+
+			
+			private function update(event:UserEvent):void {
+				parentApplication.myCompetitionDAO.removeEventListener(CompetitionEvent.COMPETITION_GETCOMPETITIONS_READY,competitionsListReady);
+				parentApplication.myCompetitionDAO.removeEventListener(CompetitionEvent.COMPETITION_GETCOMPETITIONS_FAILED,competitionsListFailed);
+				parentApplication.myCompetitionDAO.addEventListener(CompetitionEvent.COMPETITION_GETCOMPETITIONS_READY,competitionsListReady);
+				parentApplication.myCompetitionDAO.addEventListener(CompetitionEvent.COMPETITION_GETCOMPETITIONS_FAILED,competitionsListFailed);
+				parentApplication.myCompetitionDAO.restGetCompetitions(parentApplication.myPetDAO.currentPetID);
+			}
+		 
+			protected function start():void
+			{ 
+				parentApplication.isBusy(parentApplication.Language.busy_getcompetitions);//"Hämtar tävlingar"
+			
+				
+				parentApplication.myCompetitionDAO.addEventListener(CompetitionEvent.COMPETITION_GETCOMPETITIONS_READY,competitionsListReady);
+				parentApplication.myCompetitionDAO.addEventListener(CompetitionEvent.COMPETITION_GETCOMPETITIONS_FAILED,competitionsListFailed);
+				parentApplication.myCompetitionDAO.restGetCompetitions(parentApplication.myPetDAO.currentPetID);
+				
+				parentApplication.myUserDAO.addEventListener(UserEvent.LOGIN_READY,update,false); 
+			}
+			
+			protected function viewActivateHandler(event:ViewNavigatorEvent):void {
+				if(parentApplication.checkBGvideoAvailable())
+					parentApplication.startBGvideo();
+				else
+					parentApplication.stage3dbackground("/assets/movies/loop3.mp4");	//.mov fungerar i iOS men inte Android. Därför mp4/H264. Se till att inga svarta kanter finns i originalfilen.
+
+				parentApplication.bg.visible=false;	//stage3dvisible
+				
+				setMenuLabels();
+				interval=setInterval(removeMenuLabels,4000);
+			
+				currentConsolePos = (this.height - console.height);
+				
+				if(competitions!=null && competitions.length>0) {
+					startAllAnims();
+				}
+				
+				parentApplication.showNotificationCirle();
+				
+				if(competitions.length==0)
+					start();
+			 
+			}
+			
+			private function setMenuLabels():void {
+				if(parentApplication.Language!=null) {
+					competitionButton.label= parentApplication.Language.navigation_competitions.toUpperCase();//"COMPETITIONS";
+					newsfeedButton.label=parentApplication.Language.navigation_news.toUpperCase(); //"NEWS FEED";
+					friendsButton.label=parentApplication.Language.navigation_friends.toUpperCase(); //"FRIENDS";
+				}
+			}
+			
+			
+			private function removeMenuLabels():void {
+				clearInterval(interval);
+				competitionButton.label="";
+				newsfeedButton.label="";
+				friendsButton.label="";
+			}
+			
+			private function competitionsListReady(event:CompetitionEvent):void {
+				
+				competitions.removeAll();
+				
+				addHardcodedCompetitions();
+				
+				var tmp:CompetitionVO;
+				for each(var compobj:Object in event.data) {
+					
+					if(parseInt(compobj.field_competition_status.und[0].value)>0) {		// 0=archived, 1=open, 2=closed, 3=results
+						tmp = new CompetitionVO();
+						tmp.gameURL="";
+						tmp.competitionID=parseInt(compobj.nid);
+					 
+						//tmp.description=compobj.body[parentApplication.language][0].value;	//Multilingual ready
+						tmp.description=compobj.field_description[parentApplication.language][0].value;	//Multilingual ready
+						
+						if(compobj.field_competition_posterurl !=null && compobj.field_competition_posterurl.hasOwnProperty("und") && compobj.field_competition_posterurl.und[0].value.length>0) {
+							if(compobj.field_competition_posterurl.und[0].value.substr(0,6) == "assets")
+								tmp.background_imageURL= compobj.field_competition_posterurl.und[0].value;								//internal
+							else
+								tmp.background_imageURL=GlobalConstants.AMAZON_URL+compobj.field_competition_posterurl.und[0].value;	//external
+						}
+							
+						if(compobj.field_competition_gameurl!=null && compobj.field_competition_gameurl.hasOwnProperty("und"))
+							tmp.gameURL =compobj.field_competition_gameurl.und[0].value;
+						else
+							tmp.gameURL="";
+						
+						if(compobj.field_competition_badge.length>0)
+							tmp.badge_imageURL = GlobalConstants.AMAZON_URL+compobj.field_competition_badge.und[0].value;
+						else
+							tmp.badge_imageURL="";
+ 
+						if(compobj.field_competition_soundurl !=null && compobj.field_competition_soundurl.hasOwnProperty("und") && compobj.field_competition_soundurl.und[0].value.length>0) {
+							if(compobj.field_competition_soundurl.und[0].value.substr(0,6) == "assets")
+								tmp.soundURL = compobj.field_competition_soundurl.und[0].value;	//internal
+							else
+								tmp.soundURL = GlobalConstants.AMAZON_URL+compobj.field_competition_soundurl.und[0].value;	//external
+						}
+						else
+							tmp.soundURL="";
+						
+						tmp.rules=""+compobj.field_competition_rules[parentApplication.language][0].value;
+						
+						if(compobj.field_competition_prize!=null && compobj.field_competition_prize.length>0)
+							tmp.prize= compobj.field_competition_prize[parentApplication.language][0].value;
+
+						if(compobj.field_competition_image_prize!=null && compobj.field_competition_image_prize.length>0)
+							tmp.prizeImage= compobj.field_competition_image_prize.und[0].value;
+	
+						tmp.startdate = compobj.field_competition_date.und[0].value;
+						tmp.enddate = compobj.field_competition_date.und[0].value2;
+						
+						//tmp.title=compobj.title;
+						tmp.title=compobj.field_header[parentApplication.language][0].value;	//Multilingual ready
+						
+						tmp.entered = compobj.entered;
+						tmp.status = parseInt(compobj.field_competition_status.und[0].value);
+						 
+						competitions.addItem(tmp);
+					}
+				}
+				
+				
+				//Clean
+				parentApplication.myCompetitionDAO.removeEventListener(CompetitionEvent.COMPETITION_GETCOMPETITIONS_READY,competitionsListReady);
+				parentApplication.myCompetitionDAO.removeEventListener(CompetitionEvent.COMPETITION_GETCOMPETITIONS_FAILED,competitionsListFailed);
+			}
+			
+			private function competitionsListFailed(event:CompetitionEvent):void {
+				
+				//Clean
+				parentApplication.myCompetitionDAO.removeEventListener(CompetitionEvent.COMPETITION_GETCOMPETITIONS_READY,competitionsListReady);
+				parentApplication.myCompetitionDAO.removeEventListener(CompetitionEvent.COMPETITION_GETCOMPETITIONS_FAILED,competitionsListFailed);
+			}
+			
+			private function addHardcodedCompetitions():void {
+				if(competitions.length==0) {
+					var tmp:CompetitionVO = new CompetitionVO();
+/*					
+					tmp.competitionID=1;
+					tmp.background_imageURL="assets/posters/poster4.swf";
+					tmp.badge_imageURL="http://www.bigcheesebadges.com/images/cat_meow.png";
+					tmp.soundURL="assets/music/music1.mp3";
+					tmp.gameURL="";
+					tmp.rules=".";
+					tmp.title=".";
+					tmp.description=".";
+					tmp.status=1;
+					competitions.addItem(tmp);
+					
+					
+					var tmp2:CompetitionVO = new CompetitionVO();
+					tmp2.competitionID=2;
+					tmp2.background_imageURL="assets/posters/poster2.png";
+					tmp2.gameURL="";	//"assets/games/ffTalkSwf.swf";
+					tmp2.badge_imageURL="assets/skin/Competition_icon.png";
+					tmp2.soundURL="";
+					tmp2.prize="Lyxhundmat";
+					tmp2.prizeImage="Picture_1.png";
+					tmp2.rules="This is a description of rules and requirements to enter the competition.";
+					tmp2.title="Second competition";
+					tmp2.description="This is a general description of the competition. What is valued. Maybe the prize too.";
+					tmp2.status=2;
+					competitions.addItem(tmp2);
+					
+					var tmp3:CompetitionVO = new CompetitionVO();
+					tmp3.competitionID=3;
+					tmp3.background_imageURL="assets/posters/pairgamePoster.swf";
+					tmp3.badge_imageURL="http://www.bigcheesebadges.com/images/cat_meow.png";
+					tmp3.soundURL="";
+					tmp3.gameURL="internal-pairgame";
+					tmp3.prize="Whiskasmat";
+					tmp3.prizeImage="Picture_2.png";
+					tmp3.rules="This is a description of rules and requirements to enter the competition.";
+					tmp3.title="Pair Game";
+					tmp3.description="This is a general description of the competition. What is valued. Maybe the prize too.";
+					tmp3.status=1;
+					competitions.addItem(tmp3);
+					
+					var tmp4:CompetitionVO = new CompetitionVO();
+					tmp4.competitionID=4;
+					tmp4.background_imageURL="assets/posters/namegamePoster.swf";
+					tmp4.badge_imageURL="http://www.bigcheesebadges.com/images/cat_meow.png";
+					tmp4.soundURL="";
+					tmp4.gameURL="internal-namegame";
+					tmp4.prize="Lyxhundmat";
+					tmp4.prizeImage="Picture_1.png";
+					tmp4.rules="This is a description of rules and requirements to enter the competition.";
+					tmp4.title="Fourth competition";
+					tmp4.description="This is a general description of the competition. What is valued. Maybe the prize too.";
+					tmp4.status=1;
+					competitions.addItem(tmp4);
+					
+					var tmp5:CompetitionVO = new CompetitionVO();
+					tmp5.competitionID=5;
+					tmp5.background_imageURL="assets/posters/bulldoggamePoster.swf";
+					tmp5.badge_imageURL="http://www.bigcheesebadges.com/images/cat_meow.png";
+					tmp5.soundURL="";
+					tmp5.gameURL="internal-petapetgame";
+					tmp5.prize="Lyxhundmat";
+					tmp5.prizeImage="Picture_1.png";
+					tmp5.rules="This is a description of rules and requirements to enter the competition.";
+					tmp5.title="Fifth competition";
+					tmp5.description="This is a general description of the competition. What is valued. Maybe the prize too.";
+					tmp5.status=3;
+					competitions.addItem(tmp5);
+*/					
+				 
+				}
+			}
+			
+			
+			
+			
+			 
+			/************************************************************
+			 * CONSOLE ANIMATION										*
+			 * 															*
+			 ************************************************************/
+			private function checkIfActiveConsole():void {
+			//	if(currentConsolePos != (this.height-console.height)) {
+			//		showConsoleFX.play();
+			//		consoleButtons.mouseEnabled=true;
+			//	}
+			 
+			}
+			
+			protected function scrollStart(event:TouchInteractionEvent):void
+			{
+			//	if(currentConsolePos==(this.height - console.height)) {
+			//		hideConsoleFX.play();
+			//	}
+				stopAllAnims();
+			}
+			
+			protected function viewDeactivateHandler(event:ViewNavigatorEvent):void {
+				parentApplication.audioUtil.stopSoundFX();
+//				showConsoleFX.play();
+				parentApplication.stopBGvideo();
+				parentApplication.bg.visible=true;
+				parentApplication.hideNotificationCirle();
+			}
+			
+			private function stopAllAnims():void {
+				for each(var cvo:CompetitionVO in competitions) {
+					cvo.currentlyPlaying=false;
+				} 
+			}
+			
+			private function startAllAnims():void {
+				for each(var cvo:CompetitionVO in competitions) {
+					cvo.currentlyPlaying=true;
+				}
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<!--s:BitmapImage source="@Embed('/assets/images/bg_blue-sunburst.jpg')" scaleMode="stretch" x="0" y="0" width="100%" height="100%" id="skinbg"/-->
+	<s:Rect	width="100%" height="100%">
+		<s:fill>
+			<s:SolidColor color="#000000" alpha="0.25"/>
+		</s:fill>
+	</s:Rect>
+
+		<!--s:Group id="listGroup" visible="true" width="100%" height="100%" horizontalCenter="0" y="5" >
+			<s:List id="competitionList" width="100%" height="880" horizontalScrollPolicy="on" verticalScrollPolicy="off" 								useVirtualLayout="true" interactionMode="touch"
+			contentBackgroundAlpha="0" dataProvider="{competitions}" touchInteractionStart="scrollStart(event)"  										scrollSnappingMode="none"
+			itemRenderer="Renderers.competitionListRenderer" pageScrollingEnabled="false"
+			skinClass="spark.skins.mobile.ListSkin" cacheAsBitmap="false" >
+			<s:layout>
+				<ns:CoverflowLayout id="coverFlowLayoutID" useScrollBarForNavigation="true" scrollBarDirection="horizontal" 
+									selectedHorizontalDisplacement="320"  
+									horizontalDisplacement="370" numUnselectedElements="1"
+									selectedVerticalDisplacement="0" verticalAlign="middle"
+									verticalDisplacement="0"
+									horizontalScrollPosition="4096"
+									fieldOfView="640"
+									focalLength="260"
+									duration="300" maximumZ="50"/>
+			</s:layout>
+			
+		 </s:List>
+		</s:Group-->
+	 
+	
+	
+	<s:Group id="listGroup" visible="true" width="100%" height="100%"
+			  horizontalCenter="0" verticalCenter="0" >
+		<s:List id="competitionList" width="100%" height="880" horizontalScrollPolicy="on" verticalScrollPolicy="off" allowMultipleSelection="false"		 
+				useVirtualLayout="false" interactionMode="touch"
+				contentBackgroundAlpha="0" dataProvider="{competitions}" touchInteractionStart="scrollStart(event)" touchInteractionEnd="startAllAnims();"
+				itemRenderer="Renderers.competitionListRenderer" pageScrollingEnabled="false"							 scrollSnappingMode="none" 
+				skinClass="spark.skins.mobile.ListSkin" cacheAsBitmap="false" updateComplete="parentApplication.notBusy();" >
+			<s:layout>
+				<s:HorizontalLayout id="listTile" verticalAlign="middle" paddingTop="20" paddingLeft="20" paddingRight="20"										 useVirtualLayout="false"  
+							  gap="30" 
+							 />
+			 	</s:layout>
+		</s:List>
+	</s:Group> 
+	
+	<s:Group id="console" width="100%" bottom="0"> <!--y="{currentConsolePos}" -->
+		<s:BitmapImage source="@Embed('/assets/skin/menu/Petiit_Console.png')" scaleMode="stretch" bottom="0" width="100%"/>
+		<s:HGroup bottom="0" width="100%" horizontalAlign="center" gap="0" left="-8" id="consoleButtons">
+			<components:menuIconButton id="competitionButton" active="true" down_pic="assets/skin/menu/btn_competition_on.png" up_pic="/assets/skin/menu/btn_competition_on.png" label="{parentApplication.Language.navigation_competitions}" click="checkIfActiveConsole();"/>
+			<components:menuIconButton id="newsfeedButton" down_pic="assets/skin/menu/btn_whatsup_on.png" up_pic="/assets/skin/menu/btn_whatsup_off.png" click="if(currentConsolePos==(this.height-console.height)) parentApplication.tabnav.selectedIndex=1; else checkIfActiveConsole();" label="{parentApplication.Language.navigation_news}"/>
+			<components:menuIconButton id="friendsButton" down_pic="assets/skin/menu/btn_friends_on.png" up_pic="/assets/skin/menu/btn_friends_off.png" label="{parentApplication.Language.navigation_friends}" click="if(currentConsolePos==(this.height-console.height)) parentApplication.tabnav.selectedIndex=2; else checkIfActiveConsole();"/>
+		</s:HGroup>
+	</s:Group>
+	
+	 
+</s:View>

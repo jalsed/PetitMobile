@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark" 
+		xmlns:components="components.*" 
+		title="Choose clip"
+		viewActivate="viewActivateHandler(event)" backgroundAlpha="0" tabBarVisible="false" actionBarVisible="false" 
+		>
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			
+			import spark.components.supportClasses.ListBase;
+			import spark.events.ViewNavigatorEvent;
+			
+			import classes.GlobalConstants;
+			
+			import events.CompetitionEvent;
+			import events.FeedEvent;
+			import events.MessageEvent;
+			
+			import models.MessageVO;
+			
+			[Bindable]
+			private var messages:ArrayCollection = new ArrayCollection();
+			
+			private var competitionID:String="";
+			 
+			protected function viewActivateHandler(event:ViewNavigatorEvent):void
+			{
+			
+				
+				if(parentApplication.myPetDAO.currentPetID.length>0) {
+					
+				/*	
+					var tmp:FeedVO = new FeedVO();
+					
+					tmp.feedID=1;
+					tmp.description="1. Today I've been sleeping all day.";
+					tmp.imageURL="http://www.beencaughtsleeping.com/userfiles/image/sleepy_cat.jpg";
+					tmp.videoURL="";
+					tmp.soundURL="";
+					
+					feedstatus.addItem(tmp);
+				*/			 
+//					parentApplication.myFeedDAO.addEventListener(FeedEvent.FEED_GETFEEDLIST_READY,feedListReady);
+//					parentApplication.myFeedDAO.addEventListener(FeedEvent.FEED_GETFEEDLIST_FAILED,feedListFailed);
+//					parentApplication.myFeedDAO.restGetFeeds(parentApplication.myPetDAO.currentPetID);
+
+					parentApplication.isBusy(parentApplication.Language.busy_getmyentries);//"Hämtar möjliga tävlingsbidrag"
+					
+					parentApplication.myMessageDAO.addEventListener(MessageEvent.Message_GETLIST_READY,messageListReady);
+					parentApplication.myMessageDAO.addEventListener(MessageEvent.Message_GETLIST_FAILED,messageListFailed);
+					parentApplication.myMessageDAO.restGetOwnMessages(parentApplication.myUserDAO.user.uid,0,100);	//0=page, 50=pagesize
+					
+					competitionID = data as String;
+				}
+				else {
+					parentApplication.showToastFX(parentApplication.Language.joinview_toast_notloggedin,false);	//Not logged in
+				}
+				
+			}
+			
+			
+			private function messageListReady(event:MessageEvent):void {
+				
+				parentApplication.notBusy();
+					
+				if(event.data!=null) {
+					
+					messages.removeAll();
+					
+					for each(var mess:Object in event.data) {
+							if(mess.type=="0") { //own feed 
+							
+							var newmess:MessageVO = new MessageVO();
+							newmess.messageID = mess.mid;
+							newmess.feedID = mess.dataid;
+							newmess.type = parseInt(mess.type);
+			 				
+							newmess.description = mess.body.text;
+							newmess.ownerID = mess.body.ownerid;
+							newmess.ownerName = mess.body.ownername;
+							newmess.petID = mess.body.petid;
+							newmess.petName = mess.body.petname;
+							//newmess.title=newmess.petName+" says... ";						
+							
+							var tmpurl:String=mess.body.image_uri; 
+							if(tmpurl!=null && tmpurl.length>0) {
+								//newmess.imageURL = GlobalConstants.AMAZON_URL + tmpurl.slice(5);	//slice off "s3://
+								var pos:int;
+								pos = tmpurl.lastIndexOf("/",100);
+								pos = tmpurl.lastIndexOf("/",pos-1);
+								newmess.imageURL = GlobalConstants.AMAZON_URL + "styles/petit_small/s3/petit/images" + tmpurl.substr(pos);	//slice off "s3://
+							}
+							if(mess.body.coverted!=null) {
+								newmess.converted = mess.body.converted;
+							}
+							
+							if(!newmess.converted) {
+								tmpurl=mess.body.thumb_uri; 
+								if(tmpurl!=null && tmpurl.length>0) {
+									newmess.imageURL = GlobalConstants.AMAZON_URL + tmpurl.slice(5);	//slice off "s3://  This is not the videoURL but URL to thumbnail
+								}
+							}
+							else {				
+								tmpurl=mess.body.video_uri; 
+								if(tmpurl!=null && tmpurl.length>0) {
+									newmess.imageURL = GlobalConstants.AMAZON_URL + tmpurl.slice(5);	//slice off "s3://  This is not the videoURL but URL to thumbnail
+								}
+							}
+							
+							
+							messages.addItem(newmess);
+						}
+					}
+				}	
+					/*
+					
+					
+				
+				feedstatus.removeAll();
+				
+				var tmp:FeedVO;
+				for each(var feedobj:Object in event.data) {
+					
+					tmp = new FeedVO();
+					tmp.feedID=parseInt(feedobj.nid);
+					tmp.description=feedobj.body.und[0].value;
+					if(feedobj.field_images.hasOwnProperty('und')) {
+						var tmpurl:String=feedobj.field_images.und[0].uri; 
+						tmp.imageURL= GlobalConstants.STATIC_URL + "styles/petit_small/public/" + tmpurl.slice(9);	//slice of "public://
+					}
+					tmp.videoURL="";
+					tmp.soundURL="";
+					tmp.restrictionType=feedobj.field_blog_visibility;
+					
+					feedstatus.addItem(tmp);
+				}
+				*/
+				
+				//Clean
+				parentApplication.myMessageDAO.removeEventListener(MessageEvent.Message_GETLIST_READY,messageListReady);
+				parentApplication.myMessageDAO.removeEventListener(MessageEvent.Message_GETLIST_FAILED,messageListFailed);
+			}
+			
+			private function messageListFailed(event:MessageEvent):void {
+				parentApplication.notBusy();
+				//Clean
+				parentApplication.myFeedDAO.removeEventListener(MessageEvent.Message_GETLIST_READY,messageListReady);
+				parentApplication.myFeedDAO.removeEventListener(MessageEvent.Message_GETLIST_FAILED,messageListFailed);
+			}
+	
+			
+			
+			private function back():void {
+				parentApplication.competeNav.popView();
+			}
+			 
+			
+			protected function joinwiththis(event:MouseEvent):void {
+				if(feedList.selectedItem!=undefined) {
+					parentApplication.myCompetitionDAO.addEventListener(CompetitionEvent.COMPETITION_ENTERCOMPETITION_READY,joinedReady);
+					parentApplication.myCompetitionDAO.addEventListener(CompetitionEvent.COMPETITION_ENTERCOMPETITION_FAILED,joinedFailed);
+					parentApplication.myCompetitionDAO.restEnterCompetition(competitionID,feedList.selectedItem.feedID.toString());
+				}
+			}
+			
+			private function joinedReady(event:CompetitionEvent):void {
+				parentApplication.showToastFX(parentApplication.Language.gamedetail_register_success,true);	//"Registered!"
+				parentApplication.myCompetitionDAO.removeEventListener(CompetitionEvent.COMPETITION_ENTERCOMPETITION_FAILED,joinedFailed);
+				parentApplication.myCompetitionDAO.removeEventListener(CompetitionEvent.COMPETITION_ENTERCOMPETITION_READY,joinedReady);
+				back();
+			}
+			
+			private function joinedFailed(event:CompetitionEvent):void {
+				parentApplication.showToastFX(parentApplication.Language.gamedetail_register_failed,true);	//"Registration failed."
+				parentApplication.myCompetitionDAO.removeEventListener(CompetitionEvent.COMPETITION_ENTERCOMPETITION_FAILED,joinedFailed);
+				parentApplication.myCompetitionDAO.removeEventListener(CompetitionEvent.COMPETITION_ENTERCOMPETITION_READY,joinedReady);
+			}
+	 
+			
+		]]>
+	</fx:Script>
+	<s:BitmapImage id="bg" visible="true" x="0" y="0" width="100%" height="100%" scaleMode="stretch" source="@Embed('/assets/images/Petiit-SunBurst-iP5-violet.png')"   />
+	
+	
+	<s:VGroup id="listGroup" visible="true" width="100%" height="100%"
+			  horizontalAlign="center" horizontalCenter="0" paddingLeft="5" paddingRight="5"
+			  paddingTop="0"
+			  y="0" >
+		<s:List id="feedList" width="100%" height="100%" horizontalScrollPolicy="off" interactionMode="touch" pageScrollingEnabled="false" 
+				verticalScrollPolicy="on" contentBackgroundAlpha="0" dataProvider="{messages}" click="joinwiththis(event)"  
+				itemRenderer="Renderers.joinListRenderer"
+				skinClass="spark.skins.mobile.ListSkin" cacheAsBitmap="false" ><!--cacheAsBitmap="false"-->
+			<s:layout>
+				<s:VerticalLayout id="listTile" gap="10" horizontalAlign="center" paddingBottom="20" paddingTop="20"
+								 />
+			</s:layout>
+		</s:List>
+	</s:VGroup>
+	
+	<s:Group id="console" bottom="0" width="100%">
+		<s:BitmapImage source="@Embed('/assets/skin/menu/Petiit_Console.png')" scaleMode="stretch" width="100%" bottom="0"/>
+		<s:HGroup width="100%" horizontalAlign="center" gap="0" left="-8" id="consoleButtons" bottom="0">
+			<components:menuButton id="competitionButton" click="back();" label="{parentApplication.Language.general_back.toUpperCase()}"/>	
+		</s:HGroup>
+	</s:Group>
+</s:View>
+

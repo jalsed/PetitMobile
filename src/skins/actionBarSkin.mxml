@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Skin xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark">
+	<!-- host component -->
+	<fx:Metadata>
+		[HostComponent("spark.components.ActionBar")]
+	</fx:Metadata>
+	
+	
+	<!-- states -->
+	<s:states>
+		<s:State name="titleContentWithActionAndNavigation" />
+		<s:State name="titleContentWithNavigation" />
+		<s:State name="titleContentWithAction" />
+		<s:State name="titleContent" />
+		<s:State name="titleWithActionAndNavigation" />
+		<s:State name="titleWithNavigation" />
+		<s:State name="titleWithAction" />
+		<s:State name="title" />
+	</s:states>
+		<fx:Script>
+			<![CDATA[
+ 			override protected function initializationComplete():void {
+				//		useChromeColor = true;
+				super.initializationComplete();
+			}
+		]]>
+		</fx:Script>
+ 
+	
+	
+	<!-- SkinParts
+	name=titleGroup, type=spark.components.Group, required=false
+	name=actionGroup, type=spark.components.Group, required=false
+	name=navigationGroup, type=spark.components.Group, required=false
+	name=titleDisplay, type=spark.core.IDisplayText, required=false
+	-->
+	
+	<!--s:BitmapImage source="@Embed('/assets/images/plysch-background.jpg')" scaleMode="letterbox" height="88"
+			 left="0" right="0" top="0" bottom="0" /-->
+<s:Spacer height="80"/>	
+	<s:Group />
+	<s:Group id="navigationGroup" left="12" top="15"  />
+	<s:Group id="titleGroup" horizontalCenter="0" color="#CCCCCC" fontSize="40" fontWeight="bold" />
+	<s:Group id="actionGroup" right="12" top="10"/>
+	
+	<s:Label id="titleDisplay" verticalCenter="0" horizontalCenter="0" color="#eeeeee" fontSize="50" fontFamily="UniversLTStd" />
+	
+</s:Skin>

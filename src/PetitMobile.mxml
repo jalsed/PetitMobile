@@ -1,0 +1,1839 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Petiit is created by Jesper Alsed, Otto Bretz and Shaw Petronio. Copyright 2013.
+In Flex (Apache SDK 4.12) with AIR 13.0
+
+Compiler arguments:
+-locale en_US -swf-version=24 -theme="/Applications/Adobe Flash Builder 4.7/sdks/Apache Flex/frameworks/themes/Mobile/mobile.swc"
+
+Libs/3rd party/external components used: 
+ExifReader	(Reads and obtains JPG EXIF data. Project site: http://devstage.blogspot.com/2011/02/extract-jpg-exif-metadata-in.html)
+ShineMP3Encoder/shineMP3_alchemy (används inte just nu?)
+StatesUtil
+WAVWriter (Helper class to write WAV formated audio files.)
+GraphAPI
+Base64 (* Based on: Ma Bingyao code. * Optimized by: Jean-Philippe Auclair  / jpauclair.wordpress.com)
+tink_flex4 (to access swf assets) (MIT-license) (används inte just nu)
+
+ANEs (native extension):
+AirImagePicker from freshplanet (Apache License, Version 2.0). Patched to work with video from gallery on android.
+AirPushNotification from freshplanet (-||-)
+GoViral from Milkmangames. Vårt facebookID är 261575977337595			This needs to use the /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.sdk
+Facebook Android Hashkey = R3Ogv9TkXvCYY/MXEFCdhyl2fhk=
+
+Web services:
+geonames.org (geocoding and reverse geocoding)
+
+-->
+<s:Application xmlns:fx="http://ns.adobe.com/mxml/2009" 
+			   xmlns:s="library://ns.adobe.com/flex/spark"
+			   xmlns:local="*"
+			   xmlns:utils="utils.*"
+			   xmlns:components="components.*"
+			   applicationDPI="320" backgroundAlpha="0"
+			   creationComplete="creationCompleteHandler(event)"
+			   initialize="initializeHandler(event)"
+			   activate="activateHandler(event)" frameRate="50"  
+			   splashScreenImage="components.DynamicSplashScreenImage" splashScreenMinimumDisplayTime="500" splashScreenScaleMode="stretch"
+			   backgroundColor="#000000" currentState="welcome"
+			   >
+	<!--splashScreenScaleMode="none" splashScreenMinimumDisplayTime="5000" splashScreenImage="@Embed('/assets/splash/splash960.swf')"-->	
+	<fx:Style source="/style/petit.css"/>
+		<fx:Style>
+		@namespace s "library://ns.adobe.com/flex/spark";
+		@namespace mx "library://ns.adobe.com/flex/mx";
+		@namespace local "*";
+		s|TextInput {
+			skinClass: ClassReference("spark.skins.mobile.TextInputSkin");
+			showPromptWhenFocused:false;
+		}
+		s|TextArea {
+			skinClass: ClassReference("spark.skins.mobile.TextAreaSkin");	
+		}
+	</fx:Style>
+	<s:states>
+		<s:State name="normal" enterState="state1_enterStateHandler(event)"/>
+		<s:State name="welcome" />
+		<s:State name="alert" enterState="hideNotificationCirle();" exitState="showNotificationCirle();"/>
+		<s:State name="dialog" enterState="hideNotificationCirle();" exitState="showNotificationCirle();"/>
+		<s:State name="ad_dialog" enterState="hideNotificationCirle();" exitState="showNotificationCirle();"/>
+		<s:State name="help" enterState="hideNotificationCirle();" exitState="showNotificationCirle();"/>
+	</s:states>
+	
+	<fx:Declarations>
+		<utils:CameraUtil id="cameraUtil" />
+		<utils:AudioUtil id="audioUtil"/>
+		<utils:LoginUtil id="loginUtil"/>
+		
+		<!--s:HTTPService id="raceService" resultFormat="e4x" method="GET" useProxy="false" result="raceResultHandler(event)" fault="raceFaultHandler(event)"/-->
+		<s:HTTPService id="blacklistService" resultFormat="e4x" method="GET" useProxy="false" result="blacklistResultHandler(event)" fault="blacklistFaultHandler(event)"/>
+		<s:HTTPService id="localLanguageService" useProxy="false" result="localLanguageResultHandler(event)" fault="languageFaultHandler(event)"/>
+		<s:HTTPService id="languageService" useProxy="false" result="languageResultHandler(event)" fault="languageFaultHandler(event)"/>
+		<s:HTTPService id="racesService" resultFormat="e4x" method="GET" useProxy="false" result="racesResultHandler(event)" fault="racesFaultHandler(event)"/>
+		<s:HTTPService id="giftService" resultFormat="e4x" method="GET" useProxy="false" result="giftResultHandler(event)" fault="giftFaultHandler(event)"/>
+		
+		<s:ArrayCollection id="languages">
+			<s:source>
+				<fx:Object label='ENGLISH' data='en'/>
+				<fx:Object label='SVENSKA' data='sv'/>
+				<fx:Object label='日本の' data='ja'/>
+			</s:source>
+		</s:ArrayCollection>
+		
+		<s:Move id="showToast" duration="500" xFrom="-700" xTo="20" effectEnd="hideToastFX();"/>
+		<s:Move id="hideToast" duration="1200" xFrom="20" xTo="900" startDelay="3000" effectEnd="showToast.stop();"/>
+		
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import com.iOSStageVideo;
+			import com.freshplanet.nativeExtensions.PushNotification;
+			import com.freshplanet.nativeExtensions.PushNotificationEvent;
+			import com.milkmangames.nativeextensions.GVHttpMethod;
+			import com.milkmangames.nativeextensions.GoViral;
+			import com.milkmangames.nativeextensions.events.GVFacebookEvent;
+			import com.milkmangames.nativeextensions.events.GVTwitterEvent;
+			
+			import mx.collections.ArrayList;
+			import mx.collections.XMLListCollection;
+			import mx.core.UIComponent;
+			import mx.events.FlexEvent;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			import mx.utils.StringUtil;
+			
+			import spark.events.IndexChangeEvent;
+			import spark.transitions.SlideViewTransition;
+			import spark.transitions.SlideViewTransitionMode;
+			import spark.transitions.ViewTransitionDirection;
+			
+			import classes.GlobalConstants;
+			
+			import dao.BadgeDAO;
+			import dao.CommentDAO;
+			import dao.CompetitionDAO;
+			import dao.ContestantDAO;
+			import dao.FeedDAO;
+			import dao.MessageDAO;
+			import dao.PetDAO;
+			import dao.RelationDAO;
+			import dao.UserDAO;
+			
+			import events.DialogEvent;
+			import events.GameEvent;
+			import events.PetEvent;
+			import events.PetitVideoEvent;
+			import events.UserEvent;
+			
+			import games.nameGame;
+			import games.columnsGame.columnGame;
+			import games.puzzleGame.puzzleGame;
+			
+			import pl.mateuszmackowiak.nativeANE.NativeDialogEvent;
+			import pl.mateuszmackowiak.nativeANE.alert.NativeAlert;
+			
+			import skins.TextInputPetiitSkin;
+			
+			import views.createFeed;
+			import views.friendDetail;
+			import views.joinView;
+			import views.leaderBoard;
+			
+			import wardrobe.wardrobeView;	//--
+			
+			/****************************************************************
+			 * SETTINGS VARIABLES											*
+			 * 																*
+			 *****************************************************************/
+			
+			public var raceXML:XML;
+			
+			private var blacklistXML:XML;
+			
+			//ACCOUNT variables. These are saved locally using flashvars
+			[Bindable]
+			public var facebook:Boolean = false;
+			[Bindable]
+			public var username:String = "";
+			[Bindable]
+			public var password:String = "";
+			[Bindable]
+			public var location:String = "";
+			[Bindable]
+			public var lastsync:int = 0;
+			[Bindable]
+			public var hideHelp:Boolean=false;
+			[Bindable]
+			public var hideNotifications:Boolean=false;
+			[Bindable]
+			public var zipcode:String="";
+			private var lastmessagedate:int=0;
+			
+			public var sharedObj:SharedObject;
+			
+			public var myUserDAO:UserDAO = new UserDAO();	 
+			
+			public var myFeedDAO:FeedDAO = new FeedDAO();	 
+			
+			public var myPetDAO:PetDAO = new PetDAO();
+			
+			public var myRelationDAO:RelationDAO = new RelationDAO();
+			
+			public var myCompetitionDAO:CompetitionDAO = new CompetitionDAO();
+			
+			public var myContestantDAO:ContestantDAO = new ContestantDAO();
+			
+			public var myCommentDAO:CommentDAO = new CommentDAO();
+			
+			public var myMessageDAO:MessageDAO = new MessageDAO();
+			
+			public var myBadgeDAO:BadgeDAO = new BadgeDAO();
+			
+			
+			[Bindable]
+			public var language:String = GlobalConstants.DEFAULT_LANGUAGE;
+			
+			public var smorgasbordLoggedin:Boolean = false;
+			
+			public var facebookLoggedin:Boolean = false;
+			private var facebookAPPID:String ="261575977337595";	//OUR FACEBOOK APP ID
+			
+			public var slideTrans:SlideViewTransition = new SlideViewTransition();
+			//private var flipTrans:FlipViewTransition = new FlipViewTransition(); 
+			
+			[Bindable]
+			private var busy:Boolean=false;
+			[Bindable]
+			private var busytext:String="";
+			
+			public var latestPostedVideoID:String="";
+			
+			[Bindable]
+			private var showHelpText:Boolean=true;
+			
+			
+			private var nativeAlert : NativeAlert = new NativeAlert();	 
+			
+			private var numberOfNewNotifications:int=0;
+			
+			//RACES
+			[Bindable]
+			public var catRaces:ArrayList = new ArrayList();
+			[Bindable]
+			public var dogRaces:ArrayList = new ArrayList();
+			[Bindable]
+			public var rabbitRaces:ArrayList = new ArrayList(); 
+			[Bindable]
+			public var rodentRaces:ArrayList = new ArrayList(); 
+			[Bindable]
+			public var reptileRaces:ArrayList = new ArrayList();
+			[Bindable]
+			public var birdRaces:ArrayList = new ArrayList();
+			[Bindable]
+			public var otherRaces:ArrayList = new ArrayList();
+			
+			
+			[Bindable]
+			public var giftAC:ArrayCollection = new ArrayCollection();
+			
+			
+			/************************************************************************
+			 * STAGE 3D					 											*
+			 *																		*
+			 ************************************************************************/
+			
+			public var currentVideoURL:String="";
+			public var myStage:Stage;
+			
+			protected function stageWebView_locationChangingHandler(event:LocationChangeEvent):void
+			{
+				trace("location changing " + event.location);
+				// You can call event.preventDefault() to prevent the URL change
+			}
+			
+			protected function stageWebView_locationChangeHandler(event:LocationChangeEvent):void
+			{
+				trace("location change " + event.location);
+			}
+			
+			protected function initializeHandler(event:FlexEvent):void
+			{
+				loadUserSettings(); 
+			}
+			
+			protected function creationCompleteHandler(event:FlexEvent):void
+			{
+				tabnav.selectedIndex=1;
+				this.addEventListener(Event.ADDED_TO_STAGE, addedToStageHandler); 
+				
+				//Go VIRAL ANE:
+				initGoViralThings();
+			}
+			
+			
+			/** GO VIRAL THINGS **/
+			private function initGoViralThings():void {
+				if(!GoViral.isSupported()) {
+					return;
+				}
+				
+				GoViral.create(); 
+				
+				GoViral.goViral.initFacebook(facebookAPPID, "");
+				
+				// Listen for events. 
+				GoViral.goViral.addEventListener(GVFacebookEvent.FB_DIALOG_CANCELED, onFacebookEvent);
+				GoViral.goViral.addEventListener(GVFacebookEvent.FB_DIALOG_FAILED, onFacebookEvent);
+				GoViral.goViral.addEventListener(GVFacebookEvent.FB_DIALOG_FINISHED, onFacebookEvent);
+				GoViral.goViral.addEventListener(GVFacebookEvent.FB_LOGGED_IN, onFacebookEvent);
+				GoViral.goViral.addEventListener(GVFacebookEvent.FB_LOGGED_OUT, onFacebookEvent);
+				GoViral.goViral.addEventListener(GVFacebookEvent.FB_LOGIN_CANCELED, onFacebookEvent);
+				GoViral.goViral.addEventListener(GVFacebookEvent.FB_LOGIN_FAILED, onFacebookEvent);
+				GoViral.goViral.addEventListener(GVFacebookEvent.FB_REQUEST_FAILED, onFacebookEvent);
+				GoViral.goViral.addEventListener(GVFacebookEvent.FB_REQUEST_RESPONSE, onFacebookEvent);
+				
+			}
+			
+			private function onFacebookEvent(e:GVFacebookEvent):void { // the graphPath property is 'me' for a profile request. 
+				trace("some event");
+			}
+			
+			public function publishOnFacebook(in_first:String,in_caption:String,in_message:String,in_description:String,in_link:String,in_imageURL:String):void {
+				
+				/*	GoViral.goViral.showFacebookFeedDialog(	in_first,	 		//"petiit"
+				in_caption,			//caption 
+				in_message, 		//message
+				in_description,		//description
+				in_link,			//link
+				in_imageURL);		//imagelink 	
+				*/
+				
+				//Automatic (no in-between dialog)
+				
+				var params:Object={};
+				params.name=in_first;	//header	
+				params.description=in_description;
+				params.link=in_link;	//  http://www.petiit.com;	
+				params.picture=in_imageURL;
+				params.actions=new Array();
+				params.actions.push({name:"Link",link:in_link});
+				// notice the "publish_actions", a required publish permission to write to the graph!
+				GoViral.goViral.facebookGraphRequest("me/feed",GVHttpMethod.POST,params,"publish_actions");
+				
+			}
+			
+			public function publishImageOnFacebook(in_message:String,in_bitmapdata:BitmapData):void {
+				GoViral.goViral.facebookPostPhoto(in_message,in_bitmapdata);
+			}
+			
+			
+			public function checkIsFacebookAuthenticated():Boolean {
+				return GoViral.goViral.isFacebookAuthenticated();
+				
+			}
+			
+			public function authenticateWithFacebook():void {
+				GoViral.goViral.authenticateWithFacebook("publish_stream,user_photos"); 
+			}
+			
+			/* TWITTER */
+			public function checkIsTwitterkAuthenticated():Boolean {
+				return GoViral.goViral.isTweetSheetAvailable();
+			}
+			
+			// show a twitter status post dialog
+			public function publishOnTwitter(in_message:String):void {
+				GoViral.goViral.showTweetSheet(in_message);
+			}
+			// show a twitter status post dialog with bitmapData image 
+			public function publishImageOnTwitter(in_message:String,in_bitmapdata:BitmapData):void {
+				GoViral.goViral.showTweetSheetWithImage(in_message,in_bitmapdata);
+			}
+			
+			
+			private function addedToStageHandler(event:Event):void {	
+				myStage = event.currentTarget.document.stage;
+				this.removeEventListener(Event.ADDED_TO_STAGE, addedToStageHandler);
+				
+				/*				var _stageWebView:StageWebView = new StageWebView();
+				_stageWebView.stage = myStage;
+				_stageWebView.viewPort = new Rectangle(0, 80, myStage.width, myStage.fullScreenHeight - 80);
+				
+				
+				_stageWebView.loadURL( 'http://www.youtube.com/v/YbxRp6Dg_VQ?version=3' );//	http://www.youtube.com/watch?feature=player_detailpage&v=WzH1fRMF5zE
+				*/		
+				if(language!=null && language.length>0)
+					localLoadLanguage(language);				
+				else
+					localLoadLanguage("en");	
+				
+			}
+			
+			
+			/************************************************************************
+			 * SYSTEM LANGUAGES loading	 											*
+			 *																		*
+			 *************************************************************************/
+			private var defaultLanguage:String = GlobalConstants.DEFAULT_LANGUAGE;
+			
+			[Bindable]
+			public var availLanguages:Array = [{data:"sv", label:"Svenska"},
+				{data:"en", label:"English"}, 
+				{data:"ja", label:"日本の"}
+			];
+			
+			[Bindable]
+			public var Language:Object;
+			
+			private function localLoadLanguage(lang:String):void {
+				for (var i:Number=0; i < availLanguages.length; i++) {
+					if (availLanguages[i].data == lang) {
+						//languageSelection.selectedIndex = i;
+						break;    
+					}    
+				}
+				
+				localLanguageService.url = "assets/languagePhrases/language_"+lang+".xml";		 
+				
+				if(lang!=language || Language==null) {	//only load again if language is changed
+					localLanguageService.send();
+					language=lang; 
+				}
+			}
+			
+			private function localLanguageResultHandler(event:ResultEvent):void {
+				Language = event.result.language;
+				loadLanguage(language);
+				
+				loadBlacklist();
+				loadRaces();
+				loadGifts();
+			}  
+			
+			
+			public function loadLanguage(lang:String):void {
+				for (var i:Number=0; i < availLanguages.length; i++) {
+					if (availLanguages[i].data == lang) {
+						//languageSelection.selectedIndex = i;
+						break;    
+					}    
+				}
+				
+				//languageService.url = "assets/languagePhrases/language_"+lang+".xml";		//Use for debug
+				languageService.url = GlobalConstants.XML_URL + "lang/mobile/"+lang+".xml";
+				
+				if(lang!=language || Language==null) {	//only load again if language is changed
+					languageService.send();
+					language=lang; 
+					saveUserSettings();
+				}
+				else {
+					if( smorgasbordLoggedin==false) 
+						startLogins();
+				}
+			}
+			
+			private function languageResultHandler(event:ResultEvent):void {
+				Language = event.result.language;
+				
+				loadBlacklist();
+				loadRaces();			}      
+			
+			//Load language locally since server is unavailable
+			private function languageFaultHandler(event:FaultEvent):void {
+				//Don't loop back here again if fault again
+				languageService.removeEventListener(FaultEvent.FAULT,languageFaultHandler);
+				
+				languageService.url = "assets/languagePhrases/language_"+language+".xml";
+				
+				languageService.send();
+				
+			}
+			
+			/****************************************************************
+			 * XML - RACES													*
+			 * 																*
+			 ****************************************************************/
+			private function loadRaces():void {
+				
+				//Fetch accessories from server now so it could be changed
+				//				accessoriesService.url = GlobalConstants.XML_URL+"accessories.xml";
+				racesService.url = "/assets/xml/races.xml";					//local for now
+				racesService.send();
+			}
+			
+			private function racesResultHandler(event:ResultEvent):void {
+				buildRaceLists(event.result as XML);
+			}
+			
+			//Load accessories locally since server is unavailable
+			private function racesFaultHandler(event:FaultEvent):void {
+				//Don't loop back here again if fault again
+				racesService.removeEventListener(FaultEvent.FAULT,racesFaultHandler);
+				
+				racesService.url = "/assets/xml/races.xml";	
+				racesService.send();
+			}
+			
+			
+			private function buildRaceLists(racesXML:XML):void {
+				var racesXLC:XMLListCollection = new XMLListCollection(racesXML.children());
+				
+				//Clear lists
+				catRaces.removeAll();
+				dogRaces.removeAll();
+				rabbitRaces.removeAll();
+				rodentRaces.removeAll();
+				birdRaces.removeAll();
+				reptileRaces.removeAll();
+				otherRaces.removeAll();
+				
+				//Build lists
+				for each(var child:XML in racesXLC) {
+					
+					var tmpObj:Object = new Object();					
+					tmpObj.type = child.@type;
+					tmpObj.name=child.@title;
+					tmpObj.label=Language[child.@title]; //Title is fetched from Language-xml-files
+					tmpObj.tid=child.@tid;
+					
+					if(tmpObj.type=="cat")
+						catRaces.addItem(tmpObj);
+					else if(tmpObj.type=="dog")
+						dogRaces.addItem(tmpObj);
+					else if(tmpObj.type=="rabbit")
+						rabbitRaces.addItem(tmpObj);
+					else if(tmpObj.type=="rodent")
+						rodentRaces.addItem(tmpObj);
+					else if(tmpObj.type=="bird")
+						birdRaces.addItem(tmpObj);
+					else if(tmpObj.type=="reptile")
+						reptileRaces.addItem(tmpObj);
+					else if(tmpObj.type=="other")
+						otherRaces.addItem(tmpObj);
+				}
+			}
+			
+			/****************************************************************
+			 * BLACKLIST XML													*
+			 * 																*
+			 ****************************************************************/
+			private function loadBlacklist():void {
+				blacklistService.url = GlobalConstants.XML_URL + "blacklist_"+language+".xml";
+				blacklistService.send();
+			}
+			private function blacklistResultHandler(event:ResultEvent):void {
+				blacklistXML = event.result as XML;				
+			}
+			
+			private function blacklistFaultHandler(event:FaultEvent):void {
+				//	blacklistService.removeEventListener(FaultEvent.FAULT,raceFaultHandler);
+				
+				blacklistService.url = "assets/languagePhrases/blacklist_"+language+".xml";	//For multilanguage
+				blacklistService.send();
+			}
+			
+			
+			/****************************************************************
+			 * RACE XML	 													*
+			 * 																*
+			 ****************************************************************/
+			/*			private function loadRaces():void {
+			raceService.url = GlobalConstants.XML_URL + "race.xml";
+			raceService.send();
+			}
+			private function raceResultHandler(event:ResultEvent):void {
+			raceXML = event.result as XML;				
+			}
+			
+			//Load taxonomy locally since server is unavailable
+			private function raceFaultHandler(event:FaultEvent):void {
+			//Don't loop back here again if fault again
+			raceService.removeEventListener(FaultEvent.FAULT,raceFaultHandler);
+			
+			raceService.url = "assets/xml/race.xml";	//For multilanguage
+			raceService.send();
+			}
+			*/			
+			/****************************************************************
+			 * SETTINGS														*
+			 * 																*
+			 ****************************************************************/
+			private function loadUserSettings():void {	//Using flashvars
+				
+				sharedObj = SharedObject.getLocal("petit_lastmessagedate");
+				if(sharedObj.size!=0) 
+					lastmessagedate = sharedObj.data.lastmessagedate;
+				
+				sharedObj = SharedObject.getLocal("petit_facebook");
+				if(sharedObj.size!=0) 
+					facebook = sharedObj.data.facebook;
+				
+				sharedObj = SharedObject.getLocal("petit_username");
+				if(sharedObj.size!=0) 	
+					username = sharedObj.data.username;
+				
+				sharedObj = SharedObject.getLocal("petit_password");
+				if(sharedObj.size!=0) 
+					password = sharedObj.data.password;
+				
+				sharedObj = SharedObject.getLocal("petit_location");
+				if(sharedObj.size!=0) 
+					location = sharedObj.data.location;
+				
+				sharedObj = SharedObject.getLocal("petit_notifications");
+				if(sharedObj.size!=0) 
+					hideNotifications = sharedObj.data.hideNotifications;
+				
+				sharedObj = SharedObject.getLocal("petit_lastsync");
+				if(sharedObj.size!=0) 
+					lastsync = sharedObj.data.lastsync;
+				
+				sharedObj = SharedObject.getLocal("petit_language");
+				if(sharedObj.size!=0) 
+					language = sharedObj.data.language;
+				
+				sharedObj = SharedObject.getLocal("petit_zipcode");
+				if(sharedObj.size!=0) 
+					zipcode = sharedObj.data.zipcode;
+			}
+			
+			
+			public function saveUserSettings():void {	//Using flashvars
+				
+				sharedObj = SharedObject.getLocal("petit_lastmessagedate");
+				sharedObj.data.lastmessagedate=lastmessagedate;
+				sharedObj.flush();
+				
+				sharedObj = SharedObject.getLocal("petit_facebook");
+				sharedObj.data.facebook=facebook;
+				sharedObj.flush();
+				
+				sharedObj = SharedObject.getLocal("petit_username");
+				sharedObj.data.username=username;
+				sharedObj.flush();
+				
+				sharedObj = SharedObject.getLocal("petit_password");
+				sharedObj.data.password=password;
+				sharedObj.flush();
+				
+				sharedObj = SharedObject.getLocal("petit_location");
+				sharedObj.data.location=location;
+				sharedObj.flush();
+				
+				sharedObj = SharedObject.getLocal("petit_notifications");
+				sharedObj.data.hideNotifications = hideNotifications;
+				sharedObj.flush();
+				
+				sharedObj = SharedObject.getLocal("petit_lastsync");
+				sharedObj.data.lastsync = lastsync;
+				sharedObj.flush();
+				
+				sharedObj = SharedObject.getLocal("petit_language");
+				sharedObj.data.language = language;
+				sharedObj.flush();
+				
+				sharedObj = SharedObject.getLocal("petit_zipcode");
+				sharedObj.data.zipcode = zipcode;
+				sharedObj.flush();
+			}
+			
+			/********************************************************************
+			 * LOGIN STUFF														*
+			 *																	*
+			 ********************************************************************/
+			public function startLogins():void {
+				currentState="welcome";
+				isBusy(Language.busy_login);	//"Loggar in..."
+				loginEmail.visible=false;
+				loginPassword.visible=false;
+				
+				myUserDAO.addEventListener(UserEvent.LOGIN_READY,loginReady,false);
+				myUserDAO.addEventListener(UserEvent.LOGIN_FAILED,loginFailed,false);
+				myUserDAO.setLoginParameters(username,password);
+				if(username.length>0 && password.length>0)
+					myUserDAO.restConnect();
+				else {
+					currentState="welcome";
+					notBusy();
+				}
+			}
+			
+			private function loginReady(event:UserEvent):void {
+				
+				notBusy();
+				loginEmail.visible=true;
+				loginPassword.visible=true;
+				myUserDAO.removeEventListener(UserEvent.LOGIN_READY,loginReady);
+				myUserDAO.removeEventListener(UserEvent.LOGIN_FAILED,loginFailed);
+				
+				//				showToastFX(Language.toast_signedin,true);	//"Signed in to Vintigo"
+				smorgasbordLoggedin=true;
+				
+				if(currentState=="welcome" || currentState=="alert") {
+					currentState="normal";
+					tabnav.selectedIndex=1;
+				}
+				
+				loginWindow.visible=false;
+				
+				myUserDAO.addEventListener(UserEvent.LOGOUT_READY,logoutReady);
+				
+				myPetDAO.addEventListener(PetEvent.PET_GET_MY_LIST_READY,petReadyHandler);
+				myPetDAO.restGetMyPets(myUserDAO.user.uid);
+				
+				saveUserSettings();
+				
+				activateHandler(null);	//Starts Notification
+			}
+			
+			private function petReadyHandler(event:PetEvent):void {
+				
+				for each(var pet:Object in event.data) {
+					myPetDAO.currentPetName= pet.title;
+					if(pet.body.length>0)
+						myPetDAO.currentPetDescription=pet.body.und[0].value;
+					myPetDAO.currentPetID= pet.nid;
+					
+					if(pet.title.length>0)
+						showToastFX("Välkommen "+pet.title,true);		
+					
+					break;//Only support one pet at this time
+				}					
+				
+				myPetDAO.removeEventListener(PetEvent.PET_GET_MY_LIST_READY,petReadyHandler);
+			}
+			
+			private function loginFailed(event:UserEvent):void {
+				
+				notBusy();
+				loginEmail.visible=true;
+				loginPassword.visible=true;
+				myUserDAO.removeEventListener(UserEvent.LOGIN_FAILED,loginFailed);
+				myUserDAO.removeEventListener(UserEvent.LOGIN_READY,loginReady);
+				
+				currentState="welcome";
+				
+				if(loginEmail!=null && loginPassword!=null)				//Only show this toast after trying to login manually
+					if(loginEmail.text.length>0 && loginPassword.text.length>0)
+						showToastFX(Language.toast_loginfailed,false);	//"Sign in failed"
+				//tabnav.selectedIndex=3;	//goto login view
+				//				gotoSettings("BUY");
+			}
+			
+			
+			private function logoutReady(event:UserEvent):void {
+				myPetDAO.currentPetID="";
+				myPetDAO.currentPetName="";
+				myPetDAO.currentPetImageURL="";
+				myPetDAO.currentPetDescription="";
+				
+			}
+			
+			
+			/****************************************************************
+			 * NAVIGATION													*
+			 * 																*
+			 ****************************************************************/
+			public function gotoCompetitionDetail(in_competitionID:int,entered:Boolean):void {
+				
+				tabnav.selectedIndex=0;
+				
+				slideTrans.direction = ViewTransitionDirection.UP;
+				slideTrans.suspendBackgroundProcessing=true;
+				
+				var obj:Object = {};
+				obj.entered = entered;
+				obj.competitionID = in_competitionID;
+				
+				//Delay some time to let the new tab be ready
+				var intervalId:uint;
+				intervalId = setInterval(testFunction2,200);
+				
+				function testFunction2():void {
+					clearInterval(intervalId);
+					competeNav.pushView(views.leaderBoard,obj,null,slideTrans);
+				}
+			}
+			
+			public function gotoGameDetail(in_competitionID:int,entered:Boolean,in_gameURL:String):void {
+				
+				tabnav.selectedIndex=0;
+				
+				slideTrans.direction = ViewTransitionDirection.UP;
+				slideTrans.suspendBackgroundProcessing=true;
+				
+				var obj:Object = {};
+				obj.entered = entered;
+				obj.competitionID = in_competitionID;
+				obj.gameURL = in_gameURL;
+				
+				//Delay some time to let the new tab be ready
+				var intervalId:uint;
+				intervalId = setInterval(testFunction2,200);
+				
+				function testFunction2():void {
+					clearInterval(intervalId);
+					competeNav.pushView(views.gameLeaderboard,obj,null,slideTrans);
+				}
+				
+			}
+			
+			
+			public function gotoMe():void {
+				tabnav.selectedIndex=2;
+				
+				slideTrans.direction = ViewTransitionDirection.RIGHT;
+				friendNav.pushView(views.profileView,null,null,slideTrans);
+			}
+			
+			public function gotoCreateFeed():void {
+				if( smorgasbordLoggedin) { 
+					tabnav.selectedIndex=1;
+					
+					slideTrans.direction = ViewTransitionDirection.DOWN;
+					feedNav.pushView(views.createFeed,null,null,slideTrans);
+				}
+				
+			}
+			
+			public function gotoFriendSearch():void {
+				tabnav.selectedIndex=2;
+				
+				slideTrans.direction = ViewTransitionDirection.RIGHT;
+				friendNav.pushView(views.friendSearchListView,null,null,slideTrans);
+			}
+			
+			public function gotoThisPet(in_petid:int):void {
+				tabnav.selectedIndex=2;
+				slideTrans.direction = ViewTransitionDirection.RIGHT;
+				
+				var dataobj:Object= new Object();
+				dataobj.petid=in_petid;
+				
+				
+				//Delay some time to let the new tab be ready
+				var intervalId:uint;
+				intervalId = setInterval(testFunction2,200);
+				
+				function testFunction2():void {
+					clearInterval(intervalId);
+					friendNav.pushView(views.friendDetail,dataobj,null,slideTrans);
+				}
+			}
+			
+			public function gotoPet(in_petid:int,in_relationid:int):void {
+				tabnav.selectedIndex=2;
+				slideTrans.direction = ViewTransitionDirection.RIGHT;
+				
+				var dataobj:Object= new Object();
+				dataobj.petid=in_petid;
+				dataobj.relationid=in_relationid;
+				
+				friendNav.pushView(views.friendDetail,dataobj,null,slideTrans);
+			}
+			
+			public function gotoFeedDetail(in_feedid:String,in_name:String):void {
+				tabnav.selectedIndex=1;
+				slideTrans.direction = ViewTransitionDirection.RIGHT;
+				var dataobj:Object= new Object();
+				dataobj.feedid=in_feedid;
+				dataobj.petname=in_name;
+				feedNav.pushView(views.newsDetail,dataobj,null,slideTrans);
+				
+			}
+			
+			public function gotoContestantDetail(in_obj:Object,in_currentvotedid:String):void {
+				tabnav.selectedIndex=0;
+				slideTrans.direction = ViewTransitionDirection.RIGHT;
+				in_obj.myCurrentVoteEntryID = in_currentvotedid;
+				competeNav.pushView(views.contestantDetail,in_obj,null,slideTrans);
+			}
+			
+			public function gotoJoinCompetition(in_competitionID:String):void {
+				tabnav.selectedIndex=0;
+				slideTrans.direction = ViewTransitionDirection.RIGHT;
+				competeNav.pushView(views.joinView,in_competitionID,null,slideTrans);
+				
+			}
+			
+			public function gotoProfile():void {
+				tabnav.selectedIndex=2;
+				friendNav.pushView(views.profileView,null,null,slideTrans);
+			}
+			
+			//		public function gotoFriends():void {
+			//			tabnav.selectedIndex=2;
+			//			friendNav.pushView(views.friendListView,null,null,slideTrans);
+			//		}
+			
+			public function gotoRelationMenu():void {
+				tabnav.selectedIndex=2;
+				friendNav.popToFirstView(slideTrans);
+			}
+			
+			public function gotoNameGame():void {
+				tabnav.selectedIndex=0;
+				slideTrans.direction = ViewTransitionDirection.RIGHT;
+				competeNav.pushView(games.nameGame,null,null,slideTrans);
+			}
+			
+			public function gotoPairGame():void {
+				tabnav.selectedIndex=0;
+				slideTrans.direction = ViewTransitionDirection.RIGHT;
+				competeNav.pushView(games.pairGame,null,null,slideTrans);
+			}
+			
+			public function gotoPetapetGame():void {
+				tabnav.selectedIndex=0;
+				slideTrans.direction = ViewTransitionDirection.RIGHT;
+				competeNav.pushView(games.bulldogGame,null,null,slideTrans);
+			}
+			
+			public function gotoPuzzleGame():void {
+				tabnav.selectedIndex=0;
+				slideTrans.direction = ViewTransitionDirection.RIGHT;
+				competeNav.pushView(games.puzzleGame.puzzleGame,null,null,slideTrans);
+			}
+			
+			public function gotoColumnGame():void {
+				tabnav.selectedIndex=0;
+				slideTrans.direction = ViewTransitionDirection.RIGHT;
+				competeNav.pushView(games.columnsGame.columnGame,null,null,slideTrans);
+			}
+			
+			public function gotoWardrobe():void {
+				tabnav.selectedIndex=2;
+				slideTrans.direction = ViewTransitionDirection.RIGHT;
+				friendNav.pushView(wardrobe.wardrobeView,null,null,slideTrans);
+			}
+			
+			/****************************************************************
+			 * TOAST FX														*
+			 * 																*
+			 ****************************************************************/
+			private var myTimer:Timer;
+			
+			private var skins_TextInputPetiitSkin_obj:skins.TextInputPetiitSkin;
+			
+			public function showToastFX(in_str:String,positive:Boolean):void {
+				showToast.stop();
+				hideToast.stop();
+				
+				if(positive)
+					toastBG.source="/assets/images/toaster.png";
+				else
+					toastBG.source="/assets/images/toast.png";
+				
+				if(in_str==null)
+					in_str="---";
+				
+				if(in_str.length>0)
+					isLoggedIn.text=in_str;
+				
+				showToast.targets = [toast];  
+				showToast.play();
+				
+			}
+			
+			private function timerDone(event:TimerEvent):void {
+				myTimer.stop();
+				myTimer.removeEventListener(TimerEvent.TIMER_COMPLETE, timerDone);
+				parentApplication.navigatorList.activeView.refreshAdList();
+			}
+			
+			
+			private function hideToastFX():void {
+				hideToast.targets = [toast];
+				hideToast.play();
+			}
+			
+			
+			/****************************************************************
+			 * BUSY PLATE													*
+			 * 																*
+			 ****************************************************************/
+			public function isBusy(in_str:String):void {
+				
+				busy=true;
+				busytext=in_str;
+				currentState = "alert";
+			}
+			public function notBusy():void {
+				busy=false;
+				busytext="";
+				//				currentState = "normal";
+			}
+			
+			
+			/****************************************************************
+			 * DIALOG														*
+			 * 																*
+			 ****************************************************************/
+			public function showDialog(in_imageURL:String,in_header:String,in_body:String,button1_text:String,button2_text:String,numofbuttons:int=2):void {
+				
+				this.currentState="dialog";
+				dialogTextHeaderBox.text=in_header;
+				dialogTextBox.text = in_body;
+				okButton.label=button1_text;
+				cancelButton.label=button2_text;
+				
+				if(in_imageURL!=null && in_imageURL.length>0) {
+					dialogpicture.source = in_imageURL;
+					dialogpictureframe.visible=true;
+				}
+				else {
+					dialogpicture.source = null;
+					dialogpictureframe.visible=false;
+				}
+				
+				okButton.visible=false;
+				cancelButton.visible=false;
+				if(numofbuttons>0)
+					okButton.visible=true;
+				if(numofbuttons>1)
+					cancelButton.visible=true;
+				
+			}
+			
+			public function showAdDialog(in_imageURL:String,in_header:String,in_body:String,button1_text:String,button2_text:String,numofbuttons:int=2):void {
+				this.currentState="ad_dialog";
+				dialogTextHeaderBox.text=in_header;
+				dialogTextBox.text = in_body;
+				okButton.label=button1_text;
+				cancelButton.label=button2_text;
+				
+				if(in_imageURL!=null && in_imageURL.length>0) {
+			 		dialogpicture.source = in_imageURL;
+			//		dialogpictureframe.visible=true;
+					
+				}
+				else {
+					dialogpicture.source = null;
+					dialogpictureframe.visible=false;
+				}
+				
+				okButton.visible=false;
+				cancelButton.visible=false;
+				if(numofbuttons>0)
+					okButton.visible=true;
+				if(numofbuttons>1)
+					cancelButton.visible=true;
+			}
+			
+			private function do_ok():void {
+				notBusy();
+				currentState = "normal";
+				dispatchEvent(new DialogEvent(DialogEvent.DIALOG_OK));
+			}
+			
+			private function do_cancel():void {
+				notBusy();
+				currentState = "normal";
+				dispatchEvent(new DialogEvent(DialogEvent.DIALOG_CANCEL));
+			}
+			
+			
+			
+			/****************************************************************
+			 * HELP														*
+			 * 																*
+			 ****************************************************************/
+			public function showHelp(in_header:String,in_body:String):void {
+				
+				if(showHelpText) {
+					this.currentState="help";
+					helpTextHeaderBox.text=in_header;
+					helpTextBox.text = in_body;
+					
+				} 
+			}
+			private function close_help():void {
+				if(helpcheckbox.selected==false)
+					showHelpText=false;
+				currentState="normal";
+			}
+			
+			/****************************************************************
+			 * VIDEO CONTROLS												*
+			 * 																*
+			 ****************************************************************/
+			private function resumeVideo():void {
+				dispatchEvent(new PetitVideoEvent(PetitVideoEvent.RESUME_VIDEO));
+			}
+			
+			private function pauseVideo():void {
+				dispatchEvent(new PetitVideoEvent(PetitVideoEvent.PAUSE_VIDEO));
+			}
+			
+			private function stopVideo():void {
+				dispatchEvent(new PetitVideoEvent(PetitVideoEvent.STOP_VIDEO));
+			}
+			
+			/****************************************************************
+			 * GAME CONTROLS												*
+			 * 																*
+			 ****************************************************************/
+			private function stopGame():void {
+				dispatchEvent(new GameEvent(GameEvent.END_GAME));
+			}
+			
+			
+			
+			/****************************************************************
+			 * LOGIN														*
+			 * 																*
+			 ****************************************************************/
+			public function showLoginDialog():void {
+				showDialog("","NOT READY","No login dialog is ready yet","OK","So what",2);
+			}
+			
+			/****************************************************************/
+			
+			
+			
+			protected function state1_enterStateHandler(event:FlexEvent):void
+			{
+				// TODO Auto-generated method stub
+				trace("Kolla varifrån denna kallades");
+			}
+			
+			
+			
+			
+			
+			
+			private var vid:iOSStageVideo;
+			private var container:UIComponent;
+			
+			/********************************************************
+			 * STAGE 3D BACKGROUND VIDEO							*
+			 * 														*
+			 ********************************************************/
+			
+			public function stage3dbackground(in_path:String):void
+			{ 
+				vid = new iOSStageVideo(in_path ,myStage.stageWidth, myStage.stageHeight,0); 
+				//				vid = new iOSStageVideo(in_path ,640, 960,0); 
+				vid.noStop=true;
+				vid.addEventListener('videoDone' ,stage3dbackground_loop); 
+				//vid.addEventListener('videoPlays',videoIsPlaying);
+				
+				container = new UIComponent(); 
+				container.x=0;
+				container.y=0;
+				
+				container.width = 640;//myStage.stageWidth; //640;//
+				container.height = 960;//myStage.stageHeight; // 1024; //
+				
+				addElement( container ); 
+				
+				container.addChild( vid ); 
+				
+			}
+			
+			private function stage3dbackground_loop(event:Event):void {
+				trace("should never reach this if nostop is set");
+			}
+			
+			public function startBGvideo():void {
+				vid.continueVideo();
+			}
+			public function stopBGvideo():void {
+				vid.pauseVideo();
+			}
+			public function removeBGvideo():void {
+				if(vid!=null) {
+					vid.pauseVideo();
+					vid.noStop=false;
+					vid.stopVideo();
+					container.removeChild( vid ); 
+					removeElement( container ); 
+					vid=null;
+				}
+			}
+			public function checkBGvideoAvailable():Boolean {
+				if(vid==null)
+					return false;
+				else
+					return true;
+			}
+			
+			
+			/****************************************************
+			 * NOTIFICATION										*
+			 *													*
+			 ****************************************************/
+			// Required packages for push notifications 
+			import flash.notifications.NotificationStyle; 
+			import flash.notifications.RemoteNotifier; 
+			import flash.notifications.RemoteNotifierSubscribeOptions; 
+			import flash.events.RemoteNotificationEvent; 
+			import flash.events.StatusEvent; 
+			
+			private var preferredStyles:Vector.<String> = new Vector.<String>(); 
+			private var subscribeOptions:RemoteNotifierSubscribeOptions = new RemoteNotifierSubscribeOptions(); 
+			private var remoteNot:RemoteNotifier = new RemoteNotifier(); 
+			
+			private var urlreq:URLRequest; 
+			private var urlLoad:URLLoader = new URLLoader(); 
+			private var urlString:String; 
+			
+			protected function activateHandler(event:Event):void
+			{
+				if(smorgasbordLoggedin==true) { 
+					if(Capabilities.manufacturer=="Adobe iOS") {	
+						startNotification();	//iOS
+					}
+					else {
+						startAndroidNotification();	//Android FRESHPLANET ANE
+						//handleAddedToStage();	//Android AFTERISK ANE
+					}
+				}
+			}
+			
+			
+			
+			//Android Notification	-----------------------------------------------------------	
+			
+			
+			
+			/*		AFTERISK ANEn
+			
+			import com.afterisk.shared.ane.lib.GCMEvent;
+			import com.afterisk.shared.ane.lib.GCMPushInterface;
+			
+			private var _gcmi:GCMPushInterface;
+			private var _gcmDeviceID:String;
+			private var _payload:String;
+			
+			private var _messageField:TextField;
+			
+			public static const GCM_SENDER_ID:String = "384351431531";// "yourGCMSenderID";
+			
+			private function register():void {
+			
+			
+			trace("\n\nRegistering device with GCM...");
+			//check if device is already registered otherwise start registration process and wait for REGISTERED event
+			var response:String = _gcmi.register(GCM_SENDER_ID);
+			trace(response);
+			
+			if(response.indexOf("registrationID:") != -1)
+			{
+			trace("\n\nDevice was already registered.\n" + response);
+			//extract GCM registration id for your device from response, you will need that to send messages to the device
+			//create your own backend service or use public services
+			_gcmDeviceID = response.substr(response.indexOf(":") + 1);
+			handleRegistrationIDReceived();
+			//if device was already registered check if there is any pending payload from GCM
+			//this can be true when android shut down your app and its restarted instead of being resumed
+			checkPendingFromLaunchPayload();
+			}
+			}
+			
+			public function handleAddedToStage():void
+			{
+			trace("\n\nInitializing GCMPushInterface...");
+			//create instance of extension interface and add appropriate listeners to it
+			_gcmi = new GCMPushInterface();
+			_gcmi.addEventListener(GCMEvent.REGISTERED, handleRegistered, false, 0, true);
+			_gcmi.addEventListener(GCMEvent.UNREGISTERED, handleUnregistered, false, 0, true);
+			_gcmi.addEventListener(GCMEvent.MESSAGE, handleMessage, false, 0, true);
+			_gcmi.addEventListener(GCMEvent.ERROR, handleError, false, 0, true);
+			_gcmi.addEventListener(GCMEvent.RECOVERABLE_ERROR, handleError, false, 0, true);
+			
+			register();
+			}
+			
+			
+			//on successful registration get GCM registration id for your device
+			private function handleRegistered(e:GCMEvent):void
+			{
+			trace("\n\nreceived device registrationID: " + e.deviceRegistrationID);
+			_gcmDeviceID = e.deviceRegistrationID;
+			handleRegistrationIDReceived();
+			}
+			
+			private function handleRegistrationIDReceived():void
+			{
+			//send device id to backend service that will broadcast messages
+			}
+			
+			public function checkPendingFromLaunchPayload():void
+			{
+			_payload = _gcmi.checkPendingPayload();
+			if(_payload != GCMPushInterface.NO_MESSAGE)
+			{
+			trace("\n\npending payload:" + _payload);
+			handlePayload();
+			}
+			}
+			
+			//messages are received when app is in background therefore add event for when app is resumed from notification
+			private function handleMessage(e:GCMEvent):void
+			{
+			//get payload
+			_payload = e.message;
+			trace("\n\nGCM payload received:" + _payload);
+			trace("app is in the background: adding GCM app invoke listener");
+			NativeApplication.nativeApplication.addEventListener(InvokeEvent.INVOKE, onInvoke, false, 0, true);
+			}
+			
+			private function onInvoke(e:InvokeEvent):void
+			{
+			trace("app was invoked by gcm notification");
+			trace("\n\napp was invoked from GCM notification");
+			NativeApplication.nativeApplication.removeEventListener(InvokeEvent.INVOKE, onInvoke);
+			handlePayload();
+			}
+			
+			public function handlePayload():void
+			{
+			var pairs:Array = (_payload.split(","));
+			var space:RegExp = /"/g;
+			var _notificationType:String = String(String(pairs[0]).split(":")[1]).replace(space, "");
+			var _id:String = String(String(pairs[1]).split(":")[1]).replace(space, "");
+			//you can parse and treat gcm payload here
+			//dispatch an event or open an appropriate view
+			
+			}
+			
+			//when device is unregistered on Google side, you might want to unregister it with your backend service
+			private function handleUnregistered(e:GCMEvent):void
+			{
+			trace("\n\ndevice was unregistered from GCM");
+			//unregister with yours or public backend messaging service
+			//...
+			}
+			
+			//handle variety of gcm errors
+			private function handleError(e:GCMEvent):void
+			{
+			
+			}
+			*/
+			
+			/*	FRESHPLANET ANEn */
+			private function startAndroidNotification():void {
+				PushNotification.getInstance().registerForPushNotification("384351431531");	//GOOGLE_PROJECT_ID
+				PushNotification.getInstance().addEventListener(PushNotificationEvent.PERMISSION_GIVEN_WITH_TOKEN_EVENT,androidNotificationTokenHandler);
+				PushNotification.getInstance().addEventListener(PushNotificationEvent.COMING_FROM_NOTIFICATION_EVENT,androidPushEventIncoming);
+				
+				//	PushNotification.getInstance().addEventListener( PushNotificationEvent.NOTIFICATION_RECEIVED_WHEN_IN_FOREGROUND_EVENT, onNotificationReceivedInForeground);
+				//	PushNotification.getInstance().addEventListener( PushNotificationEvent.APP_BROUGHT_TO_FOREGROUND_FROM_NOTIFICATION_EVENT, onNotificationReceivedInBackground);
+				//	PushNotification.getInstance().addListenerForStarterNotifications(onNotificationReceivedStartingTheApp);
+			}
+			
+			public function androidNotificationTokenHandler(e:PushNotificationEvent):void{ 
+				trace("Android Token OK");
+				
+				urlString = new String(GlobalConstants.DRUPAL_PATH + "push_notifications"); 	//"http://php.petiit.se/petit/
+				urlreq = new URLRequest(urlString); 
+				
+				var rpcParams:Object = {};
+				rpcParams.type = "android";
+				rpcParams.token = e.token; 
+				urlreq.data = JSON.stringify(rpcParams);
+				
+				urlreq.method = URLRequestMethod.POST; 
+				
+				//HEADER
+				var acceptHeader:URLRequestHeader = new  URLRequestHeader("Accept", "application/json");
+				urlreq.requestHeaders.push(acceptHeader);
+				
+				urlreq.contentType = "application/json";
+				urlLoad.load(urlreq); 
+				urlLoad.addEventListener(IOErrorEvent.IO_ERROR,iohandler); 
+				urlLoad.addEventListener(Event.COMPLETE,compHandler); 
+				urlLoad.addEventListener(HTTPStatusEvent.HTTP_STATUS,httpHandler); 
+			}
+			
+			private function androidPushEventIncoming(e:PushNotificationEvent):void {
+				var data:Object = e.parameters;
+				//	var params:Object;
+				//	if (data != null) {
+				//		params = JSON.parse(data);
+				
+				trace("Vilka param finns?");
+				//	}
+				if(data.badge!=null) {
+					var badgevalnum:int= parseInt(data.badge);
+					
+					if(badgevalnum>0) {
+						notificationCircle.visible=true;
+						notificationCircleLabel.text=badgevalnum.toString();
+					}
+					else 
+						notificationCircle.visible=false;
+					
+					PushNotification.getInstance().setBadgeNumberValue(badgevalnum); 
+					//					PushNotification.getInstance().setIsAppInForeground(true);				//Detta fungerar inte men bryter däremot så man inte får fler notifications events
+					//PushNotification.getInstance().sendLocalNotification("Message!", 0,"This is a message",0);
+				}
+			}
+			
+			
+			//iOS NOTIFICATION --------------------------------------------------------------------------------
+			private function startNotification():void {
+				// Subscribe to ALERT,BADGE AND SOUND style of push notifications: 
+				preferredStyles.push(NotificationStyle.ALERT ,NotificationStyle.BADGE,NotificationStyle.SOUND); 
+				subscribeOptions.notificationStyles= preferredStyles; 
+				remoteNot.addEventListener(RemoteNotificationEvent.TOKEN,tokenHandler); 
+				remoteNot.addEventListener(RemoteNotificationEvent.NOTIFICATION,notificationHandler); 
+				remoteNot.addEventListener(StatusEvent.STATUS,statusHandler); 
+				
+				if(RemoteNotifier.supportedNotificationStyles.toString() != "") 
+				{     
+					remoteNot.subscribe(subscribeOptions); 
+				} 
+				else{ 
+					trace("Remote Notifications not supported on this Platform !"); 
+				} 
+			}
+			
+			// Receive notification payload data and use it in your app 
+			public function notificationHandler(e:RemoteNotificationEvent):void{ 
+				var tt:String = "\nRemoteNotificationEvent type: " + e.type + "\nbubbles: "+ e.bubbles + "\ncancelable " +e.cancelable; 
+				
+				for (var x:String in e.data) { 
+					tt += "\n"+ x + ":  " + e.data[x]; 
+				} 
+				
+				trace(tt); 
+				
+				if(Capabilities.manufacturer=="Adobe iOS") {	
+					var tmpstr:String = e.data.aps;	//"{\n    alert = test10;\n    sound = default;\n}"
+					
+					var start:int = tmpstr.indexOf("badge",0);
+					var equalsign:int = tmpstr.indexOf("=",start);
+					var semisign:int = tmpstr.indexOf(";",equalsign);
+					var badgevalstr:String = tmpstr.substring(equalsign+1,semisign);
+					var badgevalnum:int= parseInt(badgevalstr);
+					
+					numberOfNewNotifications = badgevalnum;
+					
+					if(numberOfNewNotifications>1) {
+						notificationCircle.visible=true;
+						notificationCircleLabel.text=badgevalnum.toString();
+					}
+					else 
+						notificationCircle.visible=false;
+					
+					//	if(tmpstr.indexOf("alert",0)!=-1) {
+					//		NativeAlert.show(tt,"Alert!","Close", "", null);	//e.data.aps
+					//	}
+				}
+			} 
+			private function nativeAlert_closeEventHandler(event:NativeDialogEvent ):void
+			{
+				var labelIndex:String;
+				labelIndex = event.index;
+			}
+			
+			// If the subscribe() request succeeds, a RemoteNotificationEvent of type TOKEN is received, from which you retrieve e.tokenId, 
+			// which you use to register with the server provider (drupal här)
+			public function tokenHandler(e:RemoteNotificationEvent):void 
+			{ 
+				trace("\nRemoteNotificationEvent type: "+e.type +"\nBubbles: "+ e.bubbles + "\ncancelable " +e.cancelable +"\ntokenID:\n"+ e.tokenId +"\n"); 
+				
+				urlString = new String(GlobalConstants.DRUPAL_PATH + "push_notifications"); 	//"http://php.petiit.se/petit/
+				urlreq = new URLRequest(urlString); 
+				
+				var rpcParams:Object = {};
+				rpcParams.type = "ios";
+				rpcParams.token = e.tokenId; 
+				urlreq.data = JSON.stringify(rpcParams);
+				
+				urlreq.method = URLRequestMethod.POST; 
+				
+				//HEADER
+				var acceptHeader:URLRequestHeader = new  URLRequestHeader("Accept", "application/json");
+				urlreq.requestHeaders.push(acceptHeader);
+				
+				urlreq.contentType = "application/json";
+				urlLoad.load(urlreq); 
+				urlLoad.addEventListener(IOErrorEvent.IO_ERROR,iohandler); 
+				urlLoad.addEventListener(Event.COMPLETE,compHandler); 
+				urlLoad.addEventListener(HTTPStatusEvent.HTTP_STATUS,httpHandler); 
+				
+			} 
+			
+			private function iohandler(e:IOErrorEvent):void 
+			{ 
+				trace("\n In IOError handler" + e.errorID +" " +e.type); 
+				
+			} 
+			private function compHandler(e:Event):void{ 
+				trace("\n In Complete handler,"+"status: " +e.type + "\n"); 
+				//trace(e.currentTarget.data.success);
+				//trace(e.currentTarget.data.message);
+			} 
+			
+			private function httpHandler(e:HTTPStatusEvent):void{ 
+				trace("\n in httpstatus handler,"+ "Status: " + e.status); 
+			} 
+			
+			// If the subscription request fails, StatusEvent is dispatched with error level and code. 
+			public function statusHandler(e:StatusEvent):void{ 
+				trace("\n statusHandler"); 
+				trace("event Level" + e.level +"\nevent code " + e.code + "\ne.currentTarget: " + e.currentTarget.toString()); 
+			} 
+			
+			public function showNotificationCirle():void {
+				if(numberOfNewNotifications>0) {	
+					notificationCircleLabel.text = numberOfNewNotifications.toString();
+					notificationCircle.visible=true;
+				}
+			}
+			
+			public function hideNotificationCirle():void {
+				notificationCircle.visible=false;
+			}
+			
+			
+			/************************************************************************
+			 *  MULTI-LANGUAGE PROFANITY FILTER										*
+			 * 																		*
+			 ************************************************************************/
+			
+			private var chatBlackList:Array= new Array();
+			
+			public function cleanseChatText(inputString:String):String {
+				
+				for each(var s1:XML in blacklistXML.word)
+				{
+					chatBlackList.push(s1.toString());
+				}
+				
+				for each (var word:String in chatBlackList) {
+					
+					var replStr:String="";
+					
+					for (var i:int = 0; i < word.length; i++) {
+						replStr += "*";
+					}
+					
+					// check if string is a naughty word
+					var regex:RegExp = new RegExp("^" + word + "$", "gism");
+					inputString = inputString.replace(regex, replStr);
+					
+					// check if string starts with naughty word
+					regex = new RegExp("^" + word + "(\\W)", "gism");
+					inputString = inputString.replace(regex, replStr + "$1");
+					
+					// check if string ends with naughty word
+					regex = new RegExp("(\\W)" + word + "$", "gism");
+					inputString = inputString.replace(regex, "$1" + replStr);
+					
+					// check if naughty word is in string
+					regex = new RegExp("(\\W)" + word + "(\\W)", "gism");
+					inputString = inputString.replace(regex, "$1" + replStr + "$2");
+					
+					// or other words start with naughty word (ignore short stuff)
+					if(word.length > 3) {
+						regex = new RegExp("(\\W)" + word, "gism");
+						inputString = inputString.replace(regex, "$1" + replStr);
+						
+						regex = new RegExp("^" + word, "gism");
+						inputString = inputString.replace(regex, replStr);
+					}
+				}
+				
+				return StringUtil.trim(inputString);
+			}
+			
+			
+			
+			
+			/************************************************
+			 * LOAD GIFTS									*
+			 * 												*
+			 ************************************************/
+			private function loadGifts():void {
+				
+				//Fetch gift from server now so it could be changed
+				//				giftService.url = GlobalConstants.XML_URL+"gift.xml";
+				giftService.url = "assets/xml/gifts.xml";					//local for now
+				giftService.send();
+			}
+			
+			private function giftResultHandler(event:ResultEvent):void {
+				buildLists(event.result as XML);
+			}
+			
+			//Load gift locally since server is unavailable
+			private function giftFaultHandler(event:FaultEvent):void {
+				//Don't loop back here again if fault again
+				giftService.removeEventListener(FaultEvent.FAULT,giftFaultHandler);
+				
+				giftService.url = "assets/xml/gifts.xml";	
+				giftService.send();
+			}
+			
+			
+			private function buildLists(giftXML:XML):void {
+				var giftXLC:XMLListCollection = new XMLListCollection(giftXML.children());
+				
+				//Clear lists
+				giftAC.removeAll();
+				
+				//Build lists
+				for each(var child:XML in giftXLC) {
+					
+					var tmpObj:Object = new Object();					
+					tmpObj.type = child.@type;
+					tmpObj.name=child.@title;
+					tmpObj.label=Language[child.@title]; //Title is fetched from Language-xml-files
+					tmpObj.tid=child.@tid;
+					tmpObj.price = child.@price;
+					
+					if(tmpObj.type=="gift") {
+						tmpObj.message = Language.general_price + ": "+tmpObj.price;	//Price
+						if(tmpObj.price=="0")
+							tmpObj.message=Language.general_price + ": 0";	//"Price: free";
+						
+						tmpObj.icon = "/wardrobe/icons/"+child.@icon+".png";
+						tmpObj.image = "/wardrobe/images/"+child.@icon+".png";
+						giftAC.addItem(tmpObj);
+					}					 
+					else if(tmpObj.type=="special") {
+						tmpObj.message = Language.general_nothing;//"Nothing";
+						tmpObj.tid="-1";
+						tmpObj.icon = "";
+						tmpObj.image = "";
+						giftAC.addItem(tmpObj);
+					}						 
+				}	
+			}
+			
+			/***********************************************************************/
+			
+			
+		]]>
+	</fx:Script>
+	
+	
+	<s:BitmapImage id="bg" visible="true" x="0" y="0" width="100%" height="100%" scaleMode="stretch" source="@Embed('/assets/images/Petiit-SunBurst-iP5.png')"/>
+	
+	<s:BitmapImage source="@Embed('/assets/images/logo_small.png')" left="5" top="5" id="smalllogo" visible="false" alpha="0.6"/>
+	
+	<s:TabbedViewNavigator width="100%" id="tabnav" height="100%" backgroundAlpha="0" contentBackgroundAlpha="0" selectedIndex="1" bottom="0" >
+		<s:ViewNavigator id="competeNav" width="100%" height="100%" label="{Language.navigation_competitions}" firstView="views.competitionView"/>
+		<s:ViewNavigator id="feedNav" width="100%" height="100%" label="{Language.navigation_news}" firstView="views.newsView"/>
+		<s:ViewNavigator id="friendNav" width="100%" height="100%" label="{Language.navigation_friends}" firstView="views.friendViewMenu"/>	
+	</s:TabbedViewNavigator>
+	
+	<!-- NOTIFICATION -->
+	<s:Group id="notificationCircle" visible="false" horizontalCenter="80" bottom="8" filters="{shadowFilter}">
+		<s:BitmapImage source="@Embed('/assets/images/notificationCircle.png')"/>
+		<s:Label text="" id="notificationCircleLabel" y="20" x="20" color="#ffffff" fontSize="32" fontWeight="bold" visible="true" textAlign="center"/>
+	</s:Group>
+	
+	<!-- VIDEO CONTROLS-->
+	<s:HGroup id="videoButtons" visible="false" bottom="5" right="5" alpha="0.6">
+		<s:Image id="playVideoButton" source="@Embed('/assets/buttons/Play.png')" click="resumeVideo();" height="80" scaleMode="stretch"/>
+		<s:Image id="pauseVideoButton" source="@Embed('/assets/buttons/Paws-button.png')" click="pauseVideo();" height="80" scaleMode="stretch"/>
+		<s:Image id="stopVideoButton" source="@Embed('/assets/buttons/Stop-button.png')" click="stopVideo();" height="80" scaleMode="stretch"/>
+	</s:HGroup>
+	
+	<!-- GAME CONTROLS-->
+	<s:HGroup id="gameButtons" visible="false" bottom="10" horizontalCenter="0">
+		<s:Image id="stopGameButton" source="@Embed('/assets/buttons/Stop-button.png')" click="stopGame();" height="80" scaleMode="stretch"/>
+	</s:HGroup>
+	
+	<!--WELCOME-->
+	<s:Group width="100%" height="100%" x="0" y="0" id="welcomeWindow" visible="true" includeIn="welcome">
+		<s:BitmapImage height="100%" width="100%" scaleMode="stretch">
+			<s:source>
+				<s:MultiDPIBitmapSource 
+					source160dpi="@Embed('/assets/splash/480.png')"
+					source240dpi="@Embed('/assets/splash/960.png')"
+					source320dpi="@Embed('/assets/splash/1136.png')"/>
+			</s:source>
+		</s:BitmapImage>
+		
+		<s:Group width="580" top="60" horizontalCenter="0" height="700">
+			<s:Rect x="0" y="0" radiusX="30" radiusY="30" width="580" height="700" filters="{shadowFilter}" >
+				<s:fill>
+					<s:BitmapFill source="@Embed('/assets/skin/BG.png')" fillMode="repeat" alpha="0.95"/>
+				</s:fill>
+			</s:Rect>
+			<s:Rect x="10" y="10" radiusX="30" radiusY="30" width="560" height="680">
+				<s:fill>
+					<s:SolidColor color="#ffffff" alpha="0.5"/>
+				</s:fill>
+			</s:Rect>
+			<!--s:BitmapImage horizontalCenter="0" y="-46" source="@Embed('/assets/images/logo_small.png')"/-->
+			<s:Image id="welcomelogo" horizontalCenter="0" y="-44" source="@Embed('/assets/images/Welcome-Pets-Rubrik.png')" />
+			<s:Label  y="-24" horizontalCenter="0" id="welcomeText" text="{Language.welcome_header}" fontSize="50" fontFamily="Badaboom" color="#000000"/>
+			<s:Label  y="240" horizontalCenter="0" id="descriptionText" width="420" lineBreak="toFit" textAlign="center"
+					  text="{Language.welcome_description}"
+					  fontSize="36" fontFamily="MyriadPro" color="#444444"/>
+			<s:HGroup y="550" horizontalCenter="0" gap="10">
+				<components:pinkButton label="{Language.welcome_button_register}" fxon="true" click="currentState='normal';gotoRelationMenu();" id="welcomeRegister"/>
+				<components:pinkButton label="{Language.welcome_button_look}" fxon="true" click="currentState='normal';" id="welcomeStart" />
+			</s:HGroup>
+			
+		</s:Group>
+	</s:Group>
+	
+	<!--DIALOG-->
+	<s:Group width="100%" height="100%" x="0" y="0" includeIn="dialog,ad_dialog" id="dialogWindow" depth="2">
+		<s:Rect	width="100%" height="100%">
+			<s:fill>
+				<s:SolidColor color="#000000" alpha="0.8"/>
+			</s:fill>
+		</s:Rect>
+		
+		<s:Group width.dialog="580" width.ad_dialog="596" verticalCenter="-40" horizontalCenter="0" height="700">
+			<s:Rect x="0" y="0" radiusX="30" radiusY="30" width="580" height="700" filters="{shadowFilter}" includeIn="dialog" >		<!-- NORMAL DIALOG BG-->
+				<s:fill>
+					<s:BitmapFill source="@Embed('/assets/skin/BG.png')" fillMode="repeat" alpha="0.95"/>
+				</s:fill>
+			</s:Rect>
+			<s:Rect x="10" y="10" radiusX="30" radiusY="30" width="560" height="680">
+				<s:fill>
+					<s:SolidColor color="#ffffff" alpha="0.5"/>
+				</s:fill>
+			</s:Rect>
+			<s:Rect x="0" y="0" radiusX="30" radiusY="30" width="596" height="760" filters="{shadowFilter}" includeIn="ad_dialog">			<!-- AD DIALOG BG-->
+				<s:fill>
+					<s:LinearGradient rotation="270">
+						<s:GradientEntry color="0xfff7ea" ratio="0.0"/>
+						<s:GradientEntry color="0xd0c9be" ratio="0.1"/>
+						<s:GradientEntry color="0xf3ecdf" ratio="0.4"/>
+						<s:GradientEntry color="0xfff7ea" ratio="0.8"/>
+					</s:LinearGradient>
+				</s:fill>
+			</s:Rect>
+			<s:BitmapImage horizontalCenter="0" y.dialog="-90" y.ad_dialog="40" id="dialogpicture" filters="{shadowFilter}" scaleMode="stretch"
+						   width.ad_dialog="560" width.dialog="140" height.dialog="140" height.ad_dialog="200" smooth="true"/>
+			<s:BitmapImage width="{dialogpicture.width+12}" height="{dialogpicture.height+12}" id="dialogpictureframe" visible="false" horizontalCenter="0" y="-95" scaleMode="stretch" source="@Embed('/assets/images/card150x150.png')"/>
+			<s:Label id="dialogTextHeaderBox" width="520" height="50" color="#976a97"  paddingLeft="10" paddingBottom="10" paddingRight="10" paddingTop="10"
+					 fontFamily="MyriadPro" fontSize="36" fontWeight="bold" horizontalCenter="0"
+					 text="--" textAlign="center" verticalAlign="middle" verticalCenter.dialog="-260" verticalCenter.ad_dialog="-50"/>	
+			<s:Label id="dialogTextBox" width="520" height="350" color="#976a97" fontFamily="MyriadPro" paddingLeft="10" paddingBottom="10" paddingRight="10" paddingTop="10"
+					 fontSize="36" fontWeight="normal" horizontalCenter="0" text="---"
+					 textAlign="left" verticalCenter.dialog="-30" verticalCenter.ad_dialog="155"/>	
+			<s:HGroup width="400" horizontalAlign="center" horizontalCenter="0" verticalCenter.dialog="280" verticalCenter.ad_dialog="320">
+				<components:imageButton id="cancelButton" width="250" label="{parentApplication.Language.general_cancel}" click="do_cancel();"
+										down_pic="/assets/buttons/btn_white2_empty_on.png"
+										textcolor="0xa37fa3" up_pic="/assets/buttons/btn_white2_empty_off.png"/>
+				<components:violetButton id="okButton" width="250" label="{parentApplication.Language.general_ok}" click="do_ok();"   />
+			</s:HGroup>
+		</s:Group>
+	</s:Group>
+	
+	<!--LOGIN-->
+	<s:Group width="100%" height="100%" x="0" y="0" id="loginWindow" visible="false" show="loginEmail.visible=true;loginPassword.visible=true;" >
+		<s:Rect	width="100%" height="100%">
+			<s:fill>
+				<s:SolidColor color="#000000" alpha="0.8"/>
+			</s:fill>
+		</s:Rect>
+		
+		<s:Group width="580" verticalCenter="-120" horizontalCenter="0" height="600">
+			<s:Rect x="0" y="0" radiusX="30" radiusY="30" width="580" height="600" filters="{shadowFilter}" >
+				<s:fill>
+					<s:BitmapFill source="@Embed('/assets/skin/BG.png')" fillMode="repeat" alpha="0.95"/>
+				</s:fill>
+			</s:Rect>
+			<s:Rect x="10" y="10" radiusX="30" radiusY="30" width="560" height="580">
+				<s:fill>
+					<s:SolidColor color="#ffffff" alpha="0.5"/>
+				</s:fill>
+			</s:Rect>
+			<!--s:BitmapImage horizontalCenter="0" y="-46" source="/assets/images/logo_small.png"/-->
+			<s:Label id="logintext" width="520" height="120" color="#cf82b3"  paddingLeft="10" paddingBottom="10" paddingRight="10" paddingTop="30"
+					 fontFamily="MyriadPro" fontSize="32" fontWeight="bold" horizontalCenter="0"
+					 text="{Language.login_logintext}" textAlign="center" verticalAlign="middle" top="30"/>	
+			<s:TextInput id="loginEmail" width="520" height="70" color="#cf82b3" fontFamily="Helvetica" paddingLeft="10" paddingBottom="10" paddingRight="10" paddingTop="10" autoCorrect="false"
+						 fontSize="32" fontWeight="normal" horizontalCenter="0" prompt="Email" skinClass="spark.skins.mobile.StageTextInputSkin" autoCapitalize="none" softKeyboardType="email"
+						 textAlign="left" verticalCenter="-80"/>
+			<s:TextInput id="loginPassword" width="520" height="70" color="#cf82b3" fontFamily="Helvetica" paddingLeft="10" paddingBottom="10" paddingRight="10" paddingTop="10"
+						 fontSize="32" fontWeight="normal" horizontalCenter="0" prompt="Password" skinClass="spark.skins.mobile.StageTextInputSkin" displayAsPassword="true" softKeyboardType="default" 
+						 textAlign="left" verticalCenter="10"/>	
+			<s:HGroup width="400" horizontalAlign="center" horizontalCenter="0" verticalCenter="120">
+				<components:imageButton id="loginCancelButton" width="250" label="{Language.general_cancel}" click="loginWindow.visible=false;"
+										down_pic="/assets/buttons/btn_white_empty_off.png"
+										textcolor="#cf82b3" up_pic="/assets/buttons/btn_white_empty_off.png"/>
+				<components:pinkButton id="loginOkButton" width="250" label="{Language.general_ok}" click="username=loginEmail.text;password=loginPassword.text;startLogins();"
+									   />
+			</s:HGroup>
+		</s:Group>
+	</s:Group>
+	
+	<!--HELP-->
+	<s:Group width="100%" height="100%" x="0" y="0" includeIn="help" id="helpWindow" depth="2">
+		<s:Rect	width="100%" height="100%">
+			<s:fill>
+				<s:SolidColor color="#000000" alpha="0.8"/>
+			</s:fill>
+		</s:Rect>
+		
+		<s:Group width="580" verticalCenter="-40" horizontalCenter="0" height="700">
+			<s:Rect x="0" y="0" radiusX="30" radiusY="30" width="580" height="700" filters="{shadowFilter}" >
+				<s:fill>
+					<s:BitmapFill source="@Embed('/assets/skin/BG.png')" fillMode="repeat" alpha="0.95"/>
+				</s:fill>
+			</s:Rect>
+			<s:Rect x="10" y="10" radiusX="30" radiusY="30" width="560" height="680">
+				<s:fill>
+					<s:LinearGradient>
+						<s:GradientEntry color="0xd8bdd8" ratio="0.1"/>
+						<s:GradientEntry color="0xb88fb8" ratio="0.6"/>
+						<s:GradientEntry color="0xc5a3c5" ratio="0.8"/>
+						<s:GradientEntry color="0xd8bdd8" ratio="0.9"/>
+					</s:LinearGradient>
+				</s:fill>
+			</s:Rect>
+			<s:Label id="helpTextHeaderBox" width="520" height="50" color="#444444"  paddingLeft="10" paddingBottom="10" paddingRight="10" paddingTop="10"
+					 fontFamily="MyriadPro" fontSize="44" fontWeight="bold" horizontalCenter="0"
+					 text="--" textAlign="center" verticalAlign="middle" verticalCenter="-260"/>	
+			<s:Label id="helpTextBox" width="520" height="280" color="#444444" fontFamily="MyriadPro" paddingLeft="10" paddingBottom="10" paddingRight="10" paddingTop="10"
+					 fontSize="36" fontWeight="normal" horizontalCenter="0" text="---"
+					 textAlign="justify" verticalCenter="-80"/>
+			<s:CheckBox id="helpcheckbox" verticalCenter="175" horizontalCenter="0" fontSize="24" label="{Language.help_checkboxtext}" selected="{showHelpText}" change="showHelpText=helpcheckbox.selected"/>
+			<s:HGroup width="400" horizontalAlign="center" horizontalCenter="0" verticalCenter="270">
+				<components:violetButton id="closeHelpButton" width="250" label="{Language.general_close}" click="close_help();"
+										 />
+				
+			</s:HGroup>
+		</s:Group>
+	</s:Group>
+	
+	<!-- BUSY -->
+	<!--s:Rect radiusX="30" radiusY="30" width="560" height="180"  verticalCenter="-250" horizontalCenter="0"  visible="{busy}" alpha="1" depth="4"
+	filters="{shadowFilter}" 
+	>
+	<s:fill>
+	<s:LinearGradient>
+	<s:GradientEntry color="0xffffff" ratio="0.3"/>
+	<s:GradientEntry color="0xffffff" ratio="0.5"/>
+	<s:GradientEntry color="0xffffff" ratio="0.7"/>
+	<s:GradientEntry color="0xffffff" ratio="0.9"/>
+	</s:LinearGradient>
+	</s:fill>
+	</s:Rect-->
+	<s:BitmapImage id="busybg" filters="{shadowFilter}" verticalCenter="-200" horizontalCenter="0" visible="{busy}" alpha="1" depth="4" source="@Embed('/assets/images/busybackground2.png')"/>
+	<s:BusyIndicator id="busyIcon" visible="{busy}" width="60" horizontalCenter="0" click="notBusy();" depth="4"
+					 rotationInterval="200" symbolColor="black" verticalCenter="-254"
+					 height="60"/>
+	<s:Label id="busyText" visible="{busy}" text="{busytext}" horizontalCenter="0" verticalCenter="-196" color="#000000" fontSize="44" click="notBusy();" depth="4"/>
+	<s:BitmapImage id="busyCharacter" visible="{busy}" source="/assets/characters/busyCat.png" horizontalCenter="0" verticalCenter="-53" filters="{shadowFilter}" smooth="true"   alpha="0"/>
+	
+	<!-- TOAST -->
+	<s:Group id="toast" y="10" x="-700">
+		<s:BitmapImage id="toastBG" source="/assets/images/toaster.png"/>
+		<s:Label id="isLoggedIn" visible="true" top="20" 
+				 height="40" color="#ffffff" fontSize="44" horizontalCenter="0"
+				 mouseEnabled="false" text="" textAlign="center" verticalAlign="top" fontFamily="Badaboom"
+				 width="616"/>	
+	</s:Group>
+	
+	<fx:Declarations>
+		<s:DropShadowFilter color="#000000" distance="6" alpha="0.28" angle="92.3" blurX="6" blurY="6" id="shadowFilter"/>
+	</fx:Declarations>
+</s:Application>

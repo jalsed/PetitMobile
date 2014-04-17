@@ -1,0 +1,274 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 width="200" height="250" creationComplete="init();"
+		 >
+	<s:states>
+		<s:State name="normal"/>
+	</s:states>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.graphics.codec.PNGEncoder;
+			
+			import by.blooddy.crypto.Base64;
+			
+			import classes.GlobalConstants;
+			
+			import events.CameraEvent;
+			import events.ImageEvent;
+			
+			import org.osmf.events.MediaError;
+			import org.osmf.events.MediaErrorEvent;
+			
+			import flash.display.StageDisplayState;
+			
+			
+			
+			public var file:File;
+			private var loader:Loader;
+			protected static var roll:CameraRoll;
+			 
+			public var im_type:String;
+			public var im_owner:String;
+			public var im_petid:String;
+			public var im_file:String;
+			
+			private function init():void {
+				 
+				//CAMERA
+				if(Camera.isSupported) {
+					parentApplication.cameraUtil.addEventListener(MediaEvent.COMPLETE, snapshotReady);
+					parentApplication.cameraUtil.addEventListener(flash.events.Event.CANCEL,cancelCamera);
+					parentApplication.cameraUtil.addEventListener(CameraEvent.CANCEL,cancelCamera);
+					parentApplication.cameraUtil.addEventListener(CameraEvent.FILE_READY,snapshotReady,false);
+				}
+				
+				//MediaRoll
+				roll = new CameraRoll();
+				roll.addEventListener(MediaEvent.SELECT,onMediaSelect);
+				roll.addEventListener(org.osmf.events.MediaErrorEvent.MEDIA_ERROR, onMediaError );
+ 
+			}
+			 
+			
+			/********************************************************
+			 *  CAMERA AND GALLERY									*
+			 * 														*
+			 ********************************************************/
+			private function snapshotReady(evt:CameraEvent):void {
+				parentApplication.cameraUtil.removeEventListener(CameraEvent.FILE_READY,snapshotReady);
+				parentApplication.cameraUtil.removeEventListener(MediaEvent.COMPLETE, snapshotReady);
+				
+				parentDocument.thumbImage.source = evt.file.url;
+				
+				parentDocument.thumbImage.visible=true;
+				//imageText.visible=false;
+
+				im_file=evt.file.url;
+				
+				//This is a workaround to get rid of top statusbar (ios7 bug)
+				stage.displayState = StageDisplayState.FULL_SCREEN_INTERACTIVE;
+				
+				
+				 
+                // Upload to server
+                restUploadFile(evt.file, "images");
+			}
+
+            public function restUploadFile(file:File, type:String):void {
+                //uploadIds = [];
+
+				parentApplication.isBusy(parentApplication.Language.getgallery_busy_uploadimage);	//Uploading image...
+				
+                var fileStream:FileStream = new FileStream();
+                fileStream.open(file, FileMode.READ);
+                var bytes:ByteArray = new ByteArray();
+                fileStream.readBytes(bytes);
+                fileStream.close();
+
+                var jsonfile:Object = {};
+                jsonfile.filename = file.name;
+                jsonfile.status = 0;
+                //jsonfile.filepath = 'public://petit/' + type + '/' + parentApplication.myUserDAO.user.uid.toString() + '/' + file.name;
+                jsonfile.filepath = 's3://petit/' + type + '/' + parentApplication.myUserDAO.user.uid.toString() + '/' + file.name;
+                jsonfile.file = by.blooddy.crypto.Base64.encode(bytes);
+
+                var urlLoader:URLLoader = new URLLoader();
+                urlLoader.addEventListener(Event.COMPLETE, restUploadFileHandler);
+                urlLoader.addEventListener(IOErrorEvent.IO_ERROR, restUploadFileFaultHandler);
+                var uploadUrl:String = GlobalConstants.DRUPAL_PATH + "file";
+                var urlRequest:URLRequest = new URLRequest(uploadUrl);
+                urlRequest.requestHeaders.push(new URLRequestHeader("Accept", "application/json"));
+                urlRequest.contentType = "application/json";
+                urlRequest.method = URLRequestMethod.POST;
+
+                urlRequest.data = JSON.stringify(jsonfile);
+                urlLoader.load(urlRequest);
+            }
+
+            private function restUploadFileFaultHandler(event:IOErrorEvent):void {
+                //Alert.show("Image upload failed.");	//"Sorry! Either your User Name or your password are incorrect. Please try again.");
+				 
+				dispatchEvent(new ImageEvent(ImageEvent.UPLOAD_FAILURE,""));
+				
+				parentApplication.notBusy();
+			}
+
+            private function restUploadFileHandler(event:Event):void {
+                var loader:URLLoader = URLLoader(event.target);
+                var obj:Object = JSON.parse(loader.data);
+                //uploadIds.push(obj.fid);
+
+                //if (uploadIds.length == productFiles.length) {
+                //    isDirty = false;
+                //    dispatchEvent(new Event("imageUploadComplete", true));
+                //}
+				
+				dispatchEvent(new ImageEvent(ImageEvent.UPLOAD_READY,obj));
+				
+				if(im_type=="profile")
+					saveOriginal(im_file);
+				
+				parentApplication.notBusy();
+            }
+			
+			private function cancelCamera(evt:flash.events.Event):void {
+				//This is a workaround to get rid of top statusbar (ios7 bug)
+				stage.displayState = StageDisplayState.FULL_SCREEN_INTERACTIVE;
+			}
+			
+			
+			//FROM GALLERY. Loader might only be necessary in iOS
+			protected function onMediaSelect(event:MediaEvent):void		
+			{
+				roll.removeEventListener(MediaEvent.SELECT,onMediaSelect);
+				roll.removeEventListener(org.osmf.events.MediaErrorEvent.MEDIA_ERROR, onMediaError );
+				
+				//parentApplication.preview.isBusy("Hämtar in bild...");
+								
+				var promise:MediaPromise = event.data as MediaPromise;
+				
+				loader = new Loader();
+				loader.contentLoaderInfo.addEventListener(Event.COMPLETE, onImageLoaded);
+				loader.contentLoaderInfo.addEventListener(ErrorEvent.ERROR, onError);
+				loader.loadFilePromise(promise);
+			}
+			
+			//FROM GALLERY when loaded
+			protected function onImageLoaded(event:Event):void
+			{
+				loader.contentLoaderInfo.removeEventListener(Event.COMPLETE, onImageLoaded);
+				loader.contentLoaderInfo.removeEventListener(ErrorEvent.ERROR, onError);
+				
+				var isPortrait:Boolean;
+				var bitmapData:BitmapData = Bitmap(event.currentTarget.content).bitmapData;
+				if(bitmapData.height > bitmapData.width){
+					isPortrait=true;
+				} else {
+					isPortrait=false;
+				}
+				
+				
+				var bitmap:Bitmap = new Bitmap(bitmapData);
+				//Calculate the scaling ratio to apply to the image.
+				var ratio:Number;
+				if(isPortrait){
+					ratio=Math.min(stage.stageHeight/bitmapData.width,
+						stage.stageWidth/bitmapData.height);
+					ratio=Math.min(ratio,1);
+					bitmap.width = bitmapData.width * ratio;
+					bitmap.height = bitmapData.height * ratio;
+					bitmap.rotation=-90;
+					bitmap.y=bitmap.height;
+				} else {
+					ratio=Math.min(stage.stageHeight/bitmapData.height,
+						stage.stageWidth/bitmapData.width);
+					ratio=Math.min(ratio,1);
+					bitmap.width = bitmapData.width * ratio;
+					bitmap.height = bitmapData.height * ratio;
+				}
+				
+				//parentApplication.preview.notBusy();
+				
+				//SAVE cropped image locally
+//				parentApplication.cameraUtil.addEventListener(CameraEvent.CANCEL,cancelCamera);
+//				parentApplication.cameraUtil.addEventListener(CameraEvent.FILE_READY,snapshotReady,false);
+				parentApplication.cameraUtil.savePicture(bitmap.bitmapData);	//This will then generate CameraEvent.FILE_READY
+				
+			
+			}
+			
+			protected function onMediaError(event:org.osmf.events.MediaErrorEvent):void {
+				loader.contentLoaderInfo.removeEventListener(Event.COMPLETE, onImageLoaded);
+				loader.contentLoaderInfo.removeEventListener(org.osmf.events.MediaErrorEvent.MEDIA_ERROR, onError);
+				parentApplication.preview.showDialog("","Failure","Media couldn't be loaded.","Continue","Continue",1);
+			}
+			
+			protected function onError(event:org.osmf.events.MediaError):void {
+			}
+			
+			protected function onBrowse(event:MouseEvent):void
+			{        
+				if(roll==null) {
+					roll = new CameraRoll();
+					roll.addEventListener(MediaEvent.SELECT,onMediaSelect);
+					roll.addEventListener(org.osmf.events.MediaErrorEvent.MEDIA_ERROR, onMediaError );
+				}
+				else {
+					roll.removeEventListener(MediaEvent.SELECT,onMediaSelect);
+					roll.removeEventListener(org.osmf.events.MediaErrorEvent.MEDIA_ERROR, onMediaError );
+					roll.addEventListener(MediaEvent.SELECT,onMediaSelect);
+					roll.addEventListener(org.osmf.events.MediaErrorEvent.MEDIA_ERROR, onMediaError );
+				}
+				
+				roll.browseForImage();         
+			}
+			
+			
+			
+			/****************************************************************
+			 * SAVE ORIGINAL PROFILE IMAGE									*
+			 * 																*
+			 ****************************************************************/
+			private function saveOriginal(fid:String):void {
+				var loader:Loader = new Loader();
+				var url:URLRequest = new URLRequest(GlobalConstants.AMAZON_URL + "petit/images/"+ im_owner + "/"+fid.slice(13,fid.length));
+				var loaderContext:LoaderContext = new LoaderContext(false, ApplicationDomain.currentDomain, null);
+				loader.contentLoaderInfo.addEventListener(Event.COMPLETE, saveOriginal_loader_COMPLETE);
+				loader.contentLoaderInfo.addEventListener(IOErrorEvent.IO_ERROR, saveOriginal_loader_ERROR);
+				
+				loader.load(url,loaderContext);
+			}
+			
+			
+			private function saveOriginal_loader_ERROR(event:IOErrorEvent):void {
+				trace(event.errorID);	
+			}
+			
+			private function saveOriginal_loader_COMPLETE(event:Event):void {
+				var bitmap:Bitmap = event.target.content;
+				
+				var pngenc:mx.graphics.codec.PNGEncoder = new mx.graphics.codec.PNGEncoder();
+				var b:ByteArray = pngenc.encode(bitmap.bitmapData);
+				
+				var newfile:File = File.documentsDirectory.resolvePath("petiit_OriginalProfileImage"+im_petid+".png");
+				
+				var fileStream:FileStream = new FileStream();
+				fileStream.open(newfile, FileMode.WRITE);                         
+				fileStream.writeBytes(b,0,b.bytesAvailable);
+				fileStream.close();
+				
+			}
+			
+			
+		]]>
+	</fx:Script>
+	<s:Image x="0" y="0" horizontalAlign="center" id="chooseTypeCamera" source="@Embed('/assets/images/chooseTypeCamera.png')" mouseOut="chooseTypeCamera.alpha=1" mouseOver="chooseTypeCamera.alpha=0.75" click="if(Camera.isSupported) parentApplication.cameraUtil.takePicture();"/>
+	<!--s:Image x="447" y="10" id="chooseTypeLibrary" source="@Embed('/assets/images/chooseTypeLibrary.png')" mouseOut="chooseTypeLibrary.alpha=1" mouseOver="chooseTypeLibrary.alpha=0.75" click="onBrowse(event);"/-->
+	<!--s:Label x="470" y="150" text="Photo library" fontSize="24"/-->
+	
+</s:Group>

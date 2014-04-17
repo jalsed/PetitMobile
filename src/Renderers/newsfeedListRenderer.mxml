@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:ItemRenderer xmlns:fx="http://ns.adobe.com/mxml/2009"
+				xmlns:s="library://ns.adobe.com/flex/spark"
+				xmlns:views="views.*"
+				width="560" height="240" height.adminmessage="180" height.relation="180" height.message="180" height.ad="200" height.gift="180"
+				autoDrawBackground="false" currentState="feed"
+				dataChange="updateData();"
+				name="messageRenderer"
+			 	alpha.feed="1"
+			    cacheAsBitmap="true"
+			 	>
+	
+	<s:layout>
+		<s:BasicLayout/>
+	</s:layout>
+	
+	<s:states>
+		<s:State name="myfeed" />
+		<s:State name="feed" />
+		<s:State name="relation" />
+		<s:State name="competition" />
+		<s:State name="message" />
+		<s:State name="gift"/>
+		<s:State name="adminmessage"/>
+		<s:State name="ad"/>
+	</s:states>
+	
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.events.FlexEvent;
+			
+			import spark.components.List;
+			
+			[Bindable]
+			private var adImage:String = "";
+			
+			[Bindable]
+			private var iconVisible:Boolean=true;
+			
+			override public function set data(value:Object):void {	//Since no autoDrawBackground?
+				
+					if(value!=null) {
+					switch (value.type) {
+						case 0:
+							currentState="myfeed";
+							pic.visible=true;
+							break;
+						case 1:
+							currentState="feed";
+							pic.visible=true;
+							break;
+						case 2:
+							currentState="relation";
+							pic.visible=true;
+							break;
+						case 3:
+						case 4:
+						case 5:
+						case 6: 
+							currentState="competition";
+							if(value.imageURL!=null && value.imageURL.length>0) {
+								pic.visible=true;
+								pic.smooth=true;
+								iconVisible=false;		
+							}
+							else {
+								pic.visible=false;
+								iconVisible=true;
+							}
+							break;
+						case 7:
+							currentState="message";
+							pic.visible=true;
+							break;
+						case 8:
+							currentState="adminmessage";
+							pic.visible=false;
+							break;
+						case 9:
+							currentState="message";	//Own sent message
+							pic.visible=true;
+							break;
+						case 10:
+							currentState="relation";
+							pic.visible=true;
+							break;
+						case 100:
+							currentState="ad"; 
+							pic.visible=true;
+							break;
+					}
+					
+					if(value.type>700 && value.type<800) {
+						currentState="gift";
+						pic.visible=true;
+					}
+					
+					
+					if(value.title.length>0)
+						titleBox.text = value.title;
+					else //MUST have else in data renderers set data
+						titleBox.text="";
+					
+					if(value.description != null && value.description.length>0)
+						descriptionBox.text = value.description;
+					else //MUST have else in data renderers set data
+						descriptionBox.text="";
+					
+					if(pic!=null) {
+						if(value.imageURL != null) {
+							adImage = value.imageURL;
+							pic.source=adImage;
+						}
+						else { //MUST have else in data renderers set data
+							pic.source=""; 
+						}
+					}				
+					
+					 
+					dateBox.text = value.timestampDate;
+				}
+			}
+			
+			private function updateData():void {
+				if(data!=null) {
+					if(data.imageURL != null)
+						adImage = data.imageURL; 
+				}	
+				
+				if(data.title.length>0)
+					titleBox.text = data.title;
+				else //MUST have else in data renderers set data
+					titleBox.text="";
+				
+				if(data.description.length>0)
+					descriptionBox.text = data.description;
+				else //MUST have else in data renderers set data
+					descriptionBox.text="";
+				
+				dateBox.text = data.timestampDate;
+				 
+				pic.source=adImage; 
+			}
+			 
+			
+		]]>
+	</fx:Script>
+	<s:Group>
+			<s:Rect id="background" left="0" right="0" bottomLeftRadiusX="35" bottomLeftRadiusY="35" width="560" 
+				bottomRightRadiusX="35" bottomRightRadiusY="35" radiusX="35" radiusY="35"
+				topLeftRadiusX="35" topLeftRadiusY="35" topRightRadiusX="35" topRightRadiusY="35"
+				top.feed="0" bottom.feed="0"
+				height="240" height.adminmessage="180" height.relation="180" height.message="180" height.gift="180" height.ad="200"
+				filters="{shadowFilter}" 
+				>
+			<s:fill>
+				<s:LinearGradient>
+					<s:GradientEntry color.myfeed="0xbeb8ae" color.feed="0xbeb8ae" color.gift="0xf0cbe0" color.adminmessage="0xde7314" color.relation="0xc8c2b7" color.competition="0x4c3352" color.message="0x4c3352" ratio="0"/>
+					<s:GradientEntry color.myfeed="0xd0c9be" color.feed="0xd0c9be" color.gift="0xf0cbe0" color.adminmessage="0xde7314" color.relation="0xf5eee1" color.competition="0x4c3352" color.message="0xa793ac" ratio="0.2"/>
+					<s:GradientEntry color.myfeed="0xf3ecdf" color.feed="0xf3ecdf" color.gift="0xf0cbe0" color.adminmessage="0xde7314" color.relation="0xfff7ea" color.competition="0x4c3352" color.message="0xf3ecff" ratio="0.4"/>
+					<s:GradientEntry color.myfeed="0xfff7ea" color.feed="0xfff7ea" color.gift="0xf0cbe0" color.adminmessage="0xde7314" color.relation="0xfff7ea" color.competition="0x4c3352" color.message="0xfff7ff" ratio="0.8"/>
+				</s:LinearGradient>
+				<!-- <s:BitmapFill fillMode="repeat" source="@Embed('/assets/images/stripebackground.png')"/>-->
+			</s:fill>
+		</s:Rect>
+		
+		<s:BitmapImage id="watermarkImage" alpha="0.8" source="" source.relation="/assets/images/watermark_friend_request.png" bottom="0" horizontalCenter="50"/>
+		
+		<s:Label id="titleBox" width="340" height="40" fontFamily="MyriadPro" fontWeight="bold" fontSize="33" lineBreak="explicit" alpha.ad="0" 
+				 textAlign="left" verticalAlign="top"
+				 x="195" y="10"
+				 color="#040037" color.competition="#fcf7e7" color.adminmessage="#444444"
+				 />
+		<s:Label id="descriptionBox" width="340" height="155" height.adminmessage="80" height.relation="80" height.message="80" height.gift="80" alpha.ad="0"
+				 fontFamily="MyriadPro" fontSize="33" fontStyle="normal" lineBreak="toFit"
+				 textAlign="left" verticalAlign="top"
+				 x="195" y="50"
+				 color="#040037" color.competition="#fcf7e7" color.adminmessage="#444444"
+				 />
+		<s:Label id="dateBox" text="yyyy-mm-dd"
+				 fontFamily="MyriadPro" fontSize="22" alpha.ad="0" fontStyle="italic"
+				 lineBreak="toFit" textAlign="right" verticalAlign="top"
+				 right="30" bottom="10" width="150"
+				 color="#040037" color.competition="#fcf7e7" color.adminmessage="#444444"
+				/>
+		
+		<s:Label text=" " x="40" y="100" width="150" height="80" excludeFrom="adminmessage,competition,relation,ad"/>
+		
+		<!--includeIn="ad,feed,myfeed,message,gift"-->
+		 <s:BitmapImage id="pic" x="0" 
+					   scaleMode="zoom" verticalCenter.ad="-4" verticalCenter="0" complete="picmask.validateSize();" 
+					   width="180" height="240" height.message="180" height.gift="180" height.ad="200" width.ad="560" height.relation="180" alpha.relation="0.65">
+			<s:mask>
+				<s:Group>
+					<s:Rect id="picmask" 
+							left="0" top="0" 
+							width="180"
+							height="240" height.message="180" height.gift="180" height.relation="180"
+							height.ad="200" width.ad="560"
+							bottomLeftRadiusX="35" bottomLeftRadiusY="35" 
+							bottomRightRadiusX="0" bottomRightRadiusY="0" 
+							topLeftRadiusX="35" topLeftRadiusY="35" topRightRadiusX="0" topRightRadiusY="0"
+							topRightRadiusX.ad="35" topRightRadiusY.ad="35"
+							bottomRightRadiusX.ad="35" bottomRightRadiusY.ad="35" 
+							>
+						<s:fill>
+							<s:SolidColor color="0x000000"/>
+						</s:fill>
+					</s:Rect>
+				</s:Group>
+			</s:mask>
+		</s:BitmapImage>	
+		
+		<s:Group x="20" y="20" width="140" height="200" height.adminmessage="140" height.relation="140" height.message="140" height.gift="140" includeIn="competition,adminmessage,relation,message,gift">
+			<s:BitmapImage id="pic_icon" verticalCenter="0" horizontalCenter="0" filters="{shadowFilter}" visible="{iconVisible}"
+					   source.competition="/assets/images/competition_icon.png"
+					   source.adminmessage="/assets/images/petit-system-message.png"
+					   source.relation="/assets/images/post_friend_request.png"
+					   source.message="/assets/images/petit-friend-overlay-message.png" 
+					   source.gift="/assets/images/petit-friend-overlay-gift.png" 
+					   />
+		</s:Group>
+	</s:Group>
+	<fx:Declarations>
+		<s:DropShadowFilter color="#000000" distance="6" alpha="0.28" angle="92.3" blurX="6" blurY="6" id="shadowFilter"/>	
+	</fx:Declarations>
+	
+</s:ItemRenderer>

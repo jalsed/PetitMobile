@@ -1,0 +1,311 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:ItemRenderer xmlns:fx="http://ns.adobe.com/mxml/2009"
+				xmlns:s="library://ns.adobe.com/flex/spark"
+				xmlns:views="views.*"
+				currentState="normal" 
+				dataChange="updateData();"
+				initialize="initializeHandler(event)" 
+				mouseOut="currentState='normal'"
+				mouseOver="if(data.status!=2) currentState='hovering';" 
+				click="competitionClicked(event)"
+				name="competitionItemRenderer"
+				autoDrawBackground="false"
+				contentBackgroundAlpha="0" contentBackgroundColor="#ffffff" 
+				width="580" height="800" alpha.normal="1"
+				alpha.selected="0.92"
+				filters="{shadowFilter}" cacheAsBitmap="true"				
+				>
+
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	
+	<s:states>
+		<s:State name="normal" />
+		<s:State name="hovering" />
+		<s:State name="selected" />
+	</s:states>
+	 		
+	<fx:Script>
+		<![CDATA[
+			import mx.core.UIComponent;
+			import mx.events.FlexEvent;
+			
+			import spark.core.ContentCache;
+			
+			import classes.GlobalConstants;
+			import classes.posterClass;
+		 
+			private var timestamp:Number=0;
+			
+			public var bg_mc:MovieClip;
+				 
+			static private const iconCache:ContentCache = new ContentCache();
+			
+			static private var firsttime:Boolean=true; 
+			 
+			private function initializeHandler(event:FlexEvent):void {
+//				bg.contentLoader = iconCache;
+			}
+			
+			public function stopMC():void {
+				if(bg_mc!=null) {
+		 			bg_mc.stop();
+					data.currentlyPlaying=false;
+				}
+			}
+//			public function playMC():void {
+//				if(bg_mc!=null)
+//					bg_mc.play();
+//			}
+			
+			
+			private function updateData():void {
+				if(data!=null) {
+					
+					//Controlling movieclip play during scrolling increase performance
+					if(data.currentlyPlaying==false) {
+						if(bg_mc!=null)
+							bg_mc.stop();
+					}
+					else {
+						if(bg_mc!=null)
+							bg_mc.play();
+					 
+						//Label
+						titleBox.text=data.title;
+						 
+						startdateLabel.text = data.startdate.substr(0,10);
+						enddateLabel.text = data.enddate.substr(0,10);
+					
+						//Status
+						if(data.status==0)
+							statusLabel.text = parentApplication.Language.renderer_competition_archived;	//"ARCHIVED";
+						if(data.status==1)
+							statusLabel.text = parentApplication.Language.renderer_competition_open;	//"OPEN";
+						if(data.status==2)
+							statusLabel.text = parentApplication.Language.renderer_competition_closed;	//"CLOSED";
+						if(data.status==3)
+							statusLabel.text = parentApplication.Language.renderer_competition_results;	//"RESULTS";
+						 
+						
+						//sound
+						
+						if(data.soundURL!=null && data.soundURL!=0 && data.soundURL.length>0) {
+							parentApplication.audioUtil.stopSoundFX();
+	/////					parentApplication.audioUtil.playSoundFX(data.soundURL);
+						}
+						else
+							parentApplication.audioUtil.stopSoundFX();
+					 
+	
+						if(data.background_imageURL!=null && data.background_imageURL.length>0) {
+							//background image or swf
+							if(data.background_imageURL.slice(data.background_imageURL.length-4,data.background_imageURL.length)==".swf") {
+								
+								//Makes background of swfloader transparent
+								bg.setStyle("bgAlpha", "0.0");	//"bgAlpha"
+								
+								
+								var urlRequest:URLRequest = new URLRequest(data.background_imageURL);
+								
+								// Prepare the loader context to avoid security error. Works both in iOS and Android
+								var loaderContext:LoaderContext = new LoaderContext(false,ApplicationDomain.currentDomain,null);
+								loaderContext.allowLoadBytesCodeExecution = true;
+								loaderContext.allowCodeImport = true;
+								
+								// Load the SWF file
+								var loader:Loader = new Loader();
+								loader.contentLoaderInfo.addEventListener(Event.COMPLETE, animLoaded);
+								loader.load(urlRequest,loaderContext);
+								 
+								loader=null;
+				//				 bg.source = classes.posterClass;
+								
+	///							if(firsttime) {
+	///								loadLibrary();
+	///								firsttime=false;
+	///							}
+								 
+								
+							}
+							else {	
+								bg.source = data.background_imageURL;
+							}
+						}
+						else {
+							bg.source="";	
+						}
+					}	
+ 				}	
+			}
+			
+			private function animLoaded(event:Event):void {
+				bg.source  = event.target.content;
+				bg_mc = event.target.content;
+			}
+			
+			private function enterCompetition(event:Event):void {
+				if(data.gameURL==null || data.gameURL.length==0) {
+					this.parentDocument.parentDocument.gotoCompetition(event);
+				}
+				else {
+					this.parentDocument.parentDocument.gotoGame(data.gameURL)
+				}
+			}
+		 
+			private function competitionClicked(event:Event):void {
+				if(data.status!=2) {
+					stopMC();
+					enterCompetition(event);
+				}
+				else {
+					parentApplication.showDialog("",parentApplication.Language.renderer_competition_closed,parentApplication.Language.renderer_competition_closed_information,parentApplication.Language.general_continue,"",1); //"Competition is closed"	
+				}
+			}
+			
+			/************************************************
+			 * 	EXTERNAL SWF COMMUNICATION					*
+			 * 												*
+			 ************************************************/
+  
+			private function loadPoster():void {
+				var myLoader:Loader = new Loader();
+				var myUrlReq:URLRequest = new URLRequest("/assets/posters/poster5.swf");
+				myLoader.load(myUrlReq);
+				myLoader.contentLoaderInfo.addEventListener(Event.COMPLETE, onLoaded);
+				myLoader=null;
+			}
+			
+			private function onLoaded(event:Event):void
+			{
+				var mc:MovieClip = event.target.content;
+				bg.source=mc;
+			 
+			}
+			
+			/************************************************************
+			 * 	GET ASSETS FROM EXTERNAL SWFS (like characters)			*
+			 * 															*
+			 ************************************************************/
+			import com.ws.tink.core.Library;
+			import com.ws.tink.events.LibraryEvent;
+			import com.ws.tink.managers.LibraryManager;
+			
+			private function loadLibrary():void
+			{
+				var library:Library = LibraryManager.libraryManager.createLibrary( "jespersLibrary" );
+				library.addEventListener( LibraryEvent.LOAD_COMPLETE, onAssetsLibraryLoadCompleteHandler, false, 0, true );
+				library.loadSWF("/assets/posters/poster5.swf" );
+			}
+			
+			
+			private function onAssetsLibraryLoadCompleteHandler(event:LibraryEvent ):void
+			{
+				EventDispatcher( event.currentTarget ).removeEventListener( event.type, arguments.callee );
+				var library:Library = LibraryManager.libraryManager.getLibrary( "jespersLibrary" );
+				
+				var AssetSymbol:Class = library.getDefinition("basesymbol");
+			//	addChild( new AssetSymbol() as Sprite );
+				 
+			}
+			
+			
+			
+			//REFLECTION - only works on images (not swf) right now.
+			public function loadedCompletely(event:Event):void{
+				 
+/*				var bitmap:Bitmap = new Bitmap(new BitmapData( 1, 1, true, 0 ));
+				var gr:Graphics;
+				var fadeFrom:Number = 0.3;
+				var fadeTo:Number = 0;
+				var fadeCenter:Number = 0.5;
+				var skewX:Number = 0;
+				var scale:Number = 1;
+				
+				//draw reflection
+				var picwidth:int=reflector.width;
+				var picheight:int = reflector.height;
+				var bitmapData:BitmapData = new BitmapData(picwidth, picheight, true, 0);
+				var matrix:Matrix = new Matrix( 1, 0, skewX, -1*scale, 0, 840 );				//target.height = 840 - nu event.target.content.height
+				var rectangle:Rectangle = new Rectangle(0,0,picwidth,picheight*(2-scale));
+				var delta:Point = matrix.transformPoint(new Point(0,840));
+				matrix.tx = delta.x*-1;
+				matrix.ty = (delta.y-840)*-1;
+				bitmapData.draw(event.target.content, matrix, null, null, rectangle, true);
+			
+				//add fade
+				var shape:Shape = new Shape();
+				var gradientMatrix:Matrix = new Matrix();
+				gradientMatrix.createGradientBox(picwidth,picheight, 0.5*Math.PI);
+				shape.graphics.beginGradientFill(GradientType.LINEAR, new Array(0,0,0), new Array(fadeFrom,(fadeFrom-fadeTo)/2,fadeTo), new Array(0,0xFF*fadeCenter,0xFF), gradientMatrix)
+				shape.graphics.drawRect(0, 0, picwidth, picheight);
+				shape.graphics.endFill();
+				bitmapData.draw(shape, null, null, BlendMode.ALPHA);
+				
+				reflector.source = bitmapData;
+				
+				//apply result
+				bitmap.bitmapData.dispose();
+				bitmap.bitmapData = bitmapData;
+				
+*/			}
+			
+		 
+		]]>
+	</fx:Script>
+	<s:Group>
+		<s:Rect id="backgroundRect" height="840" width="580" 
+				bottomLeftRadiusX="10" bottomLeftRadiusY="10"
+				bottomRightRadiusX="10" bottomRightRadiusY="10" radiusX="10" radiusY="10"
+				topLeftRadiusX="10" topLeftRadiusY="10" topRightRadiusX="10" topRightRadiusY="10"
+				visible="true" alpha="1">
+			<s:fill>
+				<s:SolidColor color="#000000" alpha="0.0"/>
+			</s:fill>
+		</s:Rect>
+		
+		<s:SWFLoader id="bg" x="0" y="0" width="580" height="840" complete="loadedCompletely(event);" scaleContent="false"/>
+		<!--s:BitmapImage id="reflector" x="0" y="840" width="580" height="420" /-->
+		
+		<s:Rect id="textbackground" height="150" left="30" width="520" bottom="140" filters="{shadowFilter}"
+			 	visible="true" alpha="0.95"
+				radiusX="15" radiusY="15"
+				>
+			<s:fill>
+				<s:SolidColor color="#fff7ea" alpha="1"/>
+			</s:fill>
+		</s:Rect> 
+		<s:VGroup gap="2" id="contentGroup" paddingBottom="5" paddingLeft="10" paddingRight="10" paddingTop="5"			visible="true"
+					   bottom="140" horizontalCenter="0"  width="500" height="150">
+			<s:Label id="titleBox" color="#040037" fontFamily="MyriadPro" 
+					 fontSize="40" lineBreak="explicit" text="{data.title}" textAlign="left"
+					 verticalAlign="top"
+					 width="480" fontWeight="bold"/>
+			<s:Label id="descriptionBox" width="480" height="30" color="#040037" fontFamily="MyriadPro"
+					 fontSize="30" lineBreak="explicit" text="{data.description}" textAlign="left"
+					 verticalAlign="top"/>
+		 	<s:HGroup gap="10" paddingTop="5">
+				<s:Label fontFamily="MyriadPro" fontSize="30" text="{parentApplication.Language.renderer_competition_willopen}" alpha="1" color="#040037"/>
+				<s:Label fontFamily="MyriadPro" fontSize="30" id="startdateLabel" color="#040037" text="-" fontWeight="bold"/>
+			</s:HGroup>
+			<s:HGroup gap="10">
+				<s:Label fontFamily="MyriadPro" fontSize="30" text="{parentApplication.Language.renderer_competition_willclose}" color="#040037" alpha="1"/>
+				<s:Label fontFamily="MyriadPro" fontSize="30" id="enddateLabel" color="#040037" text="-" fontWeight="bold"/>
+			</s:HGroup>
+			<s:Label id="countdown" horizontalCenter="-20" verticalCenter="0" fontFamily="MyriadPro" fontSize="750" text="23" color="#ffffff" alpha="0.8"		visible="false"/>
+		</s:VGroup>	
+		
+	  
+		<s:BitmapImage source="@Embed('/assets/images/rightribbon1.png')" right="22" bottom="157"/>
+		
+		<s:Label id="statusLabel" right="42" bottom="205" rotation="45" fontWeight="bold" textAlign="center" text="{parentApplication.Language.renderer_competition_open}" color="#ffffff" alpha="0.95" fontSize="36" fontFamily="MyriadPro"/>
+		
+		
+		
+	</s:Group>
+	<fx:Declarations>
+		<s:DropShadowFilter color="#000000" distance="16" alpha="0.45" angle="40" blurX="8" blurY="8" id="shadowFilter"/>
+	</fx:Declarations>
+	
+</s:ItemRenderer>

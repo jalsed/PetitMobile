@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark" title="HomeView" viewActivate="viewActivateHandler(event)"
+		tabBarVisible="true" >
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import flash.events.Event;
+			import flash.events.MediaEvent;
+			import flash.media.CameraUI;
+			import flash.media.MediaType;
+			
+			import spark.events.ViewNavigatorEvent;
+			
+			
+			private var camera:CameraUI;
+			
+			protected var loader:Loader;
+			public var file:File;
+			private var dataSource:IDataInput;
+			 
+			
+			
+			protected function viewActivateHandler(event:ViewNavigatorEvent):void
+			{
+				if (CameraUI.isSupported)
+				{
+					trace("Camera is installed."); 
+					
+					camera = new CameraUI();
+					camera.addEventListener(Event.CANCEL,cancelCamera);
+					camera.addEventListener(MediaEvent.COMPLETE, mediaEventComplete);
+				
+					//camera.setMode( 800, 400, 15, true ); 
+					connectCamera();
+				}
+				else { 
+					trace("No camera is installed."); 
+				}
+			}
+			
+			private function cancelCamera(event:Event):void { 
+				trace("cancel");	
+			}
+
+			protected function mediaEventComplete(event:MediaEvent):void {
+				trace("complete");	
+			 
+				dataSource = event.data.open();
+				
+				parentApplication.currentVideoURL = event.data.file.url;
+				
+				storlek.text = Math.round(event.data.file.size/1024) + " kb";
+				
+				if( event.data.isAsync )
+				{
+					trace( "Asynchronous media promise." );
+					var eventSource:IEventDispatcher = dataSource as IEventDispatcher;            
+					eventSource.addEventListener( Event.COMPLETE, onMediaLoaded );         
+				}
+				else
+				{
+					trace( "Synchronous media promise." );
+					readMediaData();
+				}
+			}
+				
+			private function onMediaLoaded( event:Event ):void
+			{
+				trace("Media load complete");
+				 
+				readMediaData();
+			}
+				
+			private function readMediaData():void
+			{
+
+			}
+	
+			
+			
+			
+			private function connectCamera():void { 
+				
+				camera.launch(MediaType.VIDEO);
+				
+/*				var video:Video = new Video(camera.width, camera.height);
+				video.x = 10;
+				video.y = 10;
+				video.attachCamera(camera);
+				videobg.addElement(video);
+*/			}
+			
+			protected function back():void {
+				this.parentApplication.record.popView();
+			}
+			
+		]]>
+	</fx:Script>
+	<s:navigationContent>
+		<s:Button label="Back" click="back();"/>
+	</s:navigationContent>
+	
+	
+	<s:BorderContainer backgroundColor="#550000" id="videobg" height="200" width="640" borderVisible="false">
+		 <s:Label x="10" y="100" text="-" id="storlek" color="#ffffff"/>
+	</s:BorderContainer>
+</s:View>

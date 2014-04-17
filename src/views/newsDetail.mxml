@@ -1,0 +1,570 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark" 
+		xmlns:components="components.*" 
+		title="Feed detail"  backgroundAlpha="0"
+		creationComplete="getFeed();" actionBarVisible="false" tabBarVisible="false"  
+		>
+	
+	<s:states>
+		<s:State name="normal"/>
+		<s:State name="makecomment" activate="prepareMakeComment();"/>
+	</s:states>
+	
+	<fx:Declarations>
+		<s:DateTimeFormatter id="dateformat" dateTimePattern="YYYY-MM-DD" timeStyle="none"/>
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			
+			import spark.collections.Sort;
+			import spark.collections.SortField;
+			
+			import Renderers.commentListRenderer;
+			
+			import classes.GlobalConstants;
+			
+			import events.CommentEvent;
+			import events.DialogEvent;
+			import events.FeedEvent;
+			import events.PetitVideoEvent;
+		
+			private var feedID:String="";
+			
+			private var videoPath:String="";
+			private var videoOrientationRotation:int=0;
+			
+			private var soundPath:String="";
+			
+			private var fullscreenPath:String="";
+			
+			[Bindable]
+			private var petName:String="";
+			
+			[Bindable]
+			private var comments:ArrayCollection = new ArrayCollection();
+			
+			
+			/********************************************************
+			 * Feed stuff											*
+			 * 														*
+			 ********************************************************/
+			 
+	 		private function getFeed():void {
+				feedID = data.feedid as String;
+				petName = data.petname as String;
+				
+				if(feedID.length>0) {
+					parentApplication.myFeedDAO.addEventListener(FeedEvent.FEED_GETFEED_READY,feedReady);
+					parentApplication.myFeedDAO.restGetFeedDetail(feedID);
+						
+				}
+				
+				
+			} 
+			
+			private function feedReady(event:FeedEvent):void {
+				if(event.data.field_pet.hasOwnProperty('und')) {
+					if(event.data.field_pet.und[0].target_id == parentApplication.myPetDAO.currentPetID) {
+						deleteButton.visible=true;
+						reportButton.visible=false;
+						reportButton.width=0;
+					}
+					else {
+						deleteButton.visible=false;
+						deleteButton.width=0;
+						reportButton.visible=true;
+					}
+				}
+				
+				
+				
+				if(event.data.body.hasOwnProperty('und')) {
+					descriptionLabel.text= event.data.body.und[0].value;
+				}
+				
+				if(event.data.field_blog_images.hasOwnProperty('und')) {
+					var tmpurl1:String=event.data.field_blog_images.und[0].uri; 
+					 
+					var pos:int;
+					pos = tmpurl1.lastIndexOf("/",100);
+					pos = tmpurl1.lastIndexOf("/",pos-1);
+					feedImage.source = GlobalConstants.AMAZON_URL + "styles/petit_small/s3/petit/images" + tmpurl1.substr(pos);	//slice off "s3://
+					fullscreenPath = GlobalConstants.AMAZON_URL + "styles/petit_large/s3/petit/images" + tmpurl1.substr(pos);
+					
+					//feedImage.source= GlobalConstants.AMAZON_URL + tmpurl1.slice(5);	//slice of "public://
+				}
+				
+				if(event.data.field_blog_video !=null && event.data.field_blog_video.hasOwnProperty('und')) {
+					if(event.data.field_blog_video.und[0].conversioncompleted==false) {
+						feedImage.source="/assets/images/readysoon_thumbnail.png";
+						if(parentApplication.latestPostedVideoID.length>0) {
+							videoPath=parentApplication.currentVideoURL;
+							if(event.data.field_blog_video.und[0].playablefiles!=null && event.data.field_blog_video.und[0].playablefiles.length>0)
+								videoOrientationRotation =  parseInt(event.data.field_blog_video.und[0].playablefiles[0].rotate);
+						}
+					}
+					else if(event.data.field_blog_video.und[0].playablefiles.length>0) {
+						var tmpurl2:String = event.data.field_blog_video.und[0].playablefiles[0].uri;
+						videoPath = GlobalConstants.AMAZON_URL + tmpurl2.slice(5);	//slice of "public://
+						if(event.data.field_blog_video.und[0].playablefiles!=null && event.data.field_blog_video.und[0].playablefiles.length>0)
+							videoOrientationRotation =  parseInt(event.data.field_blog_video.und[0].playablefiles[0].rotate);
+						
+						tmpurl2 = event.data.field_blog_video.und[0].thumbnailfile.uri;
+						feedImage.source = GlobalConstants.AMAZON_URL + tmpurl2.slice(5);
+					}
+					if(videoPath.length>0)
+						playButtonTransparent.visible=true;
+					
+				}
+				else
+					playButtonTransparent.visible=false;
+				
+				 
+				
+				
+//				if(event.data.field_audio.hasOwnProperty('und')) {
+//					var tmpurl3:String = event.data.field_audio.und[0].uri;
+//					soundPath = GlobalConstants.AMAZON_URL + tmpurl3.slice(9);	//slice of "public://
+//				}
+				
+				parentApplication.myFeedDAO.removeEventListener(FeedEvent.FEED_GETFEED_READY,feedReady);
+
+				parentApplication.myCommentDAO.addEventListener(CommentEvent.COMMENTS_READY,commentsReady);
+				parentApplication.myCommentDAO.restGetComments(feedID);
+			}
+						
+			/********************************************************
+			 * Comments stuff										*
+			 * 														*
+			 ********************************************************/
+			 
+			private var colorArray:Array = new Array(0xfff7ea,0xb1f4f0,0xd9f4c5,0xfbd8f8,0xfde4da,0xfcface,0xe8dcb9,0xbaeadc,0xeebfde,0xf5c577,0xf5b3da,0xfffcca,0xccd3ff);
+			
+			private function commentsReady(event:CommentEvent):void {
+				if(event.data!=null) {
+					comments.removeAll();
+					var namestr:String;
+					var nameval:int=0;
+				
+					for each(var obj:Object in event.data) {
+						
+						//Use first two letters to find a color depending on the name
+						namestr = obj.name.toUpperCase();
+						nameval = namestr.charCodeAt(0)-50;
+						if(nameval>20)
+							nameval-=10;
+						if(nameval>9)
+							nameval-=10;
+						
+						obj.backgroundcolor=colorArray[nameval];
+						
+						if(obj.created.length>0) {
+							var credate:Date = new Date();
+							credate.setTime(parseInt(obj.created)*1000);	//*1000 since we get the data in seconds but milliseconds are required by setTime
+							obj.timestampDate = dateformat.format(credate);
+						}
+						 
+					
+						comments.addItem(obj);
+					}
+					
+					var sort:Sort = new Sort();
+					sort.fields =  [new SortField("created")];
+					comments.sort = sort;
+					comments.refresh();
+				}
+				
+							 
+				parentApplication.myCommentDAO.removeEventListener(CommentEvent.COMMENTS_READY,commentsReady);
+			}
+			
+			private function makeComment():void {
+				if(commentInput.text.length>1) {
+					parentApplication.myCommentDAO.addEventListener(CommentEvent.COMMENT_ADDED,commentsAdded);
+					parentApplication.myCommentDAO.restAddComment(parentApplication.myPetDAO.currentPetID,commentInput.text,feedID);
+				}
+				currentState='normal';
+			}
+			
+			private function commentsAdded(event:CommentEvent):void {
+				commentInput.text="";
+				
+				parentApplication.myCommentDAO.removeEventListener(CommentEvent.COMMENT_ADDED,commentsAdded);
+			
+				parentApplication.myCommentDAO.addEventListener(CommentEvent.COMMENTS_READY,commentsReady);
+				parentApplication.myCommentDAO.restGetComments(feedID);
+			}
+			
+			private function prepareMakeComment():void {
+				
+				if(!parentApplication.smorgasbordLoggedin) {
+					commentGroup.enabled=false;
+				}
+				else if(commentGroup!=null) {
+					commentGroup.enabled=true;
+				}
+			}
+			
+			
+			/********************************************************
+			 * Delete feed											*
+			 * 														*
+			 ********************************************************/
+			private function deleteFeedCheck():void {
+				
+				parentApplication.addEventListener(DialogEvent.DIALOG_OK,deleteFeed);
+				//										"DELETE POST"		"Are you sure this post should be deleted?"
+				parentApplication.showDialog("",parentApplication.Language.feeddetail_deletedialog_header,parentApplication.Language.feeddetail_deletedialog_body,parentApplication.Language.feeddetail_deletedialog_yes,parentApplication.Language.feeddetail_deletedialog_no,2);
+			}
+			
+			private function deleteFeed(event:DialogEvent):void {
+				parentApplication.removeEventListener(DialogEvent.DIALOG_OK,deleteFeed);
+				
+				parentApplication.isBusy(parentApplication.Language.feeddetail_deletetoast);	//"Deleting..."
+				parentApplication.myFeedDAO.addEventListener(FeedEvent.FEED_DELETED,deleteReady);
+				parentApplication.myFeedDAO.addEventListener(FeedEvent.FEED_DELETE_FAILED,deleteFailed);
+			
+				parentApplication.myFeedDAO.restDeleteFeed(feedID);
+			}
+			private function deleteReady(event:Event):void {
+				parentApplication.notBusy();
+				parentApplication.showToastFX(parentApplication.Language.feeddetail_toast_deleted,true);	//"Deleted"
+				//Clean
+				parentApplication.myFeedDAO.removeEventListener(FeedEvent.FEED_DELETED,deleteReady);
+				parentApplication.myFeedDAO.removeEventListener(FeedEvent.FEED_DELETE_FAILED,deleteFailed);
+				
+				back();
+				
+				parentApplication.dispatchEvent(new FeedEvent(FeedEvent.FEED_REFRESH,null,true,true));
+			}
+			private function deleteFailed(event:Event):void {
+				parentApplication.notBusy();
+				parentApplication.showToastFX(parentApplication.Language.feeddetail_toast_deletefailed,false);	//"Delete failed"
+				//Clean
+				parentApplication.myFeedDAO.removeEventListener(FeedEvent.FEED_DELETED,deleteReady);
+				parentApplication.myFeedDAO.removeEventListener(FeedEvent.FEED_DELETE_FAILED,deleteFailed);
+			}
+			
+			
+						
+			/********************************************************
+			 * PLAY VIDEO											*
+			 * 														*
+			 ********************************************************/
+			
+			import com.StageWebViewUIComponent;
+			import com.iOSStageVideo;
+	
+			import flash.events.Event;
+			import flash.events.MediaEvent;
+			import flash.media.CameraUI;
+			import flash.media.MediaType;
+			import flash.media.StageWebView;
+			
+			import mx.core.UIComponent;
+			
+			import spark.events.ViewNavigatorEvent;
+			
+			import by.blooddy.crypto.Base64;
+			
+			import classes.GlobalConstants;
+			
+			
+			private var camera:CameraUI;
+			
+			protected var loader:Loader;
+			public var file:File;
+			private var dataSource:IDataInput;
+			
+			private var vid:iOSStageVideo;
+			private var container:UIComponent;
+			
+			
+			/********************************************************
+			 * VIDEO												*
+			 * 														*
+			 ********************************************************/
+						
+			protected function playVideo(e:Event):void
+			{
+				parentApplication.isBusy(parentApplication.Language.feeddetail_toast_loadingvideo);	//"Loading video"
+				
+				parentApplication.videoButtons.visible=true;
+				parentApplication.smalllogo.visible=true;
+				parentApplication.tabnav.visible=false;
+			 	parentApplication.bg.visible=false;
+			 	parentApplication.feedNav.activeView.visible=false;
+				parentApplication.toast.visible=false;
+				
+				//var path:String = GlobalConstants.STATIC_URL+"petit/video/7/capturedvideo.MOV"; 	//http://petiit.dyndns.dk/sites/petiit.dyndns.dk/files/petit/video/7/capturedvideo.MOV
+				
+				//stop current bg video.
+				parentApplication.removeBGvideo();
+				
+				
+				var path:String = videoPath;
+				if(videoOrientationRotation==0) {
+					vid = new iOSStageVideo( path ,1024,640,90); 			
+					vid.rotation = 90;
+				}
+				else if(videoOrientationRotation==90) {
+					vid = new iOSStageVideo( path ,640, 1024,0); 
+				}
+				
+				vid.addEventListener('videoDone' ,stopVideo); 
+				vid.addEventListener('videoPlays',videoIsPlaying);
+				
+				container = new UIComponent(); 
+				container.x=0;
+				container.y=0;
+				
+				container.width = 640;//parentApplication.myStage.stageWidth; 
+				container.height = 1024; //parentApplication.myStage.stageHeight; 
+			 		
+				addElement( container ); 
+				
+				container.addChild( vid ); 
+				
+				parentApplication.addEventListener(PetitVideoEvent.STOP_VIDEO,stopVideo);
+				parentApplication.addEventListener(PetitVideoEvent.RESUME_VIDEO,resumeVideo);
+				parentApplication.addEventListener(PetitVideoEvent.PAUSE_VIDEO,pauseVideo);
+				 
+				
+			}
+			
+			private function videoIsPlaying(e:Event):void {
+				parentApplication.notBusy();
+			}
+			
+			private function stopVideo(e:Event):void {
+				parentApplication.notBusy();
+				parentApplication.tabnav.visible=true;
+				parentApplication.smalllogo.visible=false;				 
+				parentApplication.videoButtons.visible=false;
+				parentApplication.bg.visible=true;
+				parentApplication.toast.visible=true;
+
+				if(parentApplication.feedNav.activeView.visible==false) {	//Anropas stopp igen ska detta inte göras
+					parentApplication.feedNav.activeView.visible=true;
+					vid.stopVideo();
+					container.removeChild( vid ); 
+					removeElement( container ); 
+				}
+				
+				parentApplication.removeEventListener(PetitVideoEvent.STOP_VIDEO,stopVideo);
+				parentApplication.removeEventListener(PetitVideoEvent.RESUME_VIDEO,resumeVideo);
+				parentApplication.removeEventListener(PetitVideoEvent.PAUSE_VIDEO,pauseVideo);
+			}
+			
+			private function resumeVideo(event:Event):void {
+				vid.continueVideo();	
+			}
+			
+			private function pauseVideo(event:Event):void {
+				vid.pauseVideo();
+			}
+			
+			
+			/********************************************************
+			 * SOUND												*
+			 * 														*
+			 ********************************************************/
+						
+			private function playSound(e:Event):void {
+				//soundPath
+			}
+
+			private function stopSound(e:Event):void {
+				
+			}
+			 
+			private function back():void {
+				if(currentState=="normal")
+					parentApplication.feedNav.popView();
+				else
+					currentState="normal";
+			}
+			
+			
+			private function imageClicked():void {
+				if(videoPath.length>0) {		//video exist
+					playVideo(null);
+				}
+				else {
+					fullscreenGroup.visible=true;
+					fullscreenImage.source=fullscreenPath;
+				}
+			}
+			
+			private function removeFullscreen():void {
+				fullscreenGroup.visible=false;
+			}
+ 
+			private function fixtextarea():void {
+//				var tf:TextFormat = new TextFormat();
+//				tf.leftMargin = .6;
+//				commentInput.
+			}
+				
+			 
+		 	private function doFocusOut():void {
+				continueButton.visible=false;
+				continueButton.height=0;
+				commentList.visible=true;
+				commentList.moveIndexLastRow();
+		 
+			}
+			
+			
+			/********************************************************
+			 * Report "bad" posts								*
+			 * 														*
+			 ********************************************************/
+			private function report():void {
+				
+				parentApplication.addEventListener(DialogEvent.DIALOG_OK,reportFeed);
+				//										"REPORT"		"Are you sure want to report this post? This will create a manual investigation and could lead to disabling of account of the author."
+				parentApplication.showDialog("",parentApplication.Language.feeddetail_reportdialog_header,parentApplication.Language.feeddetail_reportdialog_body,parentApplication.Language.feeddetail_reportdialog_yes,parentApplication.Language.feeddetail_reportdialog_no,2);
+			}
+			
+			private function reportFeed(event:DialogEvent):void {
+				parentApplication.removeEventListener(DialogEvent.DIALOG_OK,reportFeed);
+				
+				parentApplication.isBusy(parentApplication.Language.feeddetail_reporttoast);	//"Reporting..."
+				parentApplication.myFeedDAO.addEventListener(FeedEvent.FEED_REPORTED,reportReady);
+				parentApplication.myFeedDAO.addEventListener(FeedEvent.FEED_REPORT_FAILED,reportFailed);
+				
+				parentApplication.myFeedDAO.restReportFeed(feedID);
+			}
+			private function reportReady(event:Event):void {
+				parentApplication.notBusy();
+				parentApplication.showToastFX(parentApplication.Language.feeddetail_toast_reported,true);	//"Reported"
+				//Clean
+				parentApplication.myFeedDAO.removeEventListener(FeedEvent.FEED_REPORTED,reportReady);
+				parentApplication.myFeedDAO.removeEventListener(FeedEvent.FEED_REPORT_FAILED,reportFailed);
+				
+				
+			}
+			private function reportFailed(event:Event):void {
+				parentApplication.notBusy();
+				parentApplication.showToastFX(parentApplication.Language.feeddetail_toast_reportfailed,false);	//"Report failed"
+				//Clean
+				parentApplication.myFeedDAO.removeEventListener(FeedEvent.FEED_REPORTED,reportReady);
+				parentApplication.myFeedDAO.removeEventListener(FeedEvent.FEED_REPORT_FAILED,reportFailed);
+			}
+ 
+			
+		]]>
+	</fx:Script>
+	<s:BitmapImage id="bg" visible="true" x="0" y="0" width="100%" height="100%" scaleMode="stretch" source="@Embed('/assets/images/Petiit-SunBurst-iP5-violet.png')"   />
+	 
+	    
+	<s:BitmapImage id="commentBG1" top="-50" left="0" source="@Embed('/assets/images/textfield/Text-Input-Area-top-03.png')" alpha="0.9" width="100%"/>
+	<s:BitmapImage id="commentBG2" top="-50" left="0" source="@Embed('/assets/images/textfield/Text-Input-Area-bottom-03.png')" alpha="0.9" width="100%"/>
+	 
+	<s:Group y="0" x="20" >
+		<s:Group id="commentGroup" height="280">
+			<s:TextArea includeIn="makecomment" x="0" y="10" paddingLeft="10" skinClass="spark.skins.mobile.StageTextAreaSkin" creationComplete="fixtextarea();"
+						prompt="{parentApplication.Language.contestant_comment_prompt}" id="commentInput" width="600" color="#444444" height="240" contentBackgroundAlpha="0" borderVisible="false" contentBackgroundColor="#ffffff"
+						softKeyboardType="default" autoCapitalize="sentence"
+						focusOut="commentInput.text=parentApplication.cleanseChatText(commentInput.text);"
+						focusIn="continueButton.visible=true;continueButton.height=650;" 
+						 
+						/>
+			<!--s:Image includeIn="makecomment" id="makeCommentButton" click="makeComment();" source="@Embed('/assets/images/textfield/Text-Input-skicka-button.png')" x="440" y="220"/>
+			<s:Label includeIn="makecomment" id="makeCommentButtonText" text="{parentApplication.Language.contestant_comment_send}" x="465" y="242" width="120" textAlign="center"  fontFamily="MyriadPro" fontWeight="bold" fontSize="36" color="#444444"/-->
+		</s:Group>
+		
+		<s:List id="commentList" top="290" height="{parentApplication.stage.height-80}" width="640" dataProvider="{comments}" horizontalScrollPolicy="off" horizontalCenter="0"
+				 verticalScrollPolicy="on" contentBackgroundAlpha="0"
+				 itemRenderer="Renderers.commentListRenderer" 
+				 skinClass="spark.skins.mobile.ListSkin" cacheAsBitmap="false" ><!--cacheAsBitmap="false"-->
+			<s:layout>
+				<s:VerticalLayout id="commentsTile" horizontalAlign="center"  
+								  paddingBottom="300"
+								  gap="20"
+								  paddingTop="45"/>
+			</s:layout>
+		</s:List>
+	</s:Group>
+	 
+	
+	<s:Group id="feedImageMask" left="{parentApplication.width-240}" y="0" includeIn="normal">
+		<s:Rect id="maskrect1" height="285" width="50" x="0" top="0">
+			<s:fill>
+				<s:SolidColor color="#000000"/>
+			</s:fill>
+		</s:Rect>
+		<s:Rect id="maskrect2" height="288" width="50" x="50" top="0">
+			<s:fill>
+				<s:SolidColor color="#000000"/>
+			</s:fill>
+		</s:Rect>
+		<s:Rect id="maskrect3" height="292" width="140" x="100" top="0">
+			<s:fill>
+				<s:SolidColor color="#000000"/>
+			</s:fill>
+		</s:Rect>
+	</s:Group>
+	<s:Image id="feedImage" height="290" left="{parentApplication.width-240}" y="0" scaleMode="zoom" click="imageClicked();" width="240" verticalAlign="top" includeIn="normal" mask="{feedImageMask}"/>
+ 
+	
+	<s:Image id="playButtonTransparent" source="@Embed('/assets/buttons/Play.png')" click="playVideo(event)" right="80" y="90" alpha="0.7" includeIn="normal" visible="false"/>
+	<s:VGroup left="0" paddingLeft="10" paddingTop="10" includeIn="normal">
+		<s:Label text="{petName}"  fontFamily="MyriadPro" fontWeight="bold" fontSize="36" width="380"/>
+		<s:Label id="descriptionLabel" text="" fontFamily="MyriadPro" fontSize="32" width="380" height="250"/>	
+	</s:VGroup>
+	
+	<s:BitmapImage left="0" top="-50" id="paperroll" source="@Embed('/assets/images/textfield/Text-Input-Area-curl-03.png')" />
+	
+	<s:Group id="continueButton" top="300" height="0" visible="false" width="100%" horizontalCenter="0" >
+		<s:Rect id="darkerBG" height="100%" width="100%">
+			<s:fill>
+				<s:LinearGradient rotation="90">
+					<s:GradientEntry color="#000000" alpha="0.0"/>
+					<s:GradientEntry color="#000000" alpha="0.95"/>
+					<s:GradientEntry color="#000000" alpha="0.0"/>
+				</s:LinearGradient>
+			</s:fill>
+		</s:Rect>
+		<s:HGroup horizontalAlign="center" width="100%" horizontalCenter="0" height="80">
+			<s:Button id="cancelCommentButton" label="{parentApplication.Language.general_cancel.toUpperCase()}" width="280" fontSize="44" click="doFocusOut();" color="#000000" fontFamily="MyriadPro" height="80"/>
+			<s:Button id="sendCommentButton" label="{parentApplication.Language.contestant_comment_send.toUpperCase()}" click="makeComment();doFocusOut();commentInput.text='';" width="280" height="80" fontSize="44" color="#000000" fontFamily="MyriadPro"/>
+		</s:HGroup>
+	</s:Group>
+	
+	<s:Group id="console" bottom="0" depth="2" width="100%">
+		<s:BitmapImage source="@Embed('/assets/skin/menu/Petiit_Console.png')" scaleMode="stretch" bottom="0" width="100%"/>
+		<s:HGroup bottom="0" width="100%" horizontalAlign="center" gap="0" left="-8" id="consoleButtons">
+			<components:menuButton id="backButton" click="back();" label="{parentApplication.Language.general_back.toUpperCase()}"/>	
+			<components:menuIconButton id="deleteButton" click="deleteFeedCheck();" up_pic="/assets/buttons/btn_delete_off.png" down_pic="/assets/buttons/btn_delete_on.png" includeIn="normal" visible="false"/>	
+			<components:menuButton id="reportButton" click="report();" label="{parentApplication.Language.feeddetail_report.toUpperCase()}" includeIn="normal" visible="true"/>	
+			<components:menuIconButton id="commentButton" click="if(currentState=='normal') currentState='makecomment'; else currentState='normal';" up_pic="/assets/buttons/btn_comment_off.png" down_pic="/assets/buttons/btn_comment_on.png" includeIn="normal"/>	
+		</s:HGroup>
+	</s:Group>
+	
+	<!--FULLSCREEN-->
+	<s:Group id="fullscreenGroup" visible="false" width="100%" height="100%" x="0" y="0" depth="100" 
+			 click="if(fullscreenGroup.visible) {fullscreenGroup.visible=false;}else {fullscreenGroup.visible=true;}">
+		<s:Rect id="blackbackground" left="0" right="0" top="0" bottom="0" >
+			<s:fill>
+				<s:SolidColor color="#000000"/>
+			</s:fill>
+		</s:Rect>
+		<s:Scroller height="100%" width="100%" horizontalCenter="0" verticalCenter="0">
+			<s:Group>
+				<s:BitmapImage id="fullscreenImage" horizontalCenter="0" verticalCenter="0" horizontalAlign="center" verticalAlign="middle"/>			
+			</s:Group>
+		</s:Scroller>
+		<s:BitmapImage source="@Embed('/assets/skin/menu/Petiit_Console.png')" scaleMode="stretch" bottom="0" width="100%"/>
+		<s:HGroup bottom="0" width="100%" horizontalAlign="center" gap="0" left="-8" id="consoleButtons2" mouseDown="removeFullscreen();" depth="102">
+			<s:BitmapImage visible="true" id="fullscreenBackButton" source="@Embed('/assets/buttons/btn_goback_off.png')" />
+		</s:HGroup>
+	</s:Group>	
+	<fx:Declarations>
+		<s:DropShadowFilter color="#000000" distance="6" alpha="0.28" angle="92.3" blurX="6" blurY="6" id="shadowFilter"/>
+	</fx:Declarations>
+</s:View>

@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" currentState="up" added="readyToLoadImages();" 
+		 >
+	<fx:Declarations>
+		<s:Sine id="sineEaser"/>
+		
+		<s:Scale id="pulseFXShow" duration="1500" startDelay="0" scaleXFrom="1" scaleXTo="1.04" scaleYFrom="1" scaleYTo="1.04" effectEnd="pulseFXHide.play();" target="{buttonImage}" easer="{sineEaser}"/>
+		<s:Scale id="pulseFXHide" duration="1500" startDelay="0" scaleXFrom="1.04" scaleXTo="1" scaleYFrom="1.04" scaleYTo="1" effectEnd="pulseFXShow.play();" target="{buttonImage}" easer="{sineEaser}"/>
+	</fx:Declarations>
+	<s:states>
+		<s:State name="up" />
+		<s:State name="over" stateGroups="overStates" />
+		<s:State name="down" stateGroups="downStates" />
+		<s:State name="disabled" stateGroups="disabledStates" />
+	</s:states>
+	
+	
+
+	<fx:Script>
+		<![CDATA[
+			import spark.effects.easing.Bounce;
+			[Embed(source="/assets/buttons/btn_pink_empty_off.png")]
+			public static const up_pic:Class;
+			
+			[Embed(source="/assets/buttons/btn_pink_empty_on.png")]
+			public static const down_pic:Class;
+			
+			[Bindable]
+			public var label:String="";
+			[Bindable]
+			public var textcolor:int=0xffffff;
+			
+			[Bindable]
+			public var showArrow:Boolean=false;
+			
+			private var interval:uint;
+			
+			public var fxon:Boolean=false;
+		 
+			
+			public function readyToLoadImages():void {
+				if(buttonImageDown==null || buttonImage==null) {	//do later
+					interval=setInterval(updateImages,300);
+				}
+				
+				if(label.length>8)
+					labelDisplay.setStyle("fontSize",34) ;
+				else if(label.length==8)
+					labelDisplay.setStyle("fontSize",37) ;
+				else if(label.length==7)
+					labelDisplay.setStyle("fontSize",41) ;
+				else
+					labelDisplay.setStyle("fontSize",44) ;
+			}
+			
+			private function updateImages():void {	
+				if(buttonImageDown!=null && buttonImage!=null) {
+					clearInterval(interval);
+					buttonImageDown.source=down_pic;
+					buttonImage.source=up_pic;	
+				}
+			}
+			
+			
+		]]>
+	</fx:Script>
+	<s:Image scaleMode="letterbox" mouseEnabled="false" id="buttonImageDown" 
+			 left="0" right="0" top="0" bottom="0" smooth="true" />
+	<s:Image scaleMode="letterbox" mouseEnabled="false" id="buttonImage" addedToStage="if(fxon) pulseFXShow.play();" removedFromStage="pulseFXShow.stop();"
+			 includeIn="up" smooth="true"
+			 left="0" right="0" top="0" bottom="0" />
+
+	<s:Label id="labelDisplay" left="10" right="10" height="63" color="{textcolor}" depth="2" maxWidth="300"
+			 fontFamily="Badaboom" fontSize="44" horizontalCenter="0" maxDisplayedLines="1"
+			 mouseEnabled="false" text="{label}" textAlign="center" verticalAlign="middle"
+			  filters="{shadowFilter}"
+			 verticalCenter="-5"> 
+	</s:Label>
+
+	<s:Button x="0" y="0" width="{buttonImage.width-2}" height="{buttonImage.height-2}" alpha="0" click="currentState='down'" mouseOver="currentState='over'" mouseOut="currentState='up'"/>
+	<fx:Declarations>
+		<s:DropShadowFilter color="#000000" distance="3" alpha="0.77" angle="90" blurX="4" blurY="4" id="shadowFilter"/>
+	</fx:Declarations>
+</s:Group>

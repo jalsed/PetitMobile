@@ -1,0 +1,869 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009"
+		xmlns:s="library://ns.adobe.com/flex/spark"
+		xmlns:views="views.*"
+		xmlns:utils="utils.*" backgroundAlpha="0"
+		actionBarVisible="false" currentState="RegisterOwner" tabBarVisible="false" creationComplete="creationCompleteHandler(event)" 
+	    title="Profile" xmlns:components="components.*" xmlns:mx="library://ns.adobe.com/flex/mx">
+	<s:states>
+		<s:State name="RegisterOwner" enterState="registerOwnerCheck(event)"/>
+		<s:State name="RegisterPet1" enterState="registerPetCheck(event)"/>
+		<s:State name="RegisterPet2" enterState="setCorrectDateSpinnerLanguage();" />
+	</s:states>
+	<fx:Declarations>
+	 	<s:RadioButtonGroup id="Gender"/>	
+		<utils:GeolocationUtil id="geoUtil" locationUpdate="onGeoUpdate(event)"/>
+		<s:HTTPService id="charactersService" resultFormat="e4x" method="GET" useProxy="false" result="charactersResultHandler(event)" fault="charactersFaultHandler(event)"/>
+	</fx:Declarations>
+
+	 
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			import mx.collections.XMLListCollection;
+			import mx.events.FlexEvent;
+			import mx.graphics.codec.PNGEncoder;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			import spark.events.IndexChangeEvent;
+			import spark.events.ViewNavigatorEvent;
+			import spark.skins.mobile.StageTextInputSkin;
+			
+			import spark.components.calendarClasses.DateSelectorDisplayMode;
+			import Renderers.characterItemRenderer;
+			
+			import by.blooddy.crypto.Base64;
+			
+			import classes.GlobalConstants;
+			
+			import events.ImageEvent;
+			import events.PetEvent;
+			import events.UserEvent;
+			
+			import skins.PetiitCalloutSkin;
+			import skins.petiitTextInputSkin;
+			
+			import wardrobe.myIconItemRenderer;
+		
+			
+			//OWNER
+			[Bindable]
+			private var password:String="";
+			//private var fullname:String="";
+			[Bindable]
+			private var ownername:String="";
+			[Bindable]
+			private var email:String="";
+			private var facebookid:String="";
+			[Bindable]
+			private var zipcode:String="";
+			[Bindable]
+			private var location:String="";
+			private var countryCode:String="";
+
+			//PET
+			private var petID:String="";
+			[Bindable]
+			private var petname:String="";
+			[Bindable]
+			private var raceID:String="";
+			[Bindable]
+			private var breed:String="";
+			[Bindable]
+			private var colors:String="";
+			private var birthday_year:String="";
+			private var birthday_month:String="";
+			private var birthday_day:String="";
+			[Bindable]
+			private var deathdate:String="";
+			[Bindable]
+			private var description:String="";
+			private var gender:int=0;
+			private var salesstatus:int=0;
+			private var saleprice:int=0;
+			private var matingstatus:int=0;
+			 
+			private var profile_image_fid:String="";
+			private var profile_image_uri:String="";
+			
+			private var ownerlang:String;
+			
+			private var pictureDirty:Boolean=false;	//Set if profile picture should be saved/updated
+ 
+		 
+			[Bindable]
+			private var charactersAC:ArrayCollection = new ArrayCollection();
+			
+		 	private var characterChosen:Boolean=false;
+			
+			[Embed(source="/assets/images/textfield/textareaBG.png")]		
+			public static const textareabg:Class;
+			 
+			
+			private function back():void {
+				parentApplication.friendNav.popView();
+			}
+			
+			//GET USER
+			protected function registerOwnerCheck(event:Event):void
+			{
+				if(parentApplication.smorgasbordLoggedin) {
+					editPetButton.visible=true;
+					emailText.text=parentApplication.myUserDAO.user.name;
+					
+					//Get more user details
+					parentApplication.myUserDAO.addEventListener(UserEvent.USER_READY,userReadyHandler);
+					parentApplication.myUserDAO.restGetThisUser(parentApplication.myUserDAO.user.uid.toString());
+					 
+				}
+				else
+					geoUtil.getLocation();
+			}
+			
+			private function userReadyHandler(event:UserEvent):void {
+				
+				parentApplication.myUserDAO.removeEventListener(UserEvent.USER_READY,userReadyHandler);
+				
+	 
+				if(event.data.field_fullname!=null && event.data.field_fullname.und.length>0)
+					ownernameText.text=event.data.field_fullname.und[0].value;
+				emailText.text=event.data.name;
+		//		passwordText.text=parentApplication.myUserDAO.user.password;
+				passwordText.text="******";
+				if(event.data.field_postalcode!=null && event.data.field_postalcode.und.length>0) {
+					zipcode=event.data.field_postalcode.und[0].value;
+				}
+				
+				if(event.data.field_karma!=null && event.data.field_karma.und.length>0) {
+					if(parseInt(event.data.field_karma.und[0].value)>0)
+						karmalabel.text = parentApplication.Language.profile_page1_points.toUpperCase() + ": " + event.data.field_karma.und[0].value;
+
+				}
+				
+				
+				if(event.data.field_location!=null && event.data.field_location.und.length>0) {
+					location=event.data.field_location.und[0].lat+","+event.data.field_location.und[0].lng;
+					locationObj =  {'latitude':parseFloat(event.data.field_location.und[0].lat), 'longitude':parseFloat(event.data.field_location.und[0].lng)};
+				}
+				else
+					geoUtil.getLocation();
+			}
+			
+			
+			//GET PET
+			protected function registerPetCheck(event:Event):void
+			{
+				imageComp.removeEventListener(ImageEvent.UPLOAD_READY,imageUploadReady);
+				imageComp.removeEventListener(ImageEvent.UPLOAD_FAILURE,imageUploadFailure);
+				imageComp.addEventListener(ImageEvent.UPLOAD_READY,imageUploadReady);
+				imageComp.addEventListener(ImageEvent.UPLOAD_FAILURE,imageUploadFailure);
+				
+				galleryComp.removeEventListener(ImageEvent.UPLOAD_READY,imageUploadReady);
+				galleryComp.removeEventListener(ImageEvent.UPLOAD_FAILURE,imageUploadFailure);
+				galleryComp.addEventListener(ImageEvent.UPLOAD_READY,imageUploadReady);
+				galleryComp.addEventListener(ImageEvent.UPLOAD_FAILURE,imageUploadFailure);
+				
+				if(parentApplication.smorgasbordLoggedin) {
+					parentApplication.myPetDAO.addEventListener(PetEvent.PET_GET_MY_LIST_READY,petReadyHandler);
+					parentApplication.myPetDAO.restGetMyPets(parentApplication.myUserDAO.user.uid);
+					
+					pictureDirty=false;
+					
+				}
+			}
+			
+			private function petReadyHandler(event:PetEvent):void {
+				
+				parentApplication.myUserDAO.removeEventListener(PetEvent.PET_READY,petReadyHandler);
+				
+				for each(var pet:Object in event.data) {
+					petID = pet.nid;
+					nameText.text = pet.title;
+					if(pet.field_colors!=null && pet.field_colors.hasOwnProperty("und"))
+						colorsText.text = pet.field_colors.und[0].value;
+					if(pet.body.hasOwnProperty("und") && pet.body.und.length>0)
+						descriptionText.text = pet.body.und[0].value;
+					if(pet.field_birthday.hasOwnProperty("und") && pet.field_birthday.und.length>0) {
+						var birthday:String = pet.field_birthday.und[0].value;
+						var birthdayDate:Date = new Date();
+						birthdayDate.setFullYear(birthday.slice(0,4),(parseInt(birthday.slice(5,7))-1).toString(),birthday.slice(8,10));
+						trace(birthday.slice(5,7));
+						birthdayspinner.selectedDate = birthdayDate;
+						 
+					}
+					if(pet.field_pet_deathdate.hasOwnProperty("und") && pet.field_pet_deathdate.und!=null)
+						deathdate = pet.field_pet_deathdate.und[0].value;
+					if(pet.field_gender.hasOwnProperty("und") && pet.field_gender.und.length>0)
+						gender = pet.field_gender.und[0].value;
+	
+					if(gender==0)
+						radio1.selected=true;
+					else
+						radio2.selected=true;
+									
+					 
+					break;//Only support one pet at this time
+				}
+				
+				parentApplication.myPetDAO.currentPetName=nameText.text;
+				parentApplication.myPetDAO.currentPetDescription=descriptionText.text;
+				parentApplication.myPetDAO.currentPetID=petID;
+				
+			 	
+				//Load profile image
+				if(pet!=null) {
+					if(pet.field_pet_image!=null && pet.field_pet_image.hasOwnProperty("und")) {
+						var pos:int;
+						pos = pet.field_pet_image.und[0].uri.lastIndexOf("/",100);
+						pos = pet.field_pet_image.und[0].uri.lastIndexOf("/",pos-1);
+						thumbImage.source = GlobalConstants.AMAZON_URL + "styles/petit_small/s3/petit/images" + pet.field_pet_image.und[0].uri.substr(pos);	//slice off "s3://
+					 	//thumbImage.source = GlobalConstants.AMAZON_URL + pet.field_pet_image.und[0].uri.slice(5,pet.field_pet_image.und[0].uri.length);
+					}
+				}
+				 
+				
+				//Set Race and breed
+				if(pet.field_pet_race.hasOwnProperty("und") && pet.field_pet_race.und.length>0) {
+					raceID = pet.field_pet_race.und[0].value;
+					spinner1.setSelectedIndex(parseInt(raceID));
+				}	
+				if(pet.field_pet_breed.hasOwnProperty("und") && pet.field_pet_breed.und.length>0) {
+					breed = pet.field_pet_breed.und[0].value;
+					var counter:uint=0;
+					for each(var obj:Object in (raceSpinner.dataProvider as ArrayList).source) {
+						if(obj.tid[0]==parseInt(breed))
+							break;
+						counter++;
+					}
+					raceSpinner.setSelectedIndex(counter);
+				}	
+				
+				
+				
+				//imageinfo
+				imageComp.im_type="profile";
+				imageComp.im_owner=parentApplication.myUserDAO.user.uid.toString();
+				imageComp.im_petid=petID;
+			}
+					
+			
+			
+			
+			/************************************************************
+			 * USER (OWNER) UPDATE/SAVE									*		 
+			 * 															*
+			 ************************************************************/
+		
+			private function saveOwner():void {
+				
+				ownername=ownernameText.text;
+				email=emailText.text;
+				if(passwordText.text!="******")
+					password=passwordText.text;
+				else
+					password="";
+				
+				zipcode = zipcodeText.text.replace(" ","");
+				zipcode=zipcode.slice(0,5);
+//				location=locationText.text;	//Change to lat/lang
+				
+				if(parentApplication.smorgasbordLoggedin) { //Update
+					parentApplication.myUserDAO.addEventListener(UserEvent.USER_UPDATED,userUpdatedHandler);				
+					parentApplication.myUserDAO.addEventListener(UserEvent.USER_UPDATE_ERROR,userUpdateErrorHandler);
+					parentApplication.myUserDAO.restUpdateUser(parentApplication.myUserDAO.user.uid.toString(),ownername,email,password,locationObj,zipcode,ownerlang);
+
+				}
+				else {	//Register new
+					parentApplication.myUserDAO.addEventListener(UserEvent.REGISTER_ERROR_NAME,registerNameErrorHandler);
+					parentApplication.myUserDAO.addEventListener(UserEvent.REGISTER_ERROR_EMAIL,registerEmailErrorHandler);
+					parentApplication.myUserDAO.addEventListener(UserEvent.REGISTER_ERROR_ALREADYREGISTERED,registerAlreadyregisteredErrorHandler);				
+					parentApplication.myUserDAO.addEventListener(UserEvent.ACCOUNT_CREATED,accountCreatedHandler);
+					
+					if(ownerlang==null || ownerlang.length==0)
+						ownerlang="sv";
+					parentApplication.myUserDAO.restRegisterUser(email,password,ownername,locationObj,zipcode,ownerlang); 
+				}
+			}
+			
+			private function registerNameErrorHandler(event:UserEvent):void {
+				parentApplication.myUserDAO.removeEventListener(UserEvent.REGISTER_ERROR_NAME,registerNameErrorHandler);
+				parentApplication.myUserDAO.removeEventListener(UserEvent.REGISTER_ERROR_EMAIL,registerEmailErrorHandler);
+				parentApplication.myUserDAO.removeEventListener(UserEvent.REGISTER_ERROR_ALREADYREGISTERED,registerAlreadyregisteredErrorHandler);
+				parentApplication.myUserDAO.removeEventListener(UserEvent.ACCOUNT_CREATED,accountCreatedHandler);
+				
+				parentApplication.showDialog("",parentApplication.Language.dialog_register_errorHeader,parentApplication.Language.register_nameerror,parentApplication.Language.general_continue,"",1); //"Name already exists"	
+			}
+			
+			private function registerEmailErrorHandler(event:UserEvent):void {
+				parentApplication.myUserDAO.removeEventListener(UserEvent.REGISTER_ERROR_NAME,registerNameErrorHandler);
+				parentApplication.myUserDAO.removeEventListener(UserEvent.REGISTER_ERROR_EMAIL,registerEmailErrorHandler);
+				parentApplication.myUserDAO.removeEventListener(UserEvent.REGISTER_ERROR_ALREADYREGISTERED,registerAlreadyregisteredErrorHandler);
+				parentApplication.myUserDAO.removeEventListener(UserEvent.ACCOUNT_CREATED,accountCreatedHandler);
+				
+				parentApplication.showDialog("",parentApplication.Language.dialog_register_errorHeader,parentApplication.Language.register_emailerror,parentApplication.Language.general_continue,"",1); //"Email not valid"	
+			}
+			
+			private function registerAlreadyregisteredErrorHandler(event:UserEvent):void {
+				parentApplication.myUserDAO.removeEventListener(UserEvent.REGISTER_ERROR_NAME,registerNameErrorHandler);
+				parentApplication.myUserDAO.removeEventListener(UserEvent.REGISTER_ERROR_EMAIL,registerEmailErrorHandler);
+				parentApplication.myUserDAO.removeEventListener(UserEvent.REGISTER_ERROR_ALREADYREGISTERED,registerAlreadyregisteredErrorHandler);
+				parentApplication.myUserDAO.removeEventListener(UserEvent.ACCOUNT_CREATED,accountCreatedHandler);
+				
+				parentApplication.showDialog("",parentApplication.Language.dialog_register_errorHeader,parentApplication.Language.dialog_facebook_accountexists_header,parentApplication.Language.general_continue,"",1); //Account already exists
+			}
+			
+			private function accountCreatedHandler(event:UserEvent):void {
+				parentApplication.myUserDAO.removeEventListener(UserEvent.REGISTER_ERROR_NAME,registerNameErrorHandler);
+				parentApplication.myUserDAO.removeEventListener(UserEvent.REGISTER_ERROR_EMAIL,registerEmailErrorHandler);
+				parentApplication.myUserDAO.removeEventListener(UserEvent.REGISTER_ERROR_ALREADYREGISTERED,registerAlreadyregisteredErrorHandler);
+				parentApplication.myUserDAO.removeEventListener(UserEvent.ACCOUNT_CREATED,accountCreatedHandler);
+		 
+				parentApplication.saveUserSettings();
+				parentApplication.showToastFX(parentApplication.Language.profile_toast_ownersaved,true);	//"Owner saved"	
+				
+				currentState='RegisterPet1';
+				 
+			}
+			
+			private function userUpdatedHandler(event:UserEvent):void {
+				parentApplication.myUserDAO.removeEventListener(UserEvent.USER_UPDATED,userUpdatedHandler);				
+				parentApplication.myUserDAO.removeEventListener(UserEvent.USER_UPDATE_ERROR,userUpdateErrorHandler);
+				parentApplication.showToastFX(parentApplication.Language.profile_toast_ownerupdated,true);	//"Owner update ready"	
+			}
+			
+			private function userUpdateErrorHandler(event:UserEvent):void {
+				parentApplication.myUserDAO.removeEventListener(UserEvent.USER_UPDATED,userUpdatedHandler);				
+				parentApplication.myUserDAO.removeEventListener(UserEvent.USER_UPDATE_ERROR,userUpdateErrorHandler);
+				parentApplication.showToastFX(parentApplication.Language.profile_toast_ownerupdate_failure,true);	//"Owner update error"
+			}
+			
+			
+			/************************************************************
+			 * PET UPDATE/SAVE											*		 
+			 * 															*
+			 ************************************************************/
+			private function savePetCheck():void {
+				
+				if(characterChosen) {
+					restUploadFile();
+					characterChosen=false;
+				}
+				else
+					savePet();
+			}
+			
+			private function savePet():void {
+				
+				parentApplication.isBusy(parentApplication.Language.profile_busy_savingpet);	//"Saving pet"
+				
+				raceID = spinner1.selectedItem.data.toString();
+				breed = raceSpinner.selectedItem.tid[0].toString();
+				gender = Gender.selectedValue as uint;
+				description=descriptionText.text;
+				colors=colorsText.text;
+				salesstatus=0;
+				saleprice=0;
+				matingstatus=0;
+				var birthdayDate:Date;
+				birthdayDate = birthdayspinner.selectedDate;
+				birthday_year = birthdayDate.getFullYear().toString();
+				birthday_month = (birthdayDate.getMonth()+1).toString();
+				birthday_day = (birthdayDate.getDay()+1).toString();
+		 			
+				petname = nameText.text;
+				
+				if(petID=="") {	//new pet
+		 			if(profile_image_fid.length>0) {
+						parentApplication.myPetDAO.addEventListener(PetEvent.PET_REGISTERED_ERROR,petCreatedErrorHandler);
+						parentApplication.myPetDAO.addEventListener(PetEvent.PET_REGISTERED,petCreatedHandler);
+						parentApplication.myPetDAO.restRegisterPet(parentApplication.myUserDAO.user.uid.toString(),petname,raceID.toString(),breed,colors,birthday_year,birthday_month,birthday_day,description,gender.toString(),salesstatus,saleprice,matingstatus,"sv",profile_image_fid);
+					}
+					else {
+											//				"Profilbild saknas"							"Du måste ha en profilbild för att kunna registera. Har du redan tagit en bild behöver du vänta tills den blivit helt uppladdad till servern."
+						parentApplication.showDialog("",parentApplication.Language.profile_dialog_profileimage_header,parentApplication.Language.profile_dialog_profileimage_body,parentApplication.Language.general_ok,"",1);	
+					}
+				} 		
+				else { //update this pet
+					parentApplication.myPetDAO.addEventListener(PetEvent.PET_UPDATED,petUpdateHandler);
+					parentApplication.myPetDAO.addEventListener(PetEvent.PET_UPDATE_ERROR,petUpdateErrorHandler);
+					parentApplication.myPetDAO.restUpdatePet(parentApplication.myUserDAO.user.uid.toString(),petID,petname,raceID,breed,gender.toString(),description,colors,salesstatus.toString(),saleprice.toString(),matingstatus.toString(),birthday_year,birthday_month,birthday_day,"sv",profile_image_fid);
+				}
+			}
+			
+			private function petCreatedHandler(event:PetEvent):void {
+				parentApplication.myPetDAO.removeEventListener(PetEvent.PET_REGISTERED,petCreatedHandler);
+				parentApplication.showToastFX(parentApplication.Language.profile_busy_petregistered,true);		//"Pet registered"
+				parentApplication.notBusy(); 
+				
+				back();
+			}
+			
+			private function petCreatedErrorHandler(event:PetEvent):void {
+				parentApplication.myPetDAO.removeEventListener(PetEvent.PET_REGISTERED_ERROR,petCreatedErrorHandler);
+				parentApplication.showToastFX(parentApplication.Language.profile_busy_petregister_failure,true);	//"Register error"
+				parentApplication.notBusy(); 
+				back();
+			}
+			
+			private function petUpdateHandler(event:PetEvent):void {
+				parentApplication.myPetDAO.removeEventListener(PetEvent.PET_UPDATED,petUpdateHandler);
+				parentApplication.myPetDAO.removeEventListener(PetEvent.PET_UPDATE_ERROR,petUpdateErrorHandler);
+				parentApplication.notBusy();
+				parentApplication.showToastFX(parentApplication.Language.profile_busy_petupdated,true);		//"Update ready"
+			 
+				back();
+			}
+
+			private function petUpdateErrorHandler(event:PetEvent):void {
+				parentApplication.myPetDAO.removeEventListener(PetEvent.PET_UPDATED,petUpdateHandler);
+				parentApplication.myPetDAO.removeEventListener(PetEvent.PET_UPDATE_ERROR,petUpdateErrorHandler);
+				parentApplication.notBusy();
+				parentApplication.showToastFX(parentApplication.Language.profile_busy_petupdate_failure,true);		//"Update error"
+			}
+			 
+			
+			/********************************************************
+			 * UPLOAD EVENT HANDLERS								*
+			 * 														*
+			 ********************************************************/
+			
+			private function imageUploadReady(event:ImageEvent):void {
+				parentApplication.notBusy();
+				
+				profile_image_fid = event.data.fid;
+				profile_image_uri = event.data.uri;
+				
+				pictureDirty=true;
+				
+				parentApplication.showToastFX(parentApplication.Language.createfeed_toast_imageuploaded,true);	//"Image uploaded"
+			 	 
+			}
+			
+			private function imageUploadFailure(event:ImageEvent):void {
+				parentApplication.showToastFX(parentApplication.Language.createfeed_toast_imageuploaderror,false);	//"Problem uploading image"
+			}
+			
+			 
+			/********************************************************
+			 * UPDATE PROFIL IMAGE (ONLY)							*
+			 * 														*
+			 ********************************************************/
+			
+			protected function raceChange(event:IndexChangeEvent):void {
+				switch(spinner1.selectedIndex) {
+					case 0:
+						raceSpinner.dataProvider = parentApplication.catRaces;
+						break;
+					case 1:	
+						raceSpinner.dataProvider = parentApplication.dogRaces;
+						break;
+					case 2:	
+						raceSpinner.dataProvider = parentApplication.rabbitRaces;
+						break;
+					case 3:	
+						raceSpinner.dataProvider = parentApplication.birdRaces;
+						break;
+					case 4:	
+						raceSpinner.dataProvider = parentApplication.reptileRaces;
+						break;
+					case 5: 
+						raceSpinner.dataProvider = parentApplication.rodentRaces;
+						break;
+					case 6:	
+						raceSpinner.dataProvider = parentApplication.otherRaces;
+						break;
+					default:
+						raceSpinner.dataProvider=null;
+				}
+			}
+			
+			/****************************************************************
+			 * GEOLOCATION													*
+			 * 																*
+			 ****************************************************************/
+			private var locationObj:Object=null;
+			[Bindable]
+			private var cityContent:String="";
+			[Bindable]
+			private var zipcodeContent:String="";
+			
+			protected function onGeoUpdate(event:Event):void {
+				
+				parentApplication.notBusy();
+				
+				if(geoUtil.location != null && geoUtil.location.length>0) {
+					cityContent = geoUtil.location.slice(5,geoUtil.location.length);
+					if(geoUtil.location.length>5)
+						zipcodeContent = geoUtil.location.slice(0,5);
+						zipcodeText.text=zipcodeContent;
+					}
+				
+					//location = geoUtil.location
+				
+				if(cityContent.length==0) {
+					cityContent=geoUtil.city;
+					zipcodeText.text = zipcodeText.text + " " + cityContent;
+				}
+				
+				if(geoUtil.latitude!=0 && geoUtil.longitude!=0) {
+					locationObj =  {'latitude':geoUtil.latitude, 'longitude':geoUtil.longitude};
+					location = locationObj.latitude + "," + locationObj.longitude;
+				}
+			}
+			
+			protected function postalcode_focusOutHandler(event:FocusEvent):void
+			{
+				parentApplication.isBusy(parentApplication.Language.register_gettinglocation);		//"Fetching location
+				geoUtil.getZipcodeLocation(zipcodeText.text.slice(0,5));	
+			}
+			
+			
+			
+			
+			/****************************************************************
+			 * XML - CHARACTERS												*
+			 * 																*
+			 ****************************************************************/
+			private function loadCharacters():void {
+				
+				//Fetch accessories from server now so it could be changed
+				//				accessoriesService.url = GlobalConstants.XML_URL+"accessories.xml";
+				charactersService.url = "/assets/xml/characters.xml";					//local for now
+				charactersService.send();
+			}
+			
+			private function charactersResultHandler(event:ResultEvent):void {
+				buildLists(event.result as XML);
+			}
+			
+			//Load accessories locally since server is unavailable
+			private function charactersFaultHandler(event:FaultEvent):void {
+				//Don't loop back here again if fault again
+				charactersService.removeEventListener(FaultEvent.FAULT,charactersFaultHandler);
+				
+				charactersService.url = "/assets/xml/characters.xml";	
+				charactersService.send();
+			}
+			
+			
+			private function buildLists(charactersXML:XML):void {
+				var charactersXLC:XMLListCollection = new XMLListCollection(charactersXML.children());
+				
+				//Clear lists
+				charactersAC.removeAll();
+				
+				//Build lists
+				for each(var child:XML in charactersXLC) {
+					
+					var tmpObj:Object = new Object();					
+					tmpObj.type = child.@type;
+					tmpObj.name=child.@title;
+					tmpObj.label=parentApplication.Language[child.@title]; //Title is fetched from Language-xml-files
+					tmpObj.tid=child.@tid;
+					tmpObj.price = child.@price;
+		 
+					tmpObj.message = "";
+						
+					tmpObj.icon = "/assets/characters/icons/"+child.@icon+".png";
+					tmpObj.image = "/assets/characters/"+child.@icon+".png";
+					charactersAC.addItem(tmpObj);
+				
+				}
+			}
+			
+			private function chooseCharacter():void {
+				loadCharacters();
+				charactersCallout.open(this);
+			}
+			
+			
+			private function loadCharacterImage():void {
+				
+				if(charactersList.selectedIndex!=-1) {
+					thumbImage.source = charactersList.selectedItem.icon;
+				}
+					
+				charactersCallout.close(true);
+			}
+			
+			private function characterImageLoaded(event:Event):void {
+				 
+					if(charactersList!=null && charactersList.selectedIndex!=-1) {
+						pictureDirty=true;
+						characterChosen=true;
+					}
+			}
+			
+			private function characterImageLoadedError(event:IOErrorEvent):void {
+				parentApplication.notBusy();
+				trace("Error in character load");	 
+			}
+			
+			
+			/************************************************************
+			 * UPLOAD (CHARACTER) IMAGE	TO SERVER						*
+			 * 															*
+			 ************************************************************/
+			private function restUploadFile():void {
+				 
+				parentApplication.isBusy(parentApplication.Language.getgallery_busy_uploadimage);	//"Uploading image..."
+				
+			 	var bytes:ByteArray = new ByteArray();
+			 
+				//Bitmap to ByteArray conversion
+				var pngenc:mx.graphics.codec.PNGEncoder = new mx.graphics.codec.PNGEncoder();
+				bytes=pngenc.encode(thumbImage.bitmapData);
+			 
+				var filename:String="";
+				filename = petID + "_" + String( new Date().milliseconds) + ".png";
+				 
+				var jsonfile:Object = {};
+				jsonfile.filename = filename;
+				jsonfile.status = 0;
+				jsonfile.filepath = 's3://petit/images/' + parentApplication.myUserDAO.user.uid.toString() + '/' + filename;
+				jsonfile.file = by.blooddy.crypto.Base64.encode(bytes);
+				
+				var urlLoader:URLLoader = new URLLoader();
+				urlLoader.addEventListener(Event.COMPLETE, restUploadFileHandler);
+				urlLoader.addEventListener(IOErrorEvent.IO_ERROR, restUploadFileFaultHandler);
+				var uploadUrl:String = GlobalConstants.DRUPAL_PATH + "file";
+				var urlRequest:URLRequest = new URLRequest(uploadUrl);
+				urlRequest.requestHeaders.push(new URLRequestHeader("Accept", "application/json"));
+				urlRequest.contentType = "application/json";
+				urlRequest.method = URLRequestMethod.POST;
+				
+				urlRequest.data = JSON.stringify(jsonfile);
+				urlLoader.load(urlRequest);
+			}
+			
+			private function restUploadFileFaultHandler(event:IOErrorEvent):void {
+				dispatchEvent(new ImageEvent(ImageEvent.UPLOAD_FAILURE,""));
+				parentApplication.notBusy();
+			}
+			
+			private function restUploadFileHandler(event:Event):void {
+				var loader:URLLoader = URLLoader(event.target);
+				var obj:Object = JSON.parse(loader.data);
+				
+				profile_image_fid = obj.fid;
+				profile_image_uri = obj.uri;
+				
+				parentApplication.notBusy();
+				pictureDirty=true;
+				savePet();
+			}
+			
+			protected function creationCompleteHandler(event:FlexEvent):void
+			{
+				if(parentApplication.language=="en") {
+					lang_radio1.selected=true;
+					lang_radio2.selected=false;
+				}
+				else if(parentApplication.language=="sv") {
+					lang_radio1.selected=false;
+					lang_radio2.selected=true;
+				}
+				
+				ownerlang = parentApplication.language;
+				
+			}
+			
+			protected function language_changeHandler(lang:String):void
+			{
+				parentApplication.loadLanguage(lang);
+				ownerlang = lang;
+			}
+			
+			private function getRaceLabel(item:Object):String {
+				return parentApplication.Language[item.label];
+			}
+			 
+			 private function setCorrectDateSpinnerLanguage():void {
+				 birthdayspinner.setStyle("locale",parentApplication.Language.general_language);
+			 }
+			
+		]]>
+	</fx:Script>
+	<s:BitmapImage id="bg" visible="true" x="0" y="0" width="100%" height="100%" scaleMode="stretch" source="@Embed('/assets/skin/bg_admin-background.jpg')"   />
+ 
+	 
+	<s:Rect id="blacktop" height="80" width="100%" right="0" top="0"
+			visible="true" alpha="0.15">
+		<s:fill>
+			<s:SolidColor color="#000000"/>
+		</s:fill>
+	</s:Rect>
+	
+	<!--OWNER-->
+	<s:Group width="100%" height="100%" includeIn="RegisterOwner" horizontalCenter="0">
+		<s:VGroup paddingTop="40" horizontalCenter="0" horizontalAlign="center" gap="36" color="#444444" fontSize="30">
+			
+			<s:Label text="{parentApplication.Language.profile_page1_head}" fontSize="36" fontFamily="MyriadPro" fontWeight="bold" color="#eeeeee"/>
+			
+			<s:Group width="580" height="80">
+				<components:petiitTextInputBackground width="100%" height="100%" />
+				<s:TextInput  prompt="{parentApplication.Language.profile_page1_prompt_name}" skinClass="skins.TextInputPetiitSkin" height="100%" fontSize="44" borderVisible="false" fontFamily="MyriadPro" focusThickness="0"
+							  color="#000000" text="{ownername}" id="ownernameText" width="100%" />
+			</s:Group>
+			<s:Group width="580" height="80">
+				<components:petiitTextInputBackground width="100%" height="100%" />
+				<s:TextInput prompt="{parentApplication.Language.profile_page1_prompt_email}" skinClass="skins.TextInputPetiitSkin" height="100%" fontSize="44" borderVisible="false" fontFamily="MyriadPro" focusThickness="0"
+							 color="#000000" text="{email}" id="emailText" width="100%"/>
+			</s:Group>
+			<s:Group width="580" height="80">
+				<components:petiitTextInputBackground width="100%" height="100%" />
+				<s:TextInput prompt="{parentApplication.Language.profile_page1_prompt_password}" skinClass="skins.TextInputPetiitSkin" height="100%" fontSize="44" borderVisible="false" fontFamily="MyriadPro" focusThickness="0"
+							 color="#000000" text="{password}" id="passwordText" width="100%"/>
+			</s:Group>
+			<s:Group width="580" height="80">
+				<components:petiitTextInputBackground width="100%" height="100%" />
+				<s:TextInput prompt="{parentApplication.Language.profile_page1_prompt_area}" skinClass="skins.TextInputPetiitSkin" height="100%" fontSize="44" borderVisible="false" fontFamily="MyriadPro" focusThickness="0"
+							 color="#000000" focusOut="postalcode_focusOutHandler(event);" text="{zipcode}" id="zipcodeText" width="100%"/>
+			</s:Group>
+			<s:Group width="580" height="40">
+				<s:Label id="karmalabel" color="#eeeeee" fontSize="44" fontFamily="MyriadPro" fontWeight="bold"/> 
+			</s:Group>
+			
+			<s:Group horizontalCenter="0" width="100%">
+				<s:BitmapImage source="/assets/images/flags/UnitedKingdom.png" x="{lang_radio1.x+80}" y="{lang_radio1.y+7}"/>
+				<s:BitmapImage source="/assets/images/flags/Sweden.png" x="{lang_radio2.x+80}" y="{lang_radio2.y+7}"/>
+				<s:BitmapImage source="/assets/images/flags/Japan.png" x="{lang_radio3.x+80}" y="{lang_radio3.y+7}"/>
+				<s:HGroup width="580" height="80" horizontalCenter="0" gap="140">
+					<s:RadioButton id="lang_radio1" label="" change="language_changeHandler('en')" color="#000000" fontSize="36"/>
+					<s:RadioButton id="lang_radio2" label="" change="language_changeHandler('sv')" color="#000000" fontSize="36"/>
+					<s:RadioButton id="lang_radio3" label="" change="language_changeHandler('ja')" color="#000000" fontSize="36"/> <!--日本の-->
+				</s:HGroup>
+			</s:Group>
+	 
+			<!--s:Button label="Facebook connect"/-->
+			<s:HGroup bottom="80" horizontalCenter="0" gap="80"> 
+				<components:pinkButton label="{parentApplication.Language.profile_page1_button_saveowner}" click="saveOwner();"/>
+				<components:pinkButton label="{parentApplication.Language.general_next}" click="currentState='RegisterPet1';" visible="false" id="editPetButton"/>
+			</s:HGroup>	
+		</s:VGroup>
+	</s:Group>
+	
+	<!--PET PAGE 1-->
+	<s:Group width="100%" height="100%" includeIn="RegisterPet1" horizontalCenter="0">
+		<s:BitmapImage id="thumbImage" width="120" height="120" scaleMode="stretch" filters="{shadowFilter}" horizontalCenter="-222" y="385" complete="characterImageLoaded(event)"/>
+		<s:VGroup horizontalCenter="0" top="10" bottom="10" gap="30" color="#444444" fontSize="30" 
+				  horizontalAlign="center" paddingTop="20">
+			<s:Label text="{parentApplication.Language.profile_page2_head}" fontSize="36" fontFamily="MyriadPro" fontWeight="bold"  color="#eeeeee"/>
+			<s:Group width="580" height="80">
+				 
+				<components:petiitTextInputBackground width="100%" height="100%" />
+				<s:TextInput width="100%" prompt="{parentApplication.Language.profile_page2_name}" textAlign="left" skinClass="skins.TextInputPetiitSkin" height="100%" fontSize="44" borderVisible="false" fontFamily="MyriadPro" focusThickness="0"
+							 color="#000000" id="nameText"/>
+			</s:Group> 
+			<s:Group color="#000000" width="100%">
+				<s:Label text="{parentApplication.Language.profile_page2_button_camera}" fontSize="32" textAlign="center" width="200" left="-35"/>
+				<s:Label text="{parentApplication.Language.profile_page2_button_gallery}" fontSize="32" width="200" horizontalCenter="-24" textAlign="center"/>	
+				<s:Label text="{parentApplication.Language.profile_page2_button_characters}" fontSize="32"  width="150" horizontalCenter="205"/>
+				<s:HGroup gap="0" y="33">
+					<views:getImage id="imageComp" color="#ffffff"/>
+					<views:getGallery id="galleryComp" color="#000000"/>
+					<s:Image id="characterButton" source="/assets/images/chooseCharacter.png" click="chooseCharacter();" mouseOver="characterButton.alpha=0.8;" mouseOut="characterButton.alpha=1"/>
+				</s:HGroup>
+			</s:Group>
+			<s:SpinnerListContainer id="race" x="-1" y="-76" width="580" height="280">
+				<s:SpinnerList labelField="label" selectedIndex="0" width="40%" id="spinner1" change="raceChange(event)" labelFunction="getRaceLabel" fontSize="24" >
+					<s:ArrayList>
+						<fx:Object data="0" label="mainraces_cat"></fx:Object>
+						<fx:Object data="1" label="mainraces_dog"></fx:Object>
+						<fx:Object data="2" label="mainraces_rabbit"></fx:Object>
+						<fx:Object data="3" label="mainraces_bird"></fx:Object>
+						<fx:Object data="4" label="mainraces_reptile"></fx:Object>
+						<fx:Object data="6" label="mainraces_rodent"></fx:Object>
+						<fx:Object data="7" label="mainraces_other"></fx:Object>
+					</s:ArrayList>
+				</s:SpinnerList>
+				<s:SpinnerList labelField="label" selectedIndex="1" width="60%" id="raceSpinner" dataProvider="{parentApplication.catRaces}">
+				</s:SpinnerList>
+			</s:SpinnerListContainer>
+		
+			<s:HGroup bottom="20" horizontalCenter="0" gap="80">
+				<components:pinkButton label="{parentApplication.Language.general_previous}" click="currentState='RegisterOwner';"/>
+				<components:pinkButton label="{parentApplication.Language.general_next}" click="currentState='RegisterPet2';"/>
+			</s:HGroup>
+		</s:VGroup>
+	</s:Group>
+	
+	<!--PET PAGE 2-->
+	<s:Group width="100%" height="100%" includeIn="RegisterPet1,RegisterPet2" visible="true" visible.RegisterPet1="false" horizontalCenter="0">
+		<s:VGroup horizontalCenter="0" top="10" bottom="10" gap="20" color="#444444" fontSize="30" 
+				  horizontalAlign="center" paddingTop="20">
+			<s:Label text="{parentApplication.Language.profile_page3_head}" fontSize="36" fontFamily="MyriadPro" fontWeight="bold" color="#eeeeee"/>
+			<s:Group width="640" height="220" id="petpage2group1" horizontalCenter="0">
+			<!--	<components:petiitTextInputBackground width="100%" height="100%" />
+				<s:TextInput id="birthdayText" text="{birthday}" width="100%" height="100%" skinClass="spark.skins.mobile.TextInputSkin"  fontSize="44" borderVisible="false" fontFamily="MyriadPro" focusThickness="0"
+							 color="#000000" prompt="{parentApplication.Language.profile_page3_prompt_birthday}" softKeyboardType="number"
+							 />
+			-->
+				<s:HGroup gap="5" verticalAlign="middle" paddingLeft="20" paddingRight="20">
+					<s:Label text="{parentApplication.Language.profile_page3_prompt_birthday}" fontSize="36" fontFamily="MyriadPro"/>
+					<s:DateSpinner id="birthdayspinner" displayMode="{DateSelectorDisplayMode.DATE}" skinClass="spark.skins.mobile.DateSpinnerSkin" fontFamily="Verdana"
+								   minDate="{new Date(1950, 0, 1)}"
+								   maxDate="{new Date(2050, 11, 31)}"
+								   height="200" fontSize="30" selectedDate="{new Date(2013,11,15)}" />	 
+				</s:HGroup>
+				
+			</s:Group> 
+			<s:Group width="580" height="80" id="petpage2group2">
+				<components:petiitTextInputBackground width="100%" height="100%" />
+				<s:TextInput width="100%" prompt="{parentApplication.Language.profile_page3_prompt_colors}" text="{colors}" skinClass="spark.skins.mobile.TextInputSkin" contentBackgroundAlpha="0" focusThickness="0"
+							 height="100%" fontSize="44" borderVisible="false" fontFamily="MyriadPro"
+							 color="#000000" id="colorsText"/>
+			</s:Group> 
+			
+			<s:VGroup gap="20">
+				<s:Button id="continueButton" label="{parentApplication.Language.general_continue.toUpperCase()}" x="20" y="10" width="580" height="0" visible="false" fontSize="44" color="#000000" fontFamily="MyriadPro"/>
+				<s:Group width="580" id="descriptionGroup" mouseDownOutside="this.stage.focus=null"  alpha="0.9">
+					
+					<s:BitmapImage id="textareaBG" source="{textareabg}" x="-9"/>
+					<s:TextArea height="230" prompt="{parentApplication.Language.profile_page3_prompt_description}" text="{description.slice(0,500)}" fontSize="44" color="#000000" width="100%" fontFamily="MyriadPro" focusThickness="0"
+								id="descriptionText" needsSoftKeyboard="true" softKeyboardType="punctuation"
+								focusIn="continueButton.visible=true;continueButton.height=80;petpage2group1.visible=false;petpage2group2.visible=false;petpage2group1.height=0;petpage2group2.height=0;" 
+								focusOut="continueButton.visible=false;continueButton.height=0;petpage2group1.height=80;petpage2group2.height=80;petpage2group1.visible=true;petpage2group2.visible=true;" 
+								skinClass="spark.skins.mobile.TextAreaSkin" 
+								x="0" y="10"
+								contentBackgroundAlpha="0" borderVisible="false"/>
+				</s:Group> 
+			</s:VGroup>
+			
+			<s:HGroup width="600" height="74" fontFamily="Verdana" textAlign="center" gap="80"
+					  verticalAlign="middle">
+				<s:RadioButton label="{parentApplication.Language.profile_page3_radio_male}" groupName="Gender" value="0" selected="true" id="radio1"/>
+				<s:RadioButton label="{parentApplication.Language.profile_page3_radio_female}" groupName="Gender" value="1" id="radio2"/>
+			</s:HGroup>
+			
+			<s:HGroup bottom="5" horizontalCenter="0" gap="80">
+				<components:pinkButton label="{parentApplication.Language.general_previous.toUpperCase()}" click="currentState='RegisterPet1';"/>
+				<components:pinkButton label="{parentApplication.Language.profile_page3_button_savepet}" click="savePetCheck();" id="savePetButton"/>
+			</s:HGroup>
+		</s:VGroup>
+	</s:Group>
+	<s:Group id="console" bottom="0" includeIn="RegisterOwner" width="100%">
+		<s:BitmapImage source="@Embed('/assets/skin/menu/Petiit_Console.png')" scaleMode="stretch" width="100%" bottom="0"/>
+		<s:HGroup width="100%" horizontalAlign="center" gap="0" left="-8" id="consoleButtons" bottom="0">
+			<components:menuButton id="menuBackButton" label="{parentApplication.Language.general_back}" click="back();"/>
+		</s:HGroup>
+	</s:Group>
+	
+	<!-- dummy -->
+	<s:Button id="publishButton" alpha="0" width="1" height="1" x="0" y="0" visible="false"/>
+			  
+	<fx:Declarations>
+		<s:Callout id="charactersCallout" width="600" horizontalCenter="0" verticalCenter="0" skinClass="skins.PetiitCalloutSkin">
+			<s:VGroup horizontalAlign="center" horizontalCenter="0" gap="20">
+				<s:List width="580" id="charactersList" dataProvider="{charactersAC}" height="650" itemRenderer="Renderers.characterItemRenderer" contentBackgroundAlpha="0.2" filters="{shadowFilter}" click="loadCharacterImage();" useVirtualLayout="false"/>
+				<s:HGroup horizontalAlign="center" paddingBottom="20" paddingTop="10">
+					<components:pinkButton label="Stäng" click="charactersCallout.close(true);"/>
+				</s:HGroup>
+			</s:VGroup>
+		</s:Callout>
+		
+		<s:DropShadowFilter color="#000000" distance="6" alpha="0.28" angle="92.3" blurX="6" blurY="6" id="shadowFilter"/>
+	</fx:Declarations>
+</s:View>

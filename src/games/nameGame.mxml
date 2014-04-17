@@ -1,0 +1,446 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark" title="main" xmlns:components="components.*"
+		actionBarVisible="false" height="100%" tabBarVisible="false" currentState="start"
+		 viewActivate="viewActivateHandler(event)" viewDeactivate="viewDeactivateHandler(event)" backgroundAlpha="0"
+		>
+	
+	
+	<s:states>
+		<s:State name="playing" enterState="nextTurn();"/>
+		<s:State name="start"/>
+		<s:State name="finish"/>
+	</s:states>
+	
+	<fx:Script>
+		<![CDATA[
+			import flash.filters.BlurFilter;
+			import flash.utils.clearInterval;
+			import flash.utils.setInterval;
+			
+			import spark.events.ViewNavigatorEvent;
+			
+			import events.GameEvent;
+			
+			import flashx.textLayout.elements.BreakElement;
+			
+			[Embed(source="/assets/characters/CoolCat.png")]
+			public static const pet1:Class;
+			[Embed(source="/assets/characters/CoolHamster.png")]
+			public static const pet2:Class;
+			[Embed(source="/assets/characters/Dog.png")]
+			public static const pet3:Class;
+			[Embed(source="/assets/characters/GingerCat.png")]
+			public static const pet4:Class;
+			[Embed(source="/assets/characters/Mouse.png")]
+			public static const pet5:Class;
+			[Embed(source="/assets/characters/Petiitimals-BullDog.png")]
+			public static const pet6:Class;
+			[Embed(source="/assets/characters/Piglet.png")]
+			public static const pet7:Class;
+			[Embed(source="/assets/characters/Turtle.png")]
+			public static const pet8:Class;
+			[Embed(source="/assets/characters/Petiitimals-Rabbit.png")]
+			public static const pet9:Class;
+			[Embed(source="/assets/characters/Petiitimals-Guinea-pig.png")]
+			public static const pet10:Class;
+			
+			[Embed(source="/assets/characters/CoolCat_black.png")]
+			public static const blackpet1:Class;
+			[Embed(source="/assets/characters/CoolHamster_black.png")]
+			public static const blackpet2:Class;
+			[Embed(source="/assets/characters/Dog_black.png")]
+			public static const blackpet3:Class;
+			[Embed(source="/assets/characters/GingerCat_black.png")]
+			public static const blackpet4:Class;
+			[Embed(source="/assets/characters/Mouse_black.png")]
+			public static const blackpet5:Class;
+			[Embed(source="/assets/characters/Petiitimals-BullDog_black.png")]
+			public static const blackpet6:Class;
+			[Embed(source="/assets/characters/Piglet_black.png")]
+			public static const blackpet7:Class;
+			[Embed(source="/assets/characters/Turtle_black.png")]
+			public static const blackpet8:Class;
+			[Embed(source="/assets/characters/Petiitimals-Rabbit_black.png")]
+			public static const blackpet9:Class;
+			[Embed(source="/assets/characters/Petiitimals-Guinea-pig_black.png")]
+			public static const blackpet10:Class;
+			
+			private var petNames:Array = new Array(["Cathy","Basil","Vilse","Simon"],["Pam","Hamilton","Coco","Wizz"],["Rex","Rico","Milou","Pascal"],["Cathy","Basil","Vilse","Simon"],["Micky","Minnie","Monica","Morgan"],["Bully","Snap","Akila","Butch"],["Piggy","Porky","Boar","Swiney"],["Shellman","Ninja","Lightning","Carolina"],["Bunny","Benny","Roger","Jumpy"],["Whiney","Gustaf","Cesar","Moltaz"])
+			private var correctNames:Array = new Array(1,2,3,0,0,0,1,3,2,2);
+			private var answerPositions:Array = new Array([10,10],[280,10],[10,140],[280,140]);
+			
+			[Bindable]
+			private var points:int=0;
+			[Bindable]
+			private var correct:int=0;
+			[Bindable]
+			private var turn:int=0;
+			[Bindable]
+			private var streak:int=0;
+			private var starttime:Number=0;
+			[Bindable]
+			private var playedtime:Number=0;
+			
+			private var ongoing:Boolean=false;
+			
+			private var currentpet:int;
+		 
+			
+			private function getRandomPet():int {
+				
+				var rnd:int=currentpet;
+				
+				while(rnd==currentpet) {
+					rnd = Math.round((Math.random()*9)+1);
+				}
+				
+				return rnd;
+			}
+			
+			private function setAnswers(in_pet:int):void {
+				in_pet--;
+				
+				answerText0.label = petNames[in_pet][0];
+				answerText1.label = petNames[in_pet][1];
+				answerText2.label = petNames[in_pet][2];
+				answerText3.label = petNames[in_pet][3];
+			
+				//Randomize position
+				var rnd:int = Math.round(Math.random()*3);
+			
+				answerText0.x = answerPositions[rnd][0];
+				answerText0.y = answerPositions[rnd][1];
+				
+				rnd++;
+				if(rnd==4)
+					rnd=0;
+				
+				answerText1.x = answerPositions[rnd][0];
+				answerText1.y = answerPositions[rnd][1];
+				
+				rnd++;
+				if(rnd==4)
+					rnd=0;
+				
+				answerText2.x = answerPositions[rnd][0];
+				answerText2.y = answerPositions[rnd][1];
+				
+				rnd++;
+				if(rnd==4)
+					rnd=0;
+				
+				answerText3.x = answerPositions[rnd][0];
+				answerText3.y = answerPositions[rnd][1];
+				
+			}
+		
+			private function setPetImage(in_pet:int):void {
+				
+				switch(in_pet) {
+					case 1:
+						petImage.source = pet1;
+						blackPetImage.source=blackpet1;
+						break;
+					case 2:
+						petImage.source = pet2;
+						blackPetImage.source=blackpet2;
+						break;
+					case 3:
+						petImage.source = pet3;
+						blackPetImage.source=blackpet3;
+						break;
+					case 4:
+						petImage.source = pet4;
+						blackPetImage.source=blackpet4;
+						break;
+					case 5:
+						petImage.source = pet5;
+						blackPetImage.source=blackpet5;
+						break;
+					case 6:
+						petImage.source = pet6;
+						blackPetImage.source=blackpet6;
+						break;
+					case 7:
+						petImage.source = pet7;
+						blackPetImage.source=blackpet7;
+						break;
+					case 8:
+						petImage.source = pet8;
+						blackPetImage.source=blackpet8;
+						break;
+					case 9:
+						petImage.source = pet9;
+						blackPetImage.source=blackpet9;
+						break;
+					case 10:
+						petImage.source = pet10;
+						blackPetImage.source=blackpet10;
+						break;
+				}
+					 
+			}
+			
+			private function startGame():void {
+				currentState="playing";
+				
+				
+				parentApplication.audioUtil.stopSoundFX();
+				parentApplication.audioUtil.decreaseBackgroundMusicVolume();
+				
+				points=0;
+				turn=0;
+				streak=0;
+				correct=0;
+				
+				starttime= new Date().time;
+					
+				
+				
+			}
+			
+			private function giveUp():void  {
+				turn=11;
+				playedtime=100;
+				endGame();
+			}
+			
+			private function endGame():void {
+				currentState="finish"; 
+				
+				var endtime:Number = new Date().time;
+				
+				playedtime = (endtime - starttime)/1000;
+			//	startButton.visible=true;
+			
+				petImage.source=null;
+				
+				parentApplication.audioUtil.increaseBackgroundMusicVolume();
+				
+				var bonus:int = 100 - Math.round(playedtime);
+				if(bonus<0)
+					bonus=0;
+				points = points + bonus;
+			
+				resultMessage.text="";	//FINISHED
+				parentApplication.audioUtil.playSoundFX("/assets/soundfx/comedy_accent_bonks_razz_twang.mp3");
+				
+				finishButton.visible=true;
+				pointsFinishText.visible=true;
+				
+				var obj:Object=new Object();
+				obj.score = points;
+				parentApplication.myCompetitionDAO.dispatchEvent(new GameEvent(GameEvent.GET_HIGHSCORE,obj));
+			}
+			
+			private function nextTurn():void {
+				turn++;
+			
+				var endtime:Number = new Date().time;
+				playedtime = (endtime - starttime)/1000;
+				
+				var intervalId:uint;
+				intervalId = setInterval(clearFunction,2000);
+				
+				function clearFunction():void {
+					if(answerText3!=null) {	//ready
+						clearInterval(intervalId);
+						currentpet = getRandomPet();
+						setPetImage(currentpet);
+						pictureFX.play();
+						setAnswers(currentpet);
+						answerText0.visible=true;
+						answerText1.visible=true;
+						answerText2.visible=true;
+						answerText3.visible=true;
+						enableAnswers();
+					}
+				}				
+			}
+			
+			private function checkAnswer(in_answer:int):void {
+				ongoing=false;
+				pictureFX.stop();
+				
+				trace("checkAnswer="+in_answer);
+				
+				disableAnswers();
+				answerText0.visible=false;
+				answerText1.visible=false;
+				answerText2.visible=false;
+				answerText3.visible=false;
+				
+				switch(correctNames[currentpet-1]) {
+					case 0:
+						answerText0.visible=true;
+						break;
+					case 1:
+						answerText1.visible=true;
+						break;
+					case 2:
+						answerText2.visible=true;
+						break;
+					case 3:
+						answerText3.visible=true;
+						break;
+					default:;
+				}
+				
+				if(in_answer == correctNames[currentpet-1]) {
+					correct++;
+					streak++;
+					points = points + (correct + correct*streak); 
+					parentApplication.showToastFX(parentApplication.Language.game_correct,true);	//"CORRECT!"
+					parentApplication.audioUtil.playSoundFX("/assets/soundfx/comedy_spring_twang_or_pluck_004.mp3");
+				}
+				else {
+					parentApplication.audioUtil.playSoundFX("/assets/soundfx/comedy_twang_003.mp3");
+					parentApplication.showToastFX(parentApplication.Language.game_wronganswer,false);	//"WRONG ANSWER"
+					streak=0;		
+				}
+				
+				if(turn>10)
+					endGame();
+				else
+					nextTurn();
+			}
+			
+			private function disableAnswers():void {
+				answerText0.enabled=false;
+				answerText1.enabled=false;
+				answerText2.enabled=false;
+				answerText3.enabled=false;
+			}
+
+			private function enableAnswers():void {
+				answerText0.enabled=true;
+				answerText1.enabled=true;
+				answerText2.enabled=true;
+				answerText3.enabled=true;
+			}
+			
+			private function noPoints():void {	//time out
+				disableAnswers();
+				if(ongoing)
+					checkAnswer(-1);
+			}
+			
+			
+			private function touchCharacter():void {
+				switch(currentpet-1) {
+					case 0:
+						break;
+					case 1:
+						break;
+					case 2:
+						break;
+					case 3:
+						parentApplication.audioUtil.playSoundFX("/assets/soundfx/cat-meow1.mp3");
+						break;
+					case 4:
+						parentApplication.audioUtil.playSoundFX("/assets/soundfx/cartoon_mouse_says_uh_oh.mp3");
+						break;
+					case 5:
+						break;
+					case 6:
+						break;
+					case 7:
+						break;
+					case 8:
+						break;
+					case 9:
+						break;
+							
+				}
+			}
+			
+			protected function viewActivateHandler(event:ViewNavigatorEvent):void
+			{
+				parentApplication.startBGvideo();
+				parentApplication.bg.visible=false;
+				currentState="start";
+				parentApplication.audioUtil.loadBackgroundMusic("music3.mp3",0);
+
+			}
+			
+			protected function musicon_checkbox_changeHandler(event:Event):void
+			{
+				if(!musiccheckbox.selected)
+					parentApplication.audioUtil.stopBackgroundMusic();
+				else {
+					parentApplication.audioUtil.loadBackgroundMusic("music3.mp3",0);
+				}
+			}
+			
+	 
+			
+			private function back():void {
+				parentApplication.audioUtil.stopBackgroundMusic();
+				parentApplication.audioUtil.stopSoundFX();
+				parentApplication.competeNav.popView();
+			}
+			
+			protected function viewDeactivateHandler(event:ViewNavigatorEvent):void
+			{
+				parentApplication.stopBGvideo();
+				parentApplication.bg.visible=true;
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations>
+		<s:DropShadowFilter color="#000000" distance="6" alpha="0.28" angle="92.3" blurX="6" blurY="6" id="shadowFilter"/>
+	 	
+		 
+		
+		<s:Transition>
+			<s:Parallel id="pictureFX" startDelay="0" effectStart="petImage.alpha=0;blackPetImage.alpha=1;">
+				<s:AnimateFilter id="animateBlur" target="{petImage}" repeatCount="1" bitmapFilter="{new spark.filters.BlurFilter()}" duration="5000"  effectStart="ongoing=true;" effectEnd="noPoints();">
+					<s:SimpleMotionPath property="blurX" valueFrom="50" valueTo="0"/>
+					<s:SimpleMotionPath property="blurY" valueFrom="50" valueTo="0"/>
+				</s:AnimateFilter>
+				<s:Fade alphaFrom="1" alphaTo="0" target="{blackPetImage}" startDelay="2500" duration="2500"/>
+				<s:Fade alphaFrom="0" alphaTo="1" target="{petImage}" startDelay="2500" duration="2500"/>
+			</s:Parallel>
+		</s:Transition>
+		
+	</fx:Declarations>
+	
+	<s:Group horizontalCenter="0" y="570" includeIn="playing,start" height="250" width="560">
+		<components:pinkButton id="answerText0" click="checkAnswer(0)" visible="false"/>
+		<components:pinkButton id="answerText1" click="checkAnswer(1)" visible="false"/>
+		<components:pinkButton id="answerText2" click="checkAnswer(2)" visible="false"/>
+		<components:pinkButton id="answerText3" click="checkAnswer(3)" visible="false"/>
+	</s:Group>
+	
+	<s:BitmapImage source="assets/posters/namegameposter.png" includeIn="start" horizontalCenter="0" top="50"/>
+	<s:BitmapImage source="assets/games/NameGameEnd.png" includeIn="finish" horizontalCenter="0" top="50"/>
+	
+	
+	<s:Label text="{parentApplication.Language.game_turn} {turn}" top="10" left="20" fontSize="30" includeIn="playing"/>
+	<s:Label text="{parentApplication.Language.game_score}: {points}" top="10" right="20" fontSize="30" includeIn="playing"/>
+	<s:Label text="{parentApplication.Language.game_namegame_title}" fontFamily="Badaboom" fontSize="64" horizontalCenter="0" top="140" includeIn="finish" color="#eeeeeeee" color.finish="#444444" filters="{shadowFilter}"/>
+	<s:Label text="{parentApplication.Language.game_namegame_helptext}" fontFamily="Badaboom" fontSize="64" color.start="#eeeeeeee" top="470" width="550" lineBreak="toFit" horizontalCenter="0" includeIn="start" textAlign="center" filters="{shadowFilter}"/>
+	<s:Label id="pointsFinishText" text="{parentApplication.Language.game_finishtext1} {points} {parentApplication.Language.game_finishtext2}" fontFamily="Badaboom" fontSize="36" color="#ffffff" top="360" horizontalCenter="0" includeIn="finish"/>
+	<s:Image id="blackPetImage" horizontalCenter="0" top="100" width="460" height="440" scaleMode="stretch" smooth="true" filters="{shadowFilter}" click="touchCharacter();" includeIn="playing"/>
+	<s:Image id="petImage" horizontalCenter="0" top="100" width="460" height="440" scaleMode="stretch" smooth="true" filters="{shadowFilter}" click="touchCharacter();" />
+	
+	<s:Label id="resultMessage" bottom="60" horizontalCenter="0" fontSize="30" fontWeight="bold" color="#ffffff"/>
+	
+	<s:Label text="{parentApplication.Language.game_time}: {playedtime}" bottom="10" left="20" fontSize="30" color="#ffffff" includeIn="finish,playing"/>
+	<s:Label text="{parentApplication.Language.game_correct}: {correct}" horizontalCenter="0" bottom="10" fontSize="30" color="#ffffff" includeIn="playing"/>
+	<s:Label text="{streak} {parentApplication.Language.game_namegame_inarow}" bottom="10" right="20" fontSize="30" color="#ffffff" includeIn="finish,playing"/>
+	<components:pinkButton id="giveupButton" label="{parentApplication.Language.game_button_giveup.toUpperCase()}" click="giveUp();" height="100" width="500" horizontalCenter="0" includeIn="playing" top="10"/>
+	<components:pinkButton id="backButton" label="{parentApplication.Language.general_back.toUpperCase()}" click="back();" includeIn="start" horizontalCenter="0" top="10"/>
+	<s:CheckBox id="musiccheckbox" label="{parentApplication.Language.game_checkbox_music}" selected="true" color="#ffffff" fontSize="24" bottom="200" horizontalCenter="0" change="musicon_checkbox_changeHandler(event)" includeIn="start"/>
+	
+	<s:Group horizontalCenter="0" bottom="40" bottom.start="10">
+		<components:friendsButton id="startButton" label="{parentApplication.Language.game_button_start.toUpperCase()}" click="startGame();" includeIn="start"/>
+		<s:HGroup horizontalCenter="0" verticalAlign="middle">
+			<components:pinkButton id="restartButton" label="{parentApplication.Language.game_button_restart.toUpperCase()}" click="startGame();" includeIn="finish"/>
+			<components:pinkButton id="finishButton" label="{parentApplication.Language.game_button_end.toUpperCase()}" click="back();" includeIn="finish"/>	
+		</s:HGroup>
+	</s:Group>
+</s:View>

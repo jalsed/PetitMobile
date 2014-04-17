@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" currentState="up" added="readyToLoadImages();" 
+		 >
+ 
+	<s:states>
+		<s:State name="up" />
+		<s:State name="over" stateGroups="overStates" />
+		<s:State name="down" stateGroups="downStates" />
+		<s:State name="disabled" stateGroups="disabledStates" />
+	</s:states>
+	
+	<fx:Script>
+		<![CDATA[
+			[Bindable]
+			public var up_pic:String="";
+			[Bindable]
+			public var down_pic:String="";
+			[Bindable]
+			
+			[Bindbable]
+			public var buttontext:String="";
+			
+			[Bindable]
+			public var label:String="";
+			[Bindable]
+			public var textcolor:int=0x4a3352;
+			
+			public var active:Boolean=false;
+			
+			private var interval:uint;
+			
+			public function readyToLoadImages():void {
+				updateImages();
+				if(buttonImageDown==null || buttonImage==null) {	//do later
+					interval=setInterval(updateImages,200);
+				} 
+				
+				if(buttontext.length>0 && buttontextDisplay!=null) {
+					if(buttontext.length>8)
+						buttontextDisplay.setStyle("fontSize",44) ;
+					if(buttontext.length>9)
+						buttontextDisplay.setStyle("fontSize",40) ;
+					if(buttontext.length>10)
+						buttontextDisplay.setStyle("fontSize",36) ;
+					else
+						buttontextDisplay.setStyle("fontSize",48) ;
+				}
+			}
+			
+			private function updateImages():void {	
+				if(buttonImageDown!=null && buttonImage!=null) {
+					clearInterval(interval);
+					buttonImageDown.source=down_pic;
+					buttonImage.source=up_pic;	
+				}
+				
+				if(active)
+					labelDisplay.alpha=1;
+				else
+					labelDisplay.alpha=0.85;
+			}
+			 
+		]]>
+	</fx:Script>
+	<s:Image scaleMode="letterbox" id="buttonImageDown" mouseEnabled="false" source="{down_pic}" 
+			 left="0" right="0" top="0" bottom="0" smooth="true" />
+	<s:Image scaleMode="letterbox" id="buttonImage" mouseEnabled="false" source="{up_pic}" 
+			 includeIn="up" smooth="true"
+			 left="0" right="0" top="0" bottom="0" />
+
+	<s:Label id="buttontextDisplay" width="170" color="{textcolor}" depth="2" mouseEnabled="false" includeIn="up,down" 
+			 fontFamily="Badaboom" fontSize="50" horizontalCenter="0" maxDisplayedLines="2" lineBreak="toFit"
+			 text="{buttontext}" textAlign="center"
+			 verticalCenter="-2"/>
+		
+	<s:Label id="labelDisplay" left="10" right="10" color="#ffffff" depth="2" height="30" alpha="0.85"
+			 fontFamily="Badaboom" fontSize="32" horizontalCenter="0" maxDisplayedLines="1"
+			 mouseEnabled="false" text="{label}" textAlign="center" verticalAlign="middle" 
+			 bottom="5"/> 
+	
+	<s:Button x="0" y="0" width="219" height="162" alpha="0" click="currentState='down'" mouseOver="currentState='over'" mouseOut="currentState='up'"/>
+</s:Group>

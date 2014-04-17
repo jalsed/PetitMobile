@@ -1,0 +1,449 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark" title=""
+		xmlns:components="components.*" backgroundAlpha="0"
+		 creationComplete="init();" actionBarVisible="false" tabBarVisible="false" viewActivate="viewActivateHandler(event)"
+		>
+	 
+	<s:states>
+		<s:State name="normal"/>
+		<s:State name="makecomment" activate="prepareMakeComment();"/>
+	</s:states>
+	
+	<fx:Declarations>
+		<s:DateTimeFormatter id="dateformat" dateTimePattern="YYYY-MM-DD" timeStyle="none"/>
+	</fx:Declarations>
+	
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			
+			import spark.collections.Sort;
+			import spark.collections.SortField;
+			import spark.skins.mobile.ListSkin;
+			import spark.skins.mobile.TextAreaSkin;
+			
+			import Renderers.commentListRenderer;
+			
+			import events.CommentEvent;
+			import events.DialogEvent;
+			import events.FeedEvent;
+			import events.PetEvent;
+			import events.PetitVideoEvent;
+			
+			import models.ContestantVO;
+			
+			private var videoPath:String="";
+			private var videoOrientationRotation:int=0;
+			
+			private var soundPath:String="";
+			
+			private var contestantObj:ContestantVO;
+						
+			[Bindable]
+			private var comments:ArrayCollection = new ArrayCollection();
+			
+		 	[Bindable]
+			private var newstitle:String="";
+			
+			
+	 		private function init():void {
+				contestantObj = data as ContestantVO;
+				
+				descriptionLabel.text = contestantObj.description;
+				
+			
+				//VIDEO
+				if(contestantObj.videoURL!=null) {
+					videoPath = contestantObj.videoURL;
+					videoOrientationRotation = contestantObj.videoOrientationRotation;
+					
+				}
+				if(videoPath.length>0)
+					playButtonTransparent.visible=true;
+				else
+					playButtonTransparent.visible=false;
+				
+				//IMAGE & THUMBNAIL
+				if(contestantObj.imageURL_small!=null && contestantObj.imageURL_small.length>0) {
+					feedImage.source = contestantObj.imageURL_small;
+
+				}
+				
+				
+				if(contestantObj.voted==false && parentApplication.smorgasbordLoggedin)
+					voteButton.enabled=true;
+				
+				if(!parentApplication.smorgasbordLoggedin && commentGroup!=null) {
+					commentGroup.enabled=false;
+				}
+				else if(commentGroup!=null) {
+					commentGroup.enabled=true;
+				}
+				
+				parentApplication.myCommentDAO.addEventListener(CommentEvent.COMMENTS_READY,commentsReady);
+				parentApplication.myCommentDAO.restGetComments(contestantObj.feedID);
+				
+				//ALREADY VOTED ON THIS ENTRY?
+				if(data.myCurrentVoteEntryID.length>0 && data.myCurrentVoteEntryID==data.contestantID.toString())
+					voteButton.enabled=false;
+				else 
+					voteButton.enabled=true;
+				
+				//Get name of pet
+				parentApplication.myPetDAO.addEventListener(PetEvent.PET_GET_THIS_PET_READY,petNameReady);
+				parentApplication.myPetDAO.restGetThisPet(contestantObj.contestantID);
+			}
+			 
+			protected function voteFor(event:MouseEvent):void {
+				if(data.myCurrentVoteEntryID.length>0 && data.myCurrentVoteEntryID!=data.contestantID.toString()) {
+					parentApplication.addEventListener(DialogEvent.DIALOG_OK,doVoteFor);
+					//									"ALREADY VOTED"				You have already voted for another entry in this competition. Are you sure you want to change your vote to this entry?"
+					parentApplication.showDialog("",parentApplication.Language.contestant_votedialog_header,parentApplication.Language.contestant_votedialog_body,parentApplication.Language.contestant_votedialog_yes,parentApplication.Language.contestant_votedialog_no,2);
+				} 
+				else {
+					parentApplication.myCompetitionDAO.restVoteCompetition(contestantObj.competitionID,contestantObj.feedID);
+					voteButton.enabled=false;
+				}
+			}
+
+			private function doVoteFor(event:DialogEvent):void {
+				parentApplication.removeEventListener(DialogEvent.DIALOG_OK,doVoteFor);
+				parentApplication.myCompetitionDAO.restVoteCompetition(contestantObj.competitionID,contestantObj.feedID);
+				voteButton.enabled=false;
+				parentApplication.showToastFX(parentApplication.Language.contestan_toastmessage_voted,true);
+			}
+			
+			private function petNameReady(event:PetEvent):void {
+				if(event.data.title!=null)
+					newstitle=event.data.title;
+				parentApplication.myPetDAO.removeEventListener(PetEvent.PET_GET_THIS_PET_READY,petNameReady);
+			}
+			
+			/********************************************************
+			 * Comments stuff										*
+			 * 														*
+			 ********************************************************/
+			
+			private var colorArray:Array = new Array(0xfff7ea,0xb1f4f0,0xd9f4c5,0xfbd8f8,0xfde4da,0xfcface,0xe8dcb9,0xbaeadc,0xeebfde,0xf5c577,0xf5b3da,0xfffcca,0xccd3ff);
+			
+			private function commentsReady(event:CommentEvent):void {
+				if(event.data!=null) {
+					comments.removeAll();
+					var namestr:String;
+					var nameval:int=0;
+					
+					for each(var obj:Object in event.data) {
+						
+						//Use first two letters to find a color depending on the name
+						namestr = obj.name.toUpperCase();
+						nameval = namestr.charCodeAt(0)-50;
+						if(nameval>20)
+							nameval-=10;
+						if(nameval>9)
+							nameval-=10;
+						
+						obj.backgroundcolor=colorArray[nameval];
+						
+						if(obj.created.length>0) {
+							var credate:Date = new Date();
+							credate.setTime(parseInt(obj.created)*1000);	//*1000 since we get the data in seconds but milliseconds are required by setTime
+							obj.timestampDate = dateformat.format(credate);
+						}
+						
+						comments.addItem(obj);
+					}
+					
+					var sort:Sort = new Sort();
+					sort.fields =  [new SortField("created")];
+					comments.sort = sort;
+					comments.refresh();
+					
+				}
+				
+				
+				parentApplication.myCommentDAO.removeEventListener(CommentEvent.COMMENTS_READY,commentsReady);
+			}
+			
+			private function makeComment():void {
+				if(commentInput.text.length>1) {
+					parentApplication.myCommentDAO.addEventListener(CommentEvent.COMMENT_ADDED,commentsAdded);
+					parentApplication.myCommentDAO.restAddComment(parentApplication.myPetDAO.currentPetID,commentInput.text,contestantObj.feedID);
+				}
+			}
+			
+			private function commentsAdded(event:CommentEvent):void {
+				commentInput.text="";
+				
+				parentApplication.myCommentDAO.removeEventListener(CommentEvent.COMMENT_ADDED,commentsAdded);
+				
+				parentApplication.myCommentDAO.addEventListener(CommentEvent.COMMENTS_READY,commentsReady);
+				parentApplication.myCommentDAO.restGetComments(contestantObj.feedID);
+			}
+			
+			private function prepareMakeComment():void {
+				
+				if(!parentApplication.smorgasbordLoggedin) {
+					commentGroup.enabled=false;
+				}
+				else if(commentGroup!=null) {
+					commentGroup.enabled=true;
+				}
+			}
+			
+			
+			/********************************************************
+			 * PLAY VIDEO											*
+			 * 														*
+			 ********************************************************/
+			
+			import com.StageWebViewUIComponent;
+			import com.iOSStageVideo;
+			
+			import flash.events.Event;
+			import flash.events.MediaEvent;
+			import flash.media.CameraUI;
+			import flash.media.MediaType;
+			import flash.media.StageWebView;
+			
+			import mx.core.UIComponent;
+			
+			import spark.events.ViewNavigatorEvent;
+			
+			import by.blooddy.crypto.Base64;
+			
+			import classes.GlobalConstants;
+			
+			
+			private var camera:CameraUI;
+			
+			protected var loader:Loader;
+			public var file:File;
+			private var dataSource:IDataInput;
+			
+			private var vid:iOSStageVideo;
+			private var container:UIComponent;
+			
+			
+			/********************************************************
+			 * VIDEO												*
+			 * 														*
+			 ********************************************************/
+			
+			protected function playVideo(e:Event):void
+			{
+				parentApplication.videoButtons.visible=true;
+				parentApplication.tabnav.visible=false;
+				parentApplication.bg.visible=false;
+				parentApplication.feedNav.activeView.visible=false;
+				parentApplication.toast.visible=false;
+				
+				//stop current bg video.
+				parentApplication.removeBGvideo();
+				
+				//var path:String = GlobalConstants.STATIC_URL+"petit/video/7/capturedvideo.MOV"; 	//http://petiit.dyndns.dk/sites/petiit.dyndns.dk/files/petit/video/7/capturedvideo.MOV
+				var path:String = videoPath;
+				if(videoOrientationRotation==0) {
+					vid = new iOSStageVideo( path ,1024,640,90); 			
+					vid.rotation = 90;
+				}
+				else if(videoOrientationRotation==90) {
+					vid = new iOSStageVideo( path ,640, 1024,0); 
+				}
+				
+				vid.addEventListener('videoDone' , stopVideo); 
+				
+				
+				container = new UIComponent(); 
+				container.x=0;
+				container.y=0;
+				container.width = 640;//parentApplication.myStage.stageWidth; 
+				container.height = 1024; //parentApplication.myStage.stageHeight; 
+				addElement( container ); 
+				
+				container.addChild( vid ); 
+				
+				parentApplication.addEventListener(PetitVideoEvent.STOP_VIDEO,stopVideo);
+				parentApplication.addEventListener(PetitVideoEvent.RESUME_VIDEO,resumeVideo);
+				parentApplication.addEventListener(PetitVideoEvent.PAUSE_VIDEO,pauseVideo);
+			}
+			
+			private function stopVideo(e:Event):void {
+				
+				parentApplication.tabnav.visible=true;
+				
+				parentApplication.videoButtons.visible=false;
+				parentApplication.bg.visible=true;
+				parentApplication.feedNav.activeView.visible=true;
+				parentApplication.toast.visible=true;
+		 		
+				parentApplication.removeEventListener(PetitVideoEvent.STOP_VIDEO,stopVideo);
+				parentApplication.removeEventListener(PetitVideoEvent.RESUME_VIDEO,resumeVideo);
+				parentApplication.removeEventListener(PetitVideoEvent.PAUSE_VIDEO,pauseVideo);
+			}
+			
+			private function resumeVideo(event:Event):void {
+				vid.continueVideo();	
+			}
+			
+			private function pauseVideo(event:Event):void {
+				vid.pauseVideo();
+			}
+			
+			
+			/********************************************************
+			 * VIDEO												*
+			 * 														*
+			 ********************************************************/
+			
+			private function playSound(e:Event):void {
+				//soundPath
+			}
+			
+			private function stopSound(e:Event):void {
+				
+			}
+			
+			private function imageClicked():void {
+				if(videoPath.length>0) {		//video exist
+					playVideo(null);
+				}
+				else {
+					fullscreenGroup.visible=true;
+					fullscreenImage.source=contestantObj.imageURL_large;;//feedImage.source;
+				}
+			}
+			
+			private function removeFullscreen():void {
+				fullscreenGroup.visible=false;
+			}
+			
+			
+			
+			private function back():void {
+				if(currentState=="normal")
+					parentApplication.competeNav.popView();
+				else
+					currentState="normal";
+			}
+			
+			protected function viewActivateHandler(event:ViewNavigatorEvent):void
+			{
+				 
+			}
+			
+			private function doFocusOut():void {
+				continueButton.visible=false;
+				continueButton.height=0;
+				commentList.visible=true;
+				commentList.moveIndexLastRow();
+				
+			}
+			
+		]]>
+	</fx:Script>
+	<s:BitmapImage id="bg" visible="true" x="0" y="0" width="100%" height="100%" scaleMode="stretch" source="@Embed('/assets/images/Petiit-SunBurst-iP5-violet.png')"   />
+	
+	<s:BitmapImage id="commentBG1" top="-50" left="0" source="@Embed('/assets/images/textfield/Text-Input-Area-top-03.png')" alpha="0.9" width="100%"/>
+	<s:BitmapImage id="commentBG2" top="-50" left="0" source="@Embed('/assets/images/textfield/Text-Input-Area-bottom-03.png')" alpha="0.9" width="100%"/>
+	
+	<s:Group id="feedImageMask" x="{parentApplication.width-240}" y="0">
+		<s:Rect id="maskrect1" height="285" width="50" x="0" top="0">
+			<s:fill>
+				<s:SolidColor color="#000000"/>
+			</s:fill>
+		</s:Rect>
+		<s:Rect id="maskrect2" height="288" width="50" x="50" top="0">
+			<s:fill>
+				<s:SolidColor color="#000000"/>
+			</s:fill>
+		</s:Rect>
+		<s:Rect id="maskrect3" height="292" width="140" x="100" top="0">
+			<s:fill>
+				<s:SolidColor color="#000000"/>
+			</s:fill>
+		</s:Rect>
+	</s:Group>
+	<s:Image id="feedImage" height="290" x="{parentApplication.width-240}" y="0" scaleMode="zoom" click="imageClicked();" width="240" verticalAlign="top" includeIn="normal" mask="{feedImageMask}"/>
+	
+	<s:Image id="playButtonTransparent" source="@Embed('/assets/buttons/Play.png')" click="playVideo(event)" right="80" y="90" alpha="0.6" includeIn="normal"/>
+	
+	<s:VGroup left="0" paddingLeft="10" paddingTop="10" includeIn="normal">
+		<s:Label text="{newstitle} {parentApplication.Language.contestant_textarea_prompt}"  fontFamily="MyriadPro" fontWeight="bold" fontSize="36" width="380"/>
+		<s:Label id="descriptionLabel" text="-" fontFamily="MyriadPro" fontSize="32" width="380" height="250"/>	
+	</s:VGroup>
+	
+	<s:BitmapImage left="0" top="-50" id="paperroll" source="@Embed('/assets/images/textfield/Text-Input-Area-curl-03.png')" />
+	
+	<s:Group y="0" x="20" >
+		<s:Group id="commentGroup" height="280">
+			<s:TextArea includeIn="makecomment" x="0" y="10" skinClass="spark.skins.mobile.StageTextAreaSkin" prompt="{parentApplication.Language.contestant_comment_prompt}" 
+						id="commentInput" width="600" color="#444444" height="240" contentBackgroundAlpha="0" borderVisible="false" contentBackgroundColor="#ffffff"
+						softKeyboardType="default" autoCapitalize="sentence"
+						focusIn="continueButton.visible=true;continueButton.height=650;" focusOut="commentInput.text=parentApplication.cleanseChatText(commentInput.text);"
+						/>
+			<!--s:Image includeIn="makecomment" id="makeCommentButton" click="makeComment();" source="@Embed('/assets/images/textfield/Text-Input-skicka-button.png')" x="440" y="220"/>
+			<s:Label includeIn="makecomment" id="makeCommentButtonText" text="{parentApplication.Language.contestant_comment_send}" x="465" y="242" width="120" textAlign="center" mouseEnabled="false" fontWeight="bold"  fontFamily="MyriadPro" fontSize="36" color="#444444"/-->
+		</s:Group>
+		
+		<s:List id="commentList" top="290" height="{parentApplication.stage.height-80}" width="640" dataProvider="{comments}" horizontalScrollPolicy="off" horizontalCenter="0"
+				verticalScrollPolicy="on" contentBackgroundAlpha="0"
+				itemRenderer="Renderers.commentListRenderer" 
+				skinClass="spark.skins.mobile.ListSkin" cacheAsBitmap="false" ><!--cacheAsBitmap="false"-->
+			<s:layout>
+				<s:VerticalLayout id="commentsTile" horizontalAlign="center"  
+								  paddingBottom="300"
+								  gap="20"
+								  paddingTop="60"/>
+			</s:layout>
+		</s:List>
+	</s:Group>
+	
+	<s:Group id="continueButton" top="300" height="0" visible="false" width="100%" horizontalCenter="0" >
+		<s:Rect id="darkerBG" height="100%" width="100%">
+			<s:fill>
+				<s:LinearGradient rotation="90">
+					<s:GradientEntry color="#000000" alpha="0.0"/>
+					<s:GradientEntry color="#000000" alpha="0.8"/>
+					<s:GradientEntry color="#000000" alpha="0.0"/>
+				</s:LinearGradient>
+			</s:fill>
+		</s:Rect>
+		<s:HGroup horizontalAlign="center" width="100%" horizontalCenter="0" height="80">
+			<s:Button id="cancelCommentButton" label="{parentApplication.Language.general_cancel.toUpperCase()}" width="280" fontSize="44" click="doFocusOut();" color="#000000" fontFamily="MyriadPro" height="80"/>
+			<s:Button id="sendCommentButton" label="{parentApplication.Language.contestant_comment_send.toUpperCase()}" click="makeComment();doFocusOut();commentInput.text='';" width="280" height="80" fontSize="44" color="#000000" fontFamily="MyriadPro"/>
+		</s:HGroup>
+	</s:Group>
+	
+	
+	<s:Group id="console" bottom="0" depth="2" width="100%">
+		<s:BitmapImage source="@Embed('/assets/skin/menu/Petiit_Console.png')" scaleMode="stretch" bottom="0" width="100%"/>
+		<s:HGroup bottom="0" width="100%" horizontalAlign="center" gap="0" left="-8" id="consoleButtons">
+			<components:menuButton id="backButton" click="back();" label="{parentApplication.Language.general_back.toUpperCase()}"/>
+			<components:menuIconButton id="voteButton" click="voteFor(event)" up_pic="/assets/buttons/btn_rosta_off.png" down_pic="/assets/buttons/btn_rosta_on.png" buttontext="{parentApplication.Language.contestant_button_vote}" includeIn="normal"/>			
+			<components:menuIconButton id="commentButton" click="if(currentState=='normal') currentState='makecomment'; else currentState='normal';" up_pic="/assets/buttons/btn_comment_off.png" down_pic="/assets/buttons/btn_comment_on.png" includeIn="normal"/>			
+		</s:HGroup>
+	</s:Group>
+	
+	<s:Group id="fullscreenGroup" visible="false" width="100%" height="960" x="0" y="0" depth="100" 
+			 click="if(fullscreenGroup.visible) {fullscreenGroup.visible=false;}else {fullscreenGroup.visible=true;actionBarVisible=false;}">
+		<s:Rect id="blackbackground" left="0" right="0" top="0" bottom="0" >
+			<s:fill>
+				<s:SolidColor color="#000000"/>
+			</s:fill>
+		</s:Rect>
+		<s:Scroller height="100%" width="100%" horizontalCenter="0" verticalCenter="0">
+			<s:Group>
+				<s:BitmapImage id="fullscreenImage" horizontalCenter="0" verticalCenter="0" horizontalAlign="center" verticalAlign="middle"/>			
+			</s:Group>
+		</s:Scroller>
+		<s:BitmapImage source="@Embed('/assets/skin/menu/Petiit_Console.png')" scaleMode="stretch" bottom="0" width="100%"/>
+		<s:HGroup bottom="0" width="100%" horizontalAlign="center" gap="0" left="-8" id="consoleButtons2" mouseDown="removeFullscreen();" depth="102">
+			<s:BitmapImage visible="true" id="fullscreenBackButton" source="@Embed('/assets/buttons/btn_goback_off.png')" />
+		</s:HGroup>
+	</s:Group>	
+	<fx:Declarations>
+		<s:DropShadowFilter color="#000000" distance="6" alpha="0.28" angle="92.3" blurX="6" blurY="6" id="shadowFilter"/>
+	</fx:Declarations>
+</s:View>

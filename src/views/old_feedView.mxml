@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark" title="" actionBarVisible="false" tabBarVisible="false"
+	 	creationComplete="start();" backgroundAlpha="0" height="100%"
+		destructionPolicy="never"
+	 >
+ 	
+	<fx:Script>
+		<![CDATA[
+		
+			
+			import classes.GlobalConstants;
+			
+			import events.FeedEvent;
+			import events.UserEvent;
+			
+			import models.FeedVO;
+			
+			import mx.collections.ArrayCollection;
+			
+			import spark.components.supportClasses.ListBase;
+			import spark.events.ViewNavigatorEvent;
+			
+			[Bindable]
+			private var feedstatus:ArrayCollection = new ArrayCollection();
+			 
+			
+			public function scrollToVisible():void {
+				//Make selected item visible. 225 = item height + gap
+				 endScrollPos = (feedList.selectedIndex * 225);	
+			 
+				startSmoothScroll();
+			}
+			 
+			//SMOOTH VERTICAL LIST-SCROLL
+			private var currentScrollPos:Number=0;
+			private var endScrollPos:Number=0;
+			private var scrollVelocity:Number=5;
+			private var scrollDelay:Number=1;	//every 2 ms
+			private var scrollDirection:int=-1;
+			private var intervalId:uint;
+			
+			private function startSmoothScroll():void {
+				if(endScrollPos>feedList.scroller.contentMouseY)
+					scrollDirection=-1;													//boardList.scroller.maxVerticalPosition = 870    boardList.scroller.contentMouseY=256
+				else
+					scrollDirection=1;
+				currentScrollPos = listTile.verticalScrollPosition+feedList.y;
+				intervalId = setInterval(animateScrolling,scrollDelay);
+			}
+			
+			private function animateScrolling():void {
+				 
+				currentScrollPos = currentScrollPos - (scrollVelocity*scrollDirection);
+				listTile.verticalScrollPosition = currentScrollPos;
+				 
+				if(scrollDirection==1 && currentScrollPos <= endScrollPos)
+					clearInterval(intervalId);
+				else if(scrollDirection==-1 && currentScrollPos >= endScrollPos)
+					clearInterval(intervalId);
+				
+			}
+			//----------------------------------------------
+			
+			
+			private function update(event:UserEvent):void {
+				
+				parentApplication.myFeedDAO.removeEventListener(FeedEvent.FEED_GETFEEDLIST_READY,feedListReady);
+				parentApplication.myFeedDAO.removeEventListener(FeedEvent.FEED_GETFEEDLIST_FAILED,feedListFailed);
+				parentApplication.myFeedDAO.addEventListener(FeedEvent.FEED_GETFEEDLIST_READY,feedListReady);
+				parentApplication.myFeedDAO.addEventListener(FeedEvent.FEED_GETFEEDLIST_FAILED,feedListFailed);
+				 
+				parentApplication.myFeedDAO.restGetFeeds(parentApplication.myPetDAO.currentPetID);
+			}
+			 
+			protected function start():void
+			{
+				  
+				parentApplication.myFeedDAO.addEventListener(FeedEvent.FEED_GETFEEDLIST_READY,feedListReady);
+				parentApplication.myFeedDAO.addEventListener(FeedEvent.FEED_GETFEEDLIST_FAILED,feedListFailed);
+				parentApplication.myFeedDAO.restGetFeeds(parentApplication.myPetDAO.currentPetID);
+			
+				parentApplication.myUserDAO.addEventListener(UserEvent.LOGIN_READY,update,false);
+			}
+
+			
+			
+			private function feedListReady(event:FeedEvent):void {
+ 					
+				var tmp:FeedVO;
+				
+				if(event.data.length==0) {
+					tmp = new FeedVO();
+					
+					tmp.feedID=1;
+					tmp.description="Put your status here by pushing the button above. All your friends and relatives will be able to see it as well.";
+					tmp.imageURL="http://www.beencaughtsleeping.com/userfiles/image/sleepy_cat.jpg";
+					tmp.videoURL="";
+					tmp.soundURL="";
+					tmp.restrictionType=0;
+					
+					feedstatus.addItem(tmp);
+				}
+				else {
+					feedstatus.removeAll();
+					
+					for each(var feedobj:Object in event.data) {
+				
+						tmp = new FeedVO();
+						tmp.feedID=parseInt(feedobj.nid);
+						if(feedobj.body.hasOwnProperty('und')) {
+							tmp.description=feedobj.body.und[0].value;
+						}					
+						if(feedobj.field_images.hasOwnProperty('und')) {
+							var tmpurl:String=feedobj.field_images.und[0].uri; 
+							tmp.imageURL= GlobalConstants.STATIC_URL + "styles/petit_small/public/" + tmpurl.slice(9);	//slice of "public://
+						}
+						
+						tmp.videoURL="";
+						tmp.soundURL="";
+						tmp.restrictionType=feedobj.field_blog_visibility;
+						
+						feedstatus.addItem(tmp);
+					}
+				}
+				
+				
+				//Clean
+				parentApplication.myFeedDAO.removeEventListener(FeedEvent.FEED_GETFEEDLIST_READY,feedListReady);
+				parentApplication.myFeedDAO.removeEventListener(FeedEvent.FEED_GETFEEDLIST_FAILED,feedListFailed);
+			}
+			
+			private function feedListFailed(event:FeedEvent):void {
+				
+				//Clean
+				parentApplication.myFeedDAO.removeEventListener(FeedEvent.FEED_GETFEEDLIST_READY,feedListReady);
+				parentApplication.myFeedDAO.removeEventListener(FeedEvent.FEED_GETFEEDLIST_FAILED,feedListFailed);
+			}
+			
+	
+			private function gotoFeedDetail():void {
+                if (feedList.selectedItem != null) {
+                    parentApplication.gotoFeedDetail(feedList.selectedItem.feedID);
+                }
+			}
+			
+			
+		]]>
+	</fx:Script>
+	
+<!--	<s:actionContent>
+		<s:HGroup  right="20" y="5">
+			<s:Button label="Add my status" click="parentApplication.gotoCreateFeed();" color="#444444"/>
+			
+		</s:HGroup>
+	</s:actionContent> -->
+	
+	<!--s:Rect id="background" left="0" right="0"  
+			top="0" bottom="0"
+			>
+		<s:fill>
+			<s:LinearGradient rotation="90">
+				<s:GradientEntry color="#5e3f69" ratio="0"/>
+				<s:GradientEntry color="#5e3f69" ratio=".33"/>
+				<s:GradientEntry color="#4c3255" ratio=".66"/>
+			</s:LinearGradient>
+		</s:fill>
+	</s:Rect-->
+	
+ 
+	<s:VGroup id="listGroup" visible="true" width="100%" height="100%"
+			  horizontalAlign="center" horizontalCenter="0" paddingLeft="5" paddingRight="5"
+			  paddingTop="0"
+			  y="10" >
+		<s:Button label="Add my status" horizontalCenter="0" width="560" click="parentApplication.gotoCreateFeed();" color="#040037"/>
+		<s:List id="feedList" width="100%" height="100%" horizontalScrollPolicy="off" interactionMode="touch" pageScrollingEnabled="false" minHeight="800"
+				verticalScrollPolicy="on" contentBackgroundAlpha="0" dataProvider="{feedstatus}" mouseDown="clearInterval(intervalId);" horizontalCenter="0"
+				itemRenderer="Renderers.feedListRenderer" click="gotoFeedDetail();"
+				skinClass="spark.skins.mobile.ListSkin" cacheAsBitmap="false" ><!--cacheAsBitmap="false"-->
+			<s:layout>
+				<s:VerticalLayout id="listTile" horizontalAlign="center" 
+								  paddingBottom="500" 
+								  gap="24"
+								  paddingTop="40"
+								  />
+			</s:layout>
+		</s:List>
+	</s:VGroup>
+	
+	<s:BitmapImage source="@Embed('/assets/skin/menu/Petiit_Console.png')" scaleMode="stretch" bottom="0" width="100%"/>
+	<s:HGroup bottom="0" width="100%" horizontalAlign="center" gap="0" left="-8">
+		<s:Image id="competitionButton" source="@Embed('/assets/skin/menu/btn_competition_off.png')" click="parentApplication.tabnav.selectedIndex=0;" mouseOver="competitionButton.alpha=0.9;" mouseOut="competitionButton.alpha=1;"/>
+		<s:Image id="whatsupButton" source="@Embed('/assets/skin/menu/btn_whatsup_on.png')" mouseOver="whatsupButton.alpha=0.9;" mouseOut="whatsupButton.alpha=1;"/>
+		<s:Image id="friendsButton" source="@Embed('/assets/skin/menu/btn_friends_off.png')" click="parentApplication.tabnav.selectedIndex=2;" mouseOver="friendsButton.alpha=0.9;" mouseOut="friendsButton.alpha=1;"/>
+	</s:HGroup>
+</s:View>

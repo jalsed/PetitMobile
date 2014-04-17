@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009"
+		xmlns:mx="library://ns.adobe.com/flex/mx"
+		xmlns:s="library://ns.adobe.com/flex/spark"
+		xmlns:com="com.*"
+		title="webView" actionBarVisible="true"  
+		tabBarVisible="true" backgroundAlpha="0"
+	    viewActivate="start();"
+		>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			
+			import flash.geom.Rectangle;
+			import flash.media.StageWebView;
+			
+			import mx.core.UIComponent;
+			import mx.events.FlexEvent;
+			
+			 
+			
+			private var container:UIComponent;
+			
+			public var _stageWebView:StageWebView = new StageWebView(); 
+			
+			 
+			protected function start():void
+			{
+				
+/*				stage.autoOrients = true;
+				
+				// The user may not interact with the device while the video is playing
+				// so make sure the device doesn't dim the screen or go to sleep during playback.
+				NativeApplication.nativeApplication.systemIdleMode = SystemIdleMode.KEEP_AWAKE;
+				
+				// If the stage is resized/orientation changed - explained below.
+				parentApplication.myStage.addEventListener( Event.RESIZE, onStageResize );
+				
+				if( _stageWebView == null ) {
+					_stageWebView = new StageWebView();
+					_stageWebView.stage = parentApplication.myStage;
+				}
+				// Called to set the viewPort for the _stageWebView the first time
+				onStageResize();
+				_stageWebView.loadURL("http://www.youtube.com/watch?v=WzH1fRMF5zE");
+				
+*/				
+				
+				
+				
+//				_stageWebView.stage = parentApplication.myStage; 
+//				_stageWebView.viewPort = new Rectangle( 0, 0, parentApplication.myStage.stageWidth, parentApplication.myStage.stageHeight);
+					
+//				_stageWebView.loadURL("http://www.google.com");
+			}
+			
+		
+			private function onViewDeactivate():void {
+				_stageWebView.loadURL( 'http://runpee.com/air/empty.htm' ); // Strange but essential
+				
+				// Depending on if you have the orientation locked for the app.
+				parentApplication.myStage.autoOrients = false;
+				
+				// Removing the viewPort
+				_stageWebView.viewPort = new Rectangle( 0, 0, 0, 0 );
+				_stageWebView = null;
+				}
+				
+			private function onStageResize( e:Event=null ):void {
+				if( parentApplication.myStage.width > parentApplication.myStage.height ) { // Land
+				_stageWebView.viewPort = new Rectangle( 0, 0, parentApplication.myStage.width, parentApplication.myStage.height );
+				this.currentState = 'land';
+				} else { // Port
+				// The -75 is to leave room for the back button.
+				_stageWebView.viewPort = new Rectangle( 0, 0, parentApplication.myStage.width, parentApplication.myStage.height - 75 );
+				this.currentState = 'port';
+				}
+			}
+			
+			protected function stageWebView_locationChangingHandler(event:LocationChangeEvent):void
+			{
+				trace("location changing " + event.location);
+				// You can call event.preventDefault() to prevent the URL change
+			}
+			
+			
+			protected function stageWebView_locationChangeHandler(event:LocationChangeEvent):void
+			{
+				trace("location change " + event.location);
+			}
+			
+			protected function back():void {
+				parentApplication.web.popView();
+			}
+		]]>
+	</fx:Script>
+	<s:navigationContent>
+		<s:Button label="Back" click="back();"/>
+	</s:navigationContent>
+	
+	<s:BorderContainer backgroundAlpha="0" id="videobg" height="300" width="100%" borderVisible="false">
+
+	</s:BorderContainer>
+	
+	<com:StageWebViewUIComponent id="stageWebView" url="http://www.google.se" 
+								 locationChanging="stageWebView_locationChangingHandler(event)"
+								 locationChange="stageWebView_locationChangeHandler(event)"/>		
+</s:View>
