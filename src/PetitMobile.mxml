@@ -36,6 +36,7 @@ geonames.org (geocoding and reverse geocoding)
 			   activate="activateHandler(event)" frameRate="50"  
 			   splashScreenImage="components.DynamicSplashScreenImage" splashScreenMinimumDisplayTime="500" splashScreenScaleMode="stretch"
 			   backgroundColor="#000000" currentState="welcome"
+			   deactivate="deactivateHandler(event)" 
 			   >
 	<!--splashScreenScaleMode="none" splashScreenMinimumDisplayTime="5000" splashScreenImage="@Embed('/assets/splash/splash960.swf')"-->	
 	<fx:Style source="/style/petit.css"/>
@@ -1138,10 +1139,12 @@ geonames.org (geocoding and reverse geocoding)
 			}
 			
 			public function startBGvideo():void {
-				vid.continueVideo();
+				if(vid!=null)
+					vid.continueVideo();
 			}
 			public function stopBGvideo():void {
-				vid.pauseVideo();
+				if(vid!=null)
+					vid.pauseVideo();
 			}
 			public function removeBGvideo():void {
 				if(vid!=null) {
@@ -1191,6 +1194,7 @@ geonames.org (geocoding and reverse geocoding)
 						//handleAddedToStage();	//Android AFTERISK ANE
 					}
 				}
+				startBGvideo();
 			}
 			
 			
@@ -1610,6 +1614,12 @@ geonames.org (geocoding and reverse geocoding)
 			
 			/***********************************************************************/
 			
+			
+			protected function deactivateHandler(event:Event):void
+			{
+				// Stop video when app is not active
+				stopBGvideo();
+			}
 			
 		]]>
 	</fx:Script>
