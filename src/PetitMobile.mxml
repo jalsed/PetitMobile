@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
 Petiit is created by Jesper Alsed, Otto Bretz and Shaw Petronio. Copyright 2013.
-In Flex (Apache SDK 4.12) with AIR 13.0
+In Flex (Apache SDK 4.12) with AIR 14.0
 
 Compiler arguments:
--locale en_US -swf-version=24 -theme="/Applications/Adobe Flash Builder 4.7/sdks/Apache Flex/frameworks/themes/Mobile/mobile.swc"
+-locale en_US -swf-version=25 
+
+Former compiler arguments not in use anymore:
+-theme="/Applications/Adobe Flash Builder 4.7/sdks/Apache Flex/frameworks/themes/Mobile/mobile.swc"
 
 Libs/3rd party/external components used: 
 ExifReader	(Reads and obtains JPG EXIF data. Project site: http://devstage.blogspot.com/2011/02/extract-jpg-exif-metadata-in.html)
@@ -79,10 +82,10 @@ geonames.org (geocoding and reverse geocoding)
 				<fx:Object label='SVENSKA' data='sv'/>
 				<fx:Object label='日本の' data='ja'/>
 			</s:source>
-		</s:ArrayCollection>
+		</s:ArrayCollection>  
 		
-		<s:Move id="showToast" duration="500" xFrom="-700" xTo="20" effectEnd="hideToastFX();"/>
-		<s:Move id="hideToast" duration="1200" xFrom="20" xTo="900" startDelay="3000" effectEnd="showToast.stop();"/>
+		<s:Move id="showToast" duration="800" xFrom="-1600" xTo="{bg.width-640+20}" effectEnd="hideToastFX();"/>
+		<s:Move id="hideToast" duration="1200" xFrom="{bg.width-640+20}" xTo="1600" startDelay="2500" effectEnd="showToast.stop();"/>
 		
 	</fx:Declarations>
 	
